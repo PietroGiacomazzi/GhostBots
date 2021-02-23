@@ -2,7 +2,7 @@
 
 from discord.ext import commands
 import random, sys, configparser
-import support.vtm_res
+import support.vtm_res as vtm_res
 
 if len(sys.argv) == 1:
     print("Specifica un file di configurazione!")
@@ -25,7 +25,39 @@ SOMMA = 1
 DANNI = 2
 PROGRESSI = 3
 
+max_dice = 100
+max_faces = 100
+
 bot = commands.Bot(['gg', '.'])
+
+die_emoji = {
+    2: ":two:",
+    3: ":three",
+    4: ":four:",
+    5: ":five:",
+    6: ":six:",
+    7: ":seven:",
+    8: ":eight:",
+    9: ":nine:",
+    10: ":keycap_ten:"
+    }
+
+def prettyRoll(roll, diff, cancel):
+    for i in range(0, len(roll)-cancel):
+        die = roll[i]
+        if die == 1:
+            roll[i] = '**1**'
+        elif die >= diff:
+            roll[i] = die_emoji[die]
+        else:
+            roll[i] = str(die)
+    for i in range(len(roll)-cancel, len(roll)):
+        roll[i] = f"**~~{roll[i]}~~**"
+    random.shuffle(roll)
+    return "["+", ".join(roll)+"]"
+
+def atSend(ctx, msg):
+    return ctx.send(f'{ctx.message.author.mention} '+msg)
 
 #executed once on bot boot
 @bot.event
@@ -47,9 +79,8 @@ async def on_error(event, *args, **kwargs):
 
 @bot.command(name='coin', help = 'Testa o Croce.')
 async def coin(ctx):
-	moneta=['Testa' , 'Croce']
-	await ctx.send(f'{random.choice(moneta)}')
-
+    moneta=['Testa' , 'Croce']
+    await atSend(ctx, f'{random.choice(moneta)}')
 
 @bot.command(name='roll', help = 'Soon™')
 async def roll(ctx, *args):
@@ -62,8 +93,12 @@ async def roll(ctx, *args):
             raise ValueError("Troppe 'd' b0ss")
         if len(split) == 1:
             raise ValueError(f'"{split[0]}" cosa')
+        if split[0] == "":
+            split[0] = "1"
         if not split[0].isdigit():
             raise ValueError(f'"{split[0]}" non è un numero intero')
+        if split[1] == "":
+            split[1] = "10"
         if not split[1].isdigit():
             raise ValueError(f'"{split[1]}" non è un numero intero')
         n = int(split[0])
@@ -85,6 +120,7 @@ async def roll(ctx, *args):
             split = None
             rolltype = 0 # somma, progressi...
             add = None # extra successi
+            # leggo gli argomenti
             i = 1
             while i < len(args):
                 if args[i] in SOMMA_CMD:
@@ -124,6 +160,7 @@ async def roll(ctx, *args):
                 else:
                     raise ValueError(f'coes')
                 i += 1
+            # decido cosa fare
             if multi:
                 if rolltype == NORMALE:
                     response = ""
@@ -147,8 +184,10 @@ async def roll(ctx, *args):
                     if rolltype == NORMALE: # tiro normale
                         if not diff:
                             raise ValueError(f'Si ma mi devi dare una difficoltà')
-                        successi, tiro = vtm_res.decider(sorted(raw_roll), diff)
-                        response = f'{successi} successi a diff {diff}, tiro: {raw_roll}'
+                        #successi, tiro = vtm_res.decider(sorted(raw_roll), diff)
+                        successi, tiro, cancel = vtm_res.roller(n, faces, diff)
+                        pretty = prettyRoll(tiro, diff, cancel)
+                        response = f'{successi} successi a diff {diff}, tiro: {pretty}'
                     elif rolltype == SOMMA:
                         somma = sum(raw_roll)
                         response = f'somma: {somma}, tiro: {raw_roll}'
@@ -170,21 +209,21 @@ async def roll(ctx, *args):
                         raise ValueError(f'Tipo di tiro sconosciuto: {rolltype}')
             
     except ValueError as e:
-        response = e
-    await ctx.send(response)
+        response = str(e)
+    await atSend(ctx, response)
 
 
 @bot.command(brief='Lascia che il Greedy Ghost ti saluti.')
 async def salut(ctx):
-		await ctx.send('Shalom!')
+    await atSend(ctx, 'Shalom!')
 
 @bot.command(brief='sapere il ping del Bot')
 async def ping(ctx):
-	await ctx.send(f' Ping: {round(client.latency * 1000)}ms')
+    await atSend(ctx, f' Ping: {round(bot.latency * 1000)}ms')
 
 @bot.command(aliases=['divinazione' , 'div'] , brief='Avere risposte.')
 async def divina(ctx, *, question):
-	responses=['Certamente.',
+    responses=['Certamente.',
 	 	'Sicuramente.' ,
  		'Probabilmente si.' ,
 	 	'Forse.' ,
@@ -202,6 +241,6 @@ async def divina(ctx, *, question):
 		'Non ci contare.',
 		'I miei contatti mi dicono di no.'
 		]
-	await ctx.send(f'Domanda: {question}\nRisposta:{random.choice(responses)}')
+    await atSend(ctx, f'Domanda: {question}\nRisposta:{random.choice(responses)}')
 
 bot.run(TOKEN)

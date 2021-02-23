@@ -13,22 +13,22 @@ import random
 # cancel_high: cancel successes from lowest (false), or highest (True). only matters when specializations apply. DEFAULT ?
 # spec_reroll: true: reroll dei 10, false: doppio successo DEFAULT FALSE
 
-def decider(roll_raw, difficulty, failcancel = 2, spec = False, cancel_high = True, spec_reroll = False):
+def decider(roll_sorted, difficulty, failcancel = 2, spec = False, cancel_high = True, spec_reroll = False):
     md = -1 # will contain the index of the first success
-    for i in range(0, len(roll_raw)):
-        if roll_raw[i] >= difficulty:
+    for i in range(0, len(roll_sorted)):
+        if roll_sorted[i] >= difficulty:
             md = i
             break
     if md == -1:
-        md = len(roll_raw)
-    successes = roll_raw[md:] # filter successes out of the roll
+        md = len(roll_sorted)
+    successes = roll_sorted[md:] # filter successes out of the roll
     count_success = len(successes)
-    crit_fails = roll_raw.count(1)
+    crit_fails = roll_sorted.count(1)
     if failcancel > 0: # and crit_fails > 0
         if failcancel == 2 and  crit_fails > 0 and count_success == 0: # critfail
-            return -1, roll_raw
+            return -1, roll_sorted
         elif failcancel == 3 and  crit_fails > count_success: # revised critfail
-            return -1, roll_raw
+            return -1, roll_sorted
         else: #just cancel
             if cancel_high and crit_fails > 0:
                 successes = successes[:-crit_fails]
@@ -42,11 +42,41 @@ def decider(roll_raw, difficulty, failcancel = 2, spec = False, cancel_high = Tr
             for i in range(0, tens):
                 if random.randint(1, 10)>= difficulty:
                     additional += 1
-            return count_success+additional, roll_raw
+            return count_success+additional, roll_sorted
         else:
-            return count_success+tens, roll_raw
+            return count_success+tens, roll_sorted
     else:
-        return count_success, roll_raw
+        return count_success, roll_sorted
+
+def roller(ndice, nfaces, diff, cancel = True, spec = False):
+    roll_raw = sorted(list(map(lambda x: random.randint(1, nfaces), range(0, ndice))))
+    roll_sorted = sorted(roll_raw)
+    md = -1 # will contain the index of the first success
+    for i in range(0, len(roll_sorted)):
+        if roll_sorted[i] >= diff:
+            md = i
+            break
+    if md == -1: # nessun successo
+        md = len(roll_sorted) 
+    successes = roll_sorted[md:] # filter successes out of the roll
+    count_success = len(successes)
+    crit_fails = roll_sorted.count(1)
+    canceled = 0
+    if cancel:
+        if crit_fails > 0 and count_success == 0: # critfail
+            return -1, roll_raw, 0
+        elif crit_fails > count_success: # critfail drammatico
+            return -2, roll_sorted, count_success
+        else: #just cancel
+            if crit_fails > 0:
+                canceled = crit_fails
+                successes = successes[:-crit_fails]
+            count_success = len(successes)
+    tens = successes.count(10)
+    if spec:
+        return count_success+tens, roll_sorted, canceled
+    else:
+        return count_success, roll_sorted, canceled
 
 
 def rollpool(dicepool, difficulty, failcancel = 2, spec = False, cancel_high = False, spec_reroll = False):
