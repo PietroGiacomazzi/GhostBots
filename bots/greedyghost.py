@@ -45,10 +45,10 @@ async def on_error(event, *args, **kwargs):
     #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send(f'Unhandled message: {args[0]}')
     raise
 
-@bot.command(name='coin', help = 'Tira una moneta')
+@bot.command(name='coin', help = 'Testa o Croce.')
 async def coin(ctx):
-    response = "Testa" if random.randint(0, 1) else "Croce"
-    await ctx.send(response)
+	moneta=['Testa' , 'Croce']
+	await ctx.send(f'{random.choice(moneta)}')
 
 
 @bot.command(name='roll', help = 'Soon™')
@@ -174,5 +174,34 @@ async def roll(ctx, *args):
     await ctx.send(response)
 
 
+@bot.command(brief='Lascia che il Greedy Ghost ti saluti.')
+async def salut(ctx):
+		await ctx.send('Shalom!')
+
+@bot.command(brief='sapere il ping del Bot')
+async def ping(ctx):
+	await ctx.send(f' Ping: {round(client.latency * 1000)}ms')
+
+@bot.command(aliases=['divinazione' , 'div'] , brief='Avere risposte.')
+async def divina(ctx, *, question):
+	responses=['Certamente.',
+	 	'Sicuramente.' ,
+ 		'Probabilmente si.' ,
+	 	'Forse.' ,
+	  	'Mi sa di no.' ,
+		'Probabilmente no.' ,
+	 	'Sicuramente no.',
+		'Per come la vedo io, si.',
+		'Non è scontato.',
+		'Meglio chiedere a Rossellini.',
+		'Le prospettive sono buone.',
+		'Ci puoi contare.',
+		'Nebuloso il futuro è.',
+		'Sarebbe meglio non risponderti adesso.',
+		'Sarebbe uno spoiler troppo grosso.',
+		'Non ci contare.',
+		'I miei contatti mi dicono di no.'
+		]
+	await ctx.send(f'Domanda: {question}\nRisposta:{random.choice(responses)}')
 
 bot.run(TOKEN)
