@@ -6,6 +6,7 @@ import support.vtm_res as vtm_res
 
 if len(sys.argv) == 1:
     print("Specifica un file di configurazione!")
+    sys.exit()
 
 config = configparser.ConfigParser()
 config.read(sys.argv[1])
@@ -28,7 +29,6 @@ PROGRESSI = 3
 max_dice = 100
 max_faces = 100
 
-bot = commands.Bot(['gg', '.'])
 
 die_emoji = {
     2: ":two:",
@@ -56,8 +56,54 @@ def prettyRoll(roll, diff, cancel):
     random.shuffle(roll)
     return "["+", ".join(roll)+"]"
 
+def rollStatusDMG(n):
+    if n == 1:
+        return f':green_square: **{1} Danno**'
+    elif n > 1:
+        return f':green_square: **{n} Danni**'
+    else:
+        return f':red_square: **Nessun danno**'
+
+def rollStatusProgress(n):
+    if n == 1:
+        return f':green_square: **{1} Ora**'
+    elif n > 1:
+        return f':green_square: **{n} Ore**'
+    else:
+        return f':red_square: **Il soffitto è estremamente interessante**'
+
+def rollStatusNormal(n):
+    if n == 1:
+        return f':green_square: **{1} Successo**'
+    elif n > 1:
+        return f':green_square: **{n} Successi**'
+    elif n == 0:
+        return f':yellow_square: **Fallimento**'
+    elif n == -2:
+        return f':orange_square: **Fallimento drammatico**'
+    else:
+        return f':sos: **Fallimento critico**'
+
+def rollAndFormatVTM(ndice, nfaces, diff, statusFunc = rollStatusNormal, extra_succ = 0, cancel = True, spec = False):
+    successi, tiro, cancel = vtm_res.roller(ndice, nfaces, diff, cancel, spec)
+    pretty = prettyRoll(tiro, diff, cancel)
+    successi += extra_succ
+    status = statusFunc(successi)
+    response = status + f' (diff {diff}): {pretty}'
+    if extra_succ:
+        response += f' **+{extra_succ}**'
+    return response
+
 def atSend(ctx, msg):
     return ctx.send(f'{ctx.message.author.mention} '+msg)
+
+def findSplit(idx, splits):
+    for si in range(len(splits)):
+        if idx == splits[si][0]:
+            return splits[si][1:]
+    return []
+
+bot = commands.Bot(['gg', '.'])
 
 #executed once on bot boot
 @bot.event
@@ -96,17 +142,17 @@ async def roll(ctx, *args):
         if split[0] == "":
             split[0] = "1"
         if not split[0].isdigit():
-            raise ValueError(f'"{split[0]}" non è un numero intero')
+            raise ValueError(f'"{split[0]}" non è un numero intero positivo')
         if split[1] == "":
             split[1] = "10"
         if not split[1].isdigit():
-            raise ValueError(f'"{split[1]}" non è un numero intero')
+            raise ValueError(f'"{split[1]}" non è un numero intero positivo')
         n = int(split[0])
         faces = int(split[1])
-        if n <= 0:
-            raise ValueError(f'{n} non è un numero <= 0')
-        if faces <= 0:
-            raise ValueError(f'{faces} non è un numero <= 0')
+        if n == 0:
+            raise ValueError(f'{n} non è > 0')
+        if  faces == 0:
+            raise ValueError(f'{faces} non è > 0')
         if n > max_dice:
             raise ValueError(f'{n} dadi sono troppi b0ss')
         if faces > max_faces:
@@ -117,9 +163,9 @@ async def roll(ctx, *args):
         else:
             diff = None
             multi = None
-            split = None
+            split = [] # lista di liste [indice, diff1, diff2]
             rolltype = 0 # somma, progressi...
-            add = None # extra successi
+            add = 0 # extra successi
             # leggo gli argomenti
             i = 1
             while i < len(args):
@@ -137,6 +183,8 @@ async def roll(ctx, *args):
                         raise ValueError(f'{args[i+1]} non è una difficoltà valida')
                     i += 1 
                 elif args[i] in MULTI_CMD:
+                    if len(split):
+                        raise ValueError(f'multi va specificato prima di split')
                     if multi:
                         raise ValueError(f'eeh deciditi')
                     if len(args) == i+1:
@@ -154,9 +202,31 @@ async def roll(ctx, *args):
                 elif args[i] in PROGRESSI_CMD:
                     rolltype = PROGRESSI
                 elif args[i] in SPLIT_CMD:
-                    raise ValueError(f'Non implementato')
+                    roll_index = 0
+                    if multi:
+                        if len(args) < i+4:
+                            raise ValueError(f'split prende almeno 3 parametri con multi!')
+                        if not args[i+1].isdigit() or args[i+1] == "0":
+                            raise ValueError(f'"{args[i+1]}" non è un intero positivo')
+                        roll_index = int(args[i+1])-1
+                        if sum(filter(lambda x: x[0] == roll_index, split)): # cerco se ho giò splittato questo tiro
+                            raise ValueError(f'eeh deciditi')
+                        i += 1
+                    else: # not an elif because reasons
+                        if len(args) < i+3:
+                            raise ValueError(f'split prende almeno 2 parametri!')
+                    temp = args[i+1:i+3]
+                    if not temp[0].isdigit() or temp[0] == "0":
+                        raise ValueError(f'"{split[0]}" non è un intero positivo')
+                    if not temp[1].isdigit() or temp[1] == "0":
+                        raise ValueError(f'"{split[1]}" non è un intero positivo')
+                    split.append( [roll_index] + list(map(int, temp)))
+                    i += 2
                 elif args[i].startswith("+"):
-                    raise ValueError(f'Non implementato')
+                    raw = args[i][1:]
+                    if not raw.isdigit() or raw == "0":
+                        raise ValueError(f'"{raw}" non è un intero positivo')
+                    add = int(raw)
                 else:
                     raise ValueError(f'coes')
                 i += 1
@@ -164,47 +234,49 @@ async def roll(ctx, *args):
             if multi:
                 if rolltype == NORMALE:
                     response = ""
-                    if split:
-                        pass 
-                    else:
-                        if not diff:
-                            raise ValueError(f'Si ma mi devi dare una difficoltà')
+                    if not diff:
+                        raise ValueError(f'Si ma mi devi dare una difficoltà')
                     for i in range(multi):
-                        raw_roll = list(map(lambda x: random.randint(1, faces), range(n-i-multi)))
-                        # todo split index
-                        successi, tiro = vtm_res.decider(sorted(raw_roll), diff)
-                        response += f'Azione {i+1}: {successi} successi a diff {diff}, tiro: {raw_roll}\n'
+                        parziale = ''
+                        ndadi = n-i-multi
+                        split_diffs = findSplit(i, split)
+                        if len(split_diffs):
+                            pools = [(ndadi-ndadi//2), ndadi//2]
+                            for j in range(len(pools)):
+                                parziale += f'\nTiro {j+1}: '+ rollAndFormatVTM(pools[j], faces, split_diffs[j])
+                        else:
+                            parziale = rollAndFormatVTM(ndadi, faces, diff)
+                        response += f'\nAzione {i+1}: '+parziale # line break all'inizio tanto c'è il @mention
                 else:
                     raise ValueError(f'Combinazione di parametri non supportata')
             else: # 1 tiro solo 
                 raw_roll = list(map(lambda x: random.randint(1, faces), range(n)))
-                if split:
-                    pass
+                if len(split):
+                    if rolltype == NORMALE:
+                        pools = [(n-n//2), n//2]
+                        response = ''
+                        for i in range(len(pools)):
+                            parziale = rollAndFormatVTM(pools[i], faces, split[0][i+1])
+                            response += f'\nTiro {i+1}: '+parziale
+                    else:
+                        raise ValueError(f'Combinazione di parametri non supportata')
                 else:
                     if rolltype == NORMALE: # tiro normale
                         if not diff:
                             raise ValueError(f'Si ma mi devi dare una difficoltà')
                         #successi, tiro = vtm_res.decider(sorted(raw_roll), diff)
-                        successi, tiro, cancel = vtm_res.roller(n, faces, diff)
-                        pretty = prettyRoll(tiro, diff, cancel)
-                        response = f'{successi} successi a diff {diff}, tiro: {pretty}'
+                        response = rollAndFormatVTM(n, faces, diff)
                     elif rolltype == SOMMA:
                         somma = sum(raw_roll)
-                        response = f'somma: {somma}, tiro: {raw_roll}'
+                        response = f'somma: **{somma}**, tiro: {raw_roll}'
                     elif rolltype == DANNI:
                         if not diff:
                             diff = 6
-                        successi, tiro = vtm_res.decider(sorted(raw_roll), diff,  failcancel = 0)
-                        response = f'{successi} danni, tiro: {raw_roll}'
-                        if diff != 6:
-                            response += f' (diff {diff})'
+                        response = rollAndFormatVTM(n, faces, diff, rollStatusDMG, add, False)
                     elif rolltype == PROGRESSI:
                         if not diff:
                             diff = 6
-                        successi, tiro = vtm_res.decider(sorted(raw_roll), diff, failcancel = 0, spec = True, spec_reroll = False)
-                        response = f'progressi: {successi}, tiro: {raw_roll}'
-                        if diff != 6:
-                            response += f' (diff {diff})'
+                        response = rollAndFormatVTM(n, faces, diff, rollStatusProgress, add, False, True)
                     else:
                         raise ValueError(f'Tipo di tiro sconosciuto: {rolltype}')
             

@@ -6,6 +6,7 @@ import support.vtm_res
 
 if len(sys.argv) == 1:
     print("Specifica un file di configurazione!")
+    sys.exit()
 
 config = configparser.ConfigParser()
 config.read(sys.argv[1])
