@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from discord.ext import commands
-import random, sys, configparser
+import random, sys, configparser, web
 import support.vtm_res as vtm_res
 
 if len(sys.argv) == 1:
@@ -95,13 +95,21 @@ def rollAndFormatVTM(ndice, nfaces, diff, statusFunc = rollStatusNormal, extra_s
     return response
 
 def atSend(ctx, msg):
-    return ctx.send(f'{ctx.message.author.mention} '+msg)
+    return ctx.send(f'{ctx.message.author.mention} {msg}')
 
 def findSplit(idx, splits):
     for si in range(len(splits)):
         if idx == splits[si][0]:
             return splits[si][1:]
     return []
+
+class DBManager:
+    def __init__(self, config):
+        self.cfg = config
+        self.db = web.database(dbn=config['type'], user=config['user'], pw=config['pw'], db=config['database'])
+
+
+dbm = DBManager(config['Database'])
 
 bot = commands.Bot(['gg', '.'])
 
@@ -117,11 +125,19 @@ async def on_ready():
     #print(f'Guild Members:\n - {members}')
     #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send("bot is online")
 
+ignored_errors = [commands.errors.CommandNotFound]
+
 @bot.event
-async def on_error(event, *args, **kwargs):
-    print(f"On_error: {args[0]}")
-    #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send(f'Unhandled message: {args[0]}')
-    raise
+async def on_command_error(ctx, error):
+    #logging.warning(traceback.format_exc()) #logs the error
+    if not type(error) in ignored_errors:
+        await atSend(ctx, f'Congratulazioni! hai trovato un modo per rompere il comando!')
+        #print("debug user:", int(config['Discord']['debuguser']))
+        debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
+        await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}')
+    else:
+        print(error)
+        
 
 @bot.command(name='coin', help = 'Testa o Croce.')
 async def coin(ctx):
@@ -314,5 +330,100 @@ async def divina(ctx, *, question):
 		'I miei contatti mi dicono di no.'
 		]
     await atSend(ctx, f'Domanda: {question}\nRisposta:{random.choice(responses)}')
+
+@bot.command(brief='Testa il database rispondendo con la lista degli amministratori')
+async def dbtest(ctx):
+    admins = []    
+    response = ''
+    try:
+        admins = dbm.db.select('BotAdmin')
+        response = "Database test, listing bot admins..."
+        for admin in admins:
+            user = await bot.fetch_user(admin['userid'])
+            response += f'\n{user}'
+    except Exception as e:
+        response = f'C\'è stato un problema: {e}'
+    await atSend(ctx, response)
+
+session_start_aliases = ['start', 's']
+session_end_aliases = ['end', 'e', 'edn'] # ehehehehe
+@bot.command(brief='Controlla le sessioni di gioco')
+async def session(ctx, *args):
+    response = ''
+    # find chronicle first? yes cause i want info about it
+    sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
+    if len(args) == 0:
+        if len(sessions):
+            chronicle = dbm.db.select('Chronicle', where='id=$chronicle', vars=dict(chronicle=sessions[0]['chronicle']))
+            cn = chronicle[0]['name']
+            response = f"Sessione attiva: {cn}"
+        else:
+            response = "Nessuna sessione attiva in questo canale!"
+    else:
+        action = args[0].lower()       
+        if action in session_start_aliases and len(args) == 2:
+            chronicle = args[1].lower()
+            can_do = len(dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=ctx.message.author.id))) + len(dbm.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=ctx.message.author.id, chronicle = chronicle)))
+            if len(sessions):
+                response = "C'è già una sessione in corso in questo canale"
+            elif can_do:
+                dbm.db.insert('GameSession', chronicle=chronicle, channel=ctx.channel.id)
+                response = f'Sessione iniziata per la cronaca {chronicle}'
+                # todo lista dei pg?
+            else:
+                response = "Non hai il ruolo di Storyteller per la questa cronaca"
+        elif action in session_end_aliases and len(args) == 1:
+            if len(sessions):
+                isAdmin = len(dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=ctx.message.author.id)))
+                st = dbm.db.query('select sc.chronicle from StoryTellerChronicleRel sc join GameSession gs on (sc.chronicle = gs.chronicle) where gs.channel=$channel and sc.storyteller = $st', vars=dict(channel=ctx.channel.id, st=ctx.message.author.id))
+                can_do = isAdmin + len(st)
+                if can_do:
+                    n = dbm.db.delete('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
+                    if n:
+                        response = f'sessione terminata'
+                    else: # non dovrebbe mai accadere
+                        response = f'la cronaca non ha una sessione aperta in questo canale'
+                else:
+                    response = "Non hai il ruolo di Storyteller per la questa cronaca"
+            else:
+                response = "Nessuna sessione attiva in questo canale!"       
+        else:
+            response = "Stai usando il comando in modo improprio"
+    await atSend(ctx, response)
+
+@bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni')
+async def me(ctx, *args):
+    # steps: session -> chronicle -> characters
+    sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
+    if len(sessions):
+        players = dbm.db.query("""
+SELECT pc.id, pc.fullname
+FROM ChronicleCharacterRel cc
+join PlayerCharacter pc on (pc.id = cc.playerchar)
+where cc.chronicle = $chronicle and pc.player = $player
+""", vars=dict(chronicle=sessions[0]['chronicle'], player=ctx.message.author.id))
+        if len(players) == 1:
+            if len(args) == 0:
+                response = f"Stai interpretando {players[0]['fullname']}"
+            else:
+                trait_id = args[0].lower()
+                traits = dbm.db.select('CharacterTrait',  where='trait = $trait', vars=dict(trait=trait_id))
+                if len(traits):
+                    trait = traits[0]
+                    if len(args) == 1:
+                        response = f"{trait_id}: {trait['cur_value']}/{trait['max_value']}"
+                    elif len(args) == 2:
+                        response = 'not yet'
+                    else:
+                        response = 'coes'
+                else:
+                    response = f'Non hai il tratto {trait_id}'
+        elif len(players) > 1:
+            response = f'Stai interpretando più di un personaggio in questa cronaca, non so a chi ti riferisci!{players}'
+        else:
+            response = 'Non stai interpretando un personaggio in questa cronaca!'
+    else:
+        response = 'Nessuna sessione attiva in questo canale!'
+    await atSend(ctx, response)
 
 bot.run(TOKEN)
