@@ -14,7 +14,7 @@ config.read(sys.argv[1])
 TOKEN = config['Discord']['token']
 
 
-SOMMA_CMD = ["somma", "s"]
+SOMMA_CMD = ["somma", "s", "lapse"]
 DIFF_CMD = ["diff", "d"]
 MULTI_CMD = ["multi", "m"]
 DANNI_CMD = ["danni", "dmg"]
@@ -114,7 +114,8 @@ class BotException(Exception): # use this for 'known' error situations
     
 dbm = DBManager(config['Database'])
 
-bot = commands.Bot(['gg', '.'])
+botcmd_prefixes = ['.', 'gg']
+bot = commands.Bot(botcmd_prefixes)
 
 #executed once on bot boot
 @bot.event
@@ -152,8 +153,22 @@ async def coin(ctx):
     moneta=['Testa' , 'Croce']
     await atSend(ctx, f'{random.choice(moneta)}')
 
+roll_longdescription = """
+.roll 10d10 - tiro senza difficoltà
+.roll 10d10 somma - somma il numero dei tiri
+.roll 10d10 diff 6 - tiro con difficoltà specifica
+.roll 10d10 danni - tiro danni
+.roll 10d10 +5 danni - tiro danni con modificatore
+.roll 10d10 progressi - tiro per i progressi del giocatore
+.roll 10d10 lapse - tiro per i progressi in timelapse del giocatore
+.roll 10d10 multi 3 diff 6 - tiro multiplo
+.roll 10d10 split 6 7 - split a difficoltà separate [6, 7]
+.roll 10d10 diff 6 multi 3 split 2 6 7  - multipla [3] con split [al 2° tiro] a difficoltà separate [6,7]
+.roll 10d10 multi 3 split 2 6 7 split 3 4 5 - multipla [3] con split al 2° e 3° tiro
+"""
+
 # todo: usare delle funzioni di validazione e usare BotException per gli errori
-@bot.command(name='roll', help = 'Soon™')
+@bot.command(name='roll', brief = 'Soon™', description = roll_longdescription)
 async def roll(ctx, *args):
     #print("roll args:", repr(args))
     try:
@@ -220,7 +235,7 @@ async def roll(ctx, *args):
                     if multi < 2:
                         raise ValueError(f'una multipla deve avere almeno 2 tiri!')
                     if n-multi-(multi-1) <= 0:
-                        raise ValueError(f'non hai abbastanza dadi per questo numero di mosse!')
+                        raise ValueError(f'Hai lo 0.0001% di riuscita, prova a ridurre i movimenti') # non hai abbastanza dadi per questo numero di mosse!
                     i += 1
                 elif args[i] in DANNI_CMD:
                     rolltype = DANNI
@@ -234,6 +249,8 @@ async def roll(ctx, *args):
                         if not args[i+1].isdigit() or args[i+1] == "0":
                             raise ValueError(f'"{args[i+1]}" non è un intero positivo')
                         roll_index = int(args[i+1])-1
+                        if roll_index >= multi:
+                            raise ValueError(f'"Non puoi splittare il tiro {args[i+1]} con multi {multi}')
                         if sum(filter(lambda x: x[0] == roll_index, split)): # cerco se ho giò splittato questo tiro
                             raise ValueError(f'eeh deciditi')
                         i += 1
@@ -241,10 +258,10 @@ async def roll(ctx, *args):
                         if len(args) < i+3:
                             raise ValueError(f'split prende almeno 2 parametri!')
                     temp = args[i+1:i+3]
-                    if not temp[0].isdigit() or temp[0] == "0":
-                        raise ValueError(f'"{split[0]}" non è un intero positivo')
-                    if not temp[1].isdigit() or temp[1] == "0":
-                        raise ValueError(f'"{split[1]}" non è un intero positivo')
+                    if (not temp[0].isdigit()) or temp[0] == "0":
+                        raise ValueError(f'"{temp[0]}" non è un intero positivo')
+                    if (not temp[1].isdigit()) or temp[1] == "0":
+                        raise ValueError(f'"{temp[1]}" non è un intero positivo')
                     split.append( [roll_index] + list(map(int, temp)))
                     i += 2
                 elif args[i].startswith("+"):
@@ -253,7 +270,9 @@ async def roll(ctx, *args):
                         raise ValueError(f'"{raw}" non è un intero positivo')
                     add = int(raw)
                 else:
-                    raise ValueError(f'coes')
+                    width = 3
+                    ht = " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[max(len(args), i+1):max(len(args), i+width)]))
+                    raise ValueError(f"L'argomento {args[i]} in '{ht}' non mi è chiaro :(")
                 i += 1
             # decido cosa fare
             if multi:
@@ -290,7 +309,7 @@ async def roll(ctx, *args):
                         if not diff:
                             raise ValueError(f'Si ma mi devi dare una difficoltà')
                         #successi, tiro = vtm_res.decider(sorted(raw_roll), diff)
-                        response = rollAndFormatVTM(n, faces, diff)
+                        response = rollAndFormatVTM(n, faces, diff, rollStatusNormal, add)
                     elif rolltype == SOMMA:
                         somma = sum(raw_roll)
                         response = f'somma: **{somma}**, tiro: {raw_roll}'
@@ -420,7 +439,7 @@ def defaultTraitFormatter(trait):
 
 def prettyDotTrait(trait):
     pretty = f"{trait['name']}: {trait['cur_value']}/{trait['max_value']}\n"
-    pretty += ":black_circle:"*min(trait['cur_value'], trait['max_value'])
+    pretty += ":red_circle:"*min(trait['cur_value'], trait['max_value'])
     if trait['cur_value']<trait['max_value']:
         pretty += ":orange_circle:"*(trait['max_value']-trait['cur_value'])
     if trait['cur_value']>trait['max_value']:
@@ -649,6 +668,22 @@ where cc.chronicle = $chronicle and pc.player = $player
         response = 'Nessuna sessione attiva in questo canale!'
     await atSend(ctx, response)
 
+def isBotAdmin(userid):
+    admins = dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=userid))
+    return bool(len(admins)), admins[0] if (len(admins)) else None
+
+def isStoryteller(userid):
+    storytellers = dbm.db.select('Storyteller',  where='userid = $userid', vars=dict(userid=userid))
+    return bool(len(storytellers)), storytellers[0] if (len(storytellers)) else None
+
+def isCharacterOwner(userid, character):
+    characters = dbm.db.select('PlayerCharacter',  where='owner = $owner and id=$character', vars=dict(userid=userid, character=character))
+    return bool(len(characters)), characters[0] if (len(characters)) else None
+
+def isChronicleStoryteller(userid, chronicle):
+    storytellers = dbm.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=userid, chronicle = chronicle))
+    return bool(len(storytellers)), storytellers[0] if (len(storytellers)) else None
+
 async def pgmod_create(ctx, args):
     helptext = "Argomenti: nome breve (senza spazi), menzione al proprietario, nome completo del personaggio"
     if len(args) < 3:
@@ -661,6 +696,14 @@ async def pgmod_create(ctx, args):
         owner = owner[3:-1]
         fullname = " ".join(list(args[2:]))
 
+        # permission checks
+        issuer = ctx.message.author.id
+        if ctx.message.author.id != owner: # chiunque può crearsi un pg
+            st, _ = isStoryteller(issuer)
+            ba, _ = isBotAdmin(issuer)
+            if not (st or ba):
+                raise BotException("Per creare un pg ad un altra persona è necessario essere Admin o Storyteller")
+        
         t = dbm.db.transaction()
         try:
             if not len(dbm.db.select('People', where='userid=$userid', vars=dict(userid=owner))):
@@ -704,16 +747,36 @@ async def pgmod_chronicleAdd(ctx, args):
         if not len(chronicles):
             raise BotException(f"La cronaca {args[1]} non esiste!")
         chronicle = chronicles[0]
+
+        # permission checks
+        issuer = ctx.message.author.id
+        st, _ = isChronicleStoryteller(issuer, chronicle['id'])
+        ba, _ = isBotAdmin(issuer)
+        if not (st or ba):
+            raise BotException("Per associare un pg ad una cronaca necessario essere Admin o Storyteller di quella cronaca")
+        
+        # todo check link esistente
         dbm.db.insert("ChronicleCharacterRel", chronicle=args[1], playerchar=args[0])
-        return f"{character['name']} ora gioca a {chronicle['name']}"
+        return f"{character['fullname']} ora gioca a {chronicle['name']}"
 
 async def pgmod_traitAdd(ctx, args):
     helptext = "Argomenti: nome breve del pg, nome breve del tratto, valore"
     if len(args) != 3:
         return helptext
     else:
-        if not len(dbm.db.select('PlayerCharacter', where='id=$id', vars=dict(id=args[0]))):
+        characters = dbm.db.select('PlayerCharacter', where='id=$id', vars=dict(id=args[0]))
+        if not len(characters):
             raise BotException(f"Il personaggio {args[0]} non esiste!")
+        character = characters[0]
+
+        # permission checks
+        issuer = ctx.message.author.id
+        st, _ = isStoryteller(issuer) # della cronaca?
+        ba, _ = isBotAdmin(issuer)
+        co = character['owner'] == issuer
+        if not (st or ba or co):
+            raise BotException("Per modificare un personaggio è necessario essere proprietari del PG, Admin o Storyteller")
+        
         traits = dbm.db.select('Trait', where='id=$id', vars=dict(id=args[1]))
         if not len(traits):
             raise BotException(f"Il tratto {args[1]} non esiste!")
@@ -721,11 +784,11 @@ async def pgmod_traitAdd(ctx, args):
         ttype = dbm.db.select('TraitType', where='id=$id', vars=dict(id=trait['traittype']))[0]
         if ttype['textbased']:
             dbm.db.insert("CharacterTrait", trait=args[1], playerchar=args[0], cur_value = trait['default_value'], max_value = trait['default_value'], text_value = args[2], pimp_max = 0)
-            return f"{character['name']} ora ha {trait['name']} {args[2]}"
+            return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
         else:
             pimp = 6 if trait['traittype'] in ['fisico', 'sociale', 'mentale'] else 0
             dbm.db.insert("CharacterTrait", trait=args[1], playerchar=args[0], cur_value = args[2], max_value = args[2], text_value = "", pimp_max = pimp)
-            return f"{character['name']} ora ha {trait['name']} {args[2]}"
+            return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
 
 async def pgmod_traitMod(ctx, args):
     helptext = "Argomenti: nome breve del pg, nome breve del tratto, nuovo valore"
@@ -736,37 +799,114 @@ async def pgmod_traitMod(ctx, args):
         if not len(characters):
             raise BotException(f"Il personaggio {args[0]} non esiste!")
         character = characters[0]
+
+        # permission checks
+        issuer = ctx.message.author.id
+        st, _ = isStoryteller(issuer) # della cronaca?
+        ba, _ = isBotAdmin(issuer)
+        co = character['owner'] == issuer
+        if not (st or ba or co):
+            raise BotException("Per modificare un personaggio è necessario essere proprietari del PG, Admin o Storyteller")
+        
         traits = dbm.db.select('Trait', where='id=$id', vars=dict(id=args[1]))
         if not len(traits):
             raise BotException(f"Il tratto {args[1]} non esiste!")
         trait = traits[0]
         ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']))
         if not len(ptraits):
-            raise BotException(f"{character['name']} non ha il tratto {trait['name']} ")
+            raise BotException(f"{character['fullname']} non ha il tratto {trait['name']} ")
         ttype = dbm.db.select('TraitType', where='id=$id', vars=dict(id=trait['traittype']))[0]
         if ttype['textbased']:
             dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']), text_value = args[2])
-            return f"{character['name']} ora ha {trait['name']} {args[2]}"
+            return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
         else:
             dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']), cur_value = args[2], max_value = args[2])
-            return f"{character['name']} ora ha {trait['name']} {args[2]}"
-
-
+            return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
 
 pgmod_subcommands = {
     "create": [pgmod_create, "Crea un personaggio"],
-    "chronicleAdd": [pgmod_chronicleAdd, "Aggiunge un personaggio ad una cronaca"],
-    "traitAdd": [pgmod_traitAdd, "Aggiunge tratto ad un personaggio"],
-    "traitMod": [pgmod_traitMod, "Modifica un tratto di un personaggio"]
+    "link": [pgmod_chronicleAdd, "Aggiunge un personaggio ad una cronaca"],
+    "addt": [pgmod_traitAdd, "Aggiunge tratto ad un personaggio"],
+    "modt": [pgmod_traitMod, "Modifica un tratto di un personaggio"]
     }
+pgmod_longdescription = "\n".join(list(map(lambda x: botcmd_prefixes[0]+"pgmod "+x+": "+pgmod_subcommands[x][1], pgmod_subcommands.keys())))
 
-@bot.command(brief='Crea e modifica personaggi')
+@bot.command(brief='Crea e modifica personaggi', description = pgmod_longdescription)
 async def pgmod(ctx, *args):
     response = 'Azioni disponibili (ogni azione ha il suo help):\n'
     if len(args) == 0:
-        response += "\n".join(list(map(lambda x: x+": "+pgmod_subcommands[x][1], pgmod_subcommands.keys())))
+        response += pgmod_longdescription
     else:
         response = await pgmod_subcommands[args[0]][0](ctx, args[1:])
+    await atSend(ctx, response)
+
+##
+
+async def gmadm_listChronicles(ctx, args):
+    # voglio anche gli ST collegati
+    return "non implementato"
+
+
+async def gmadm_newChronicle(ctx, args):
+    helptext = "Argomenti: nome breve della cronaca (no spazi), nome completo della cronaca"
+    if len(args) != 2:
+        return helptext
+    else:
+        shortname = args[0].lower()
+        fullname = " ".join(list(args[1:])) # squish
+
+        # permission checks
+        issuer = ctx.message.author.id
+        st, _ = isStoryteller(issuer) # della cronaca?
+        if not (st):
+            raise BotException("Per creare una cronaca è necessario essere Storyteller")
+        # todo existence
+        t = dbm.db.transaction()
+        try:
+            dbm.db.insert("Chronicle", id=shortname, name = fullname)
+            dbm.db.insert("StoryTellerChronicleRel", storyteller=issuer, chronicle=shortname)
+        except:
+            t.rollback()
+            raise
+        else:
+            t.commit()
+            issuer_user = await bot.fetch_user(issuer)
+            return f"Cronaca {fullname} inserita ed associata a {issuer_user}"    
+
+async def gmadm_newTrait(ctx, args):
+    if len(args) != 5:
+        helptext = "Argomenti: nome breve del tratto (no spazi), tipo del tratto (vedi sotto), tipo del tracker associato (vedi sotto), standard (s/n), nome completo del tratto\n\n"
+        ttypes = dbm.db.select('TraitType', what = "id, name")
+        ttypesl = ttypes.list()
+        helptext += "Tipi di tratto: \n"
+        helptext += "\n".join(list(map(lambda x : f"\t**{x['id']}**: {x['name']}", ttypesl)))
+        #helptext += "\n".join(list(map(lambda x : ", ".join(list(map(lambda y: y+": "+str(x[y]), x.keys()))), ttypesl)))
+        helptext += """\n\n Tipi di tracker:
+    **0**: Nessun tracker (Elementi normali di scheda)
+    **1**: Punti con massimo (Volontà, Sangue...)
+    **2**: Danni (salute...)
+    **3**: Punti senza massimo (esperienza...)
+"""
+        return helptext
+    else:
+        return "Non so ancora farlo"
+
+gameAdmin_subcommands = {
+    "listChronicles": [gmadm_listChronicles, "Elenca le cronache"],
+    "newChronicle": [gmadm_newChronicle, "Crea una nuova cronaca associata allo ST che invoca il comando"],
+    "newTrait": [gmadm_newTrait, "Crea nuovo tratto"]
+    # todo: nomina storyteller, associa storyteller a cronaca
+    # todo: dissociazioni varie
+    }
+gameAdmin_longdescription = "\n".join(list(map(lambda x: botcmd_prefixes[0]+"gmadm "+x+": "+gameAdmin_subcommands[x][1], gameAdmin_subcommands.keys())))
+
+@bot.command(brief="Gestione dell'ambiente di gioco", description = gameAdmin_longdescription)
+async def gmadm(ctx, *args):
+    response = 'Azioni disponibili (ogni azione ha il suo help):\n'
+    if len(args) == 0:
+        response += gameAdmin_longdescription
+    else:
+        response = await gameAdmin_subcommands[args[0]][0](ctx, args[1:])
     await atSend(ctx, response)
 
 bot.run(TOKEN)
