@@ -51,6 +51,17 @@ async def rossellini(ctx):
 		'La tua famiglia è come un tesoro: ti servono mappa e pala per trovarla' ,
 		'Ti odio più di quella cagna di tua cugina' ,
 		'Sacchetto de monnezza' ,
+		'le rose sono rosse, le viole son blu, il primo a crepare sarai proprio tu' ,
+		"hai un bidone dell'immondizia al posto del cuore, e io sono affamato" ,
+		'Rossellini fa rima con "ti scortico la faccia"' ,
+		'Evocami di nuovo e ti cavo gli occhi' ,
+		'+1 ad Iniziativa' ,
+		'è stato subito odio a prima vista'  ,
+		'io mi fingo morto, tu lo sarai davvero' ,
+		'è meglio se inizi a correre' ,
+		'quando sarà buio ti troverò e ti riempirò di botte' ,
+		'Kkkrrkkkekkkkekkkkkrkekkkkekkekkkkkkkrekkkkkekkekkkekkrkekk' ,
+		'Ho mangiato mele marce molto più dignitose di te' ,		 
 		 ]
 	await ctx.send(f'{random.choice(insulti)}')
 
