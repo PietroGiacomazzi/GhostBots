@@ -348,11 +348,11 @@ async def roll(ctx, *args):
 async def salut(ctx):
     await atSend(ctx, 'Shalom!')
 
-@bot.command(brief='sapere il ping del Bot')
+@bot.command(brief='Fa sapere il ping del Bot')
 async def ping(ctx):
     await atSend(ctx, f' Ping: {round(bot.latency * 1000)}ms')
 
-@bot.command(aliases=['divinazione' , 'div'] , brief='Avere risposte.')
+@bot.command(aliases=['divinazione' , 'div'] , brief='Presagire il futuro con una domanda' , help = 'Inserire comando + domanda')
 async def divina(ctx, *, question):
     responses=['Certamente.',
 	 	'Sicuramente.' ,
