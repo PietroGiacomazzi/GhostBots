@@ -521,7 +521,7 @@ def trackerFormatter(trait):
     else:
         return defaultTraitFormatter
 
-@bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni')
+@bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = 'Richiede sessione attiva - .me NomeTratto Operazione - Basato sul valore corrente del Tratto')
 async def me(ctx, *args):
     # steps: session -> chronicle -> characters
     sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
