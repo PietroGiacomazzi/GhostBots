@@ -15,7 +15,7 @@ TOKEN = config['Discord']['token']
 
 
 
-bot = commands.Bot(['gg', '.'])
+bot = commands.Bot(['gg', '.'], help_command=None)
 
 #executed once on bot boot
 @bot.event
@@ -35,6 +35,18 @@ async def on_error(event, *args, **kwargs):
     #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send(f'Unhandled message: {args[0]}')
     raise
 
+
+
+@bot.command('help')
+async def help(context, *args):
+    if len(args):
+        if args[0] in ["roll", "me"]:
+            await context.send("Sto mangiando. Ti risponde quell'altro")
+        elif args[0] == 'rossellini':
+            epiteti = [
+                "quel maledetto",                
+                ]
+            await context.send(f"Ti dirò quello che penso di {random.choice(epiteti)} di un Rossellini")
 
 @bot.command('rossellini')
 async def rossellini(ctx):

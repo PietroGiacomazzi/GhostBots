@@ -33,7 +33,7 @@ max_faces = 100
 
 die_emoji = {
     2: ":two:",
-    3: ":three",
+    3: ":three:",
     4: ":four:",
     5: ":five:",
     6: ":six:",
@@ -275,13 +275,18 @@ async def roll(ctx, *args):
                     i += 2
                 elif args[i].startswith("+"):
                     raw = args[i][1:]
+                    if raw == "":
+                        if len(args) == i+1:
+                            raise ValueError(f'+ cosa')
+                        raw = args[i+1]
+                        i += 1
                     if not raw.isdigit() or raw == "0":
                         raise ValueError(f'"{raw}" non è un intero positivo')
                     add = int(raw)
                 else:
                     width = 3
                     ht = " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
-                    raise ValueError(f"L'argomento '{args[i]}' in '{ht}' non mi è chiaro :(")
+                    raise ValueError(f"L'argomento '{args[i]}' in '{ht}' non mi è particolarmente chiaro")
                 i += 1
             # decido cosa fare
             if iniziativa:
@@ -372,7 +377,7 @@ async def divina(ctx, *, question):
 		'Non ci contare.',
 		'I miei contatti mi dicono di no.'
 		]
-    await atSend(ctx, f'Domanda: {question}\nRisposta:{random.choice(responses)}')
+    await atSend(ctx, f'Domanda: {question}\nRisposta: {random.choice(responses)}')
 
 @bot.command(brief='Testa il database rispondendo con la lista degli amministratori')
 async def dbtest(ctx):
@@ -390,7 +395,7 @@ async def dbtest(ctx):
 
 session_start_aliases = ['start', 's']
 session_end_aliases = ['end', 'e', 'edn'] # ehehehehe
-@bot.command(brief='Controlla le sessioni di gioco')
+@bot.command(brief='Controlla le sessioni di gioco', description = ".session: informazioni sulla sessione\n.session start <nomecronaca>: inizia una sessione (richiede essere admin o storyteller della cronaca da iniziare)\n.session end: termina la sessione (richiede essere admin o storyteller della cronaca da terminare)\n\n Le sessioni sono basate sui canali: un canale può ospitare una sessione alla volta, ma la stessa cronaca può avere sessioni attive in più canali.")
 async def session(ctx, *args):
     response = ''
     # find chronicle first? yes cause i want info about it
@@ -473,6 +478,18 @@ healthToEmoji = {
     'B': '<:hl_blocked:815338465260077077>'
     }
 
+
+hurt_levels = [
+    "Illeso",
+    "Contuso",
+    "Graffiato (-1)",
+    "Leso (-1)",
+    "Ferito (-2)",
+    "Straziato (-2)",
+    "Menomato (-5)",
+    "Incapacitato"
+]
+
 def prettyHealth(trait, levels = 7):
     hs = trait['text_value']
     hs = hs + (" "*(trait['max_value']-len(hs)))
@@ -481,14 +498,17 @@ def prettyHealth(trait, levels = 7):
     width = columns + (extra > 0)
     prettytext = 'Salute:'
     cursor = 0
+    hurt_level = 0
     for i in range(levels):
+        if hs[cursor] != " ":
+            hurt_level = i+1
         if i < extra:
             prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], hs[cursor:cursor+width])))
             cursor += width
         else:
             prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], hs[cursor:cursor+columns]+"B"*(extra > 0))))
             cursor += columns
-    return prettytext
+    return hurt_levels[hurt_level] +"\n"+ prettytext
 
 def prettyFDV(trait):
     return defaultTraitFormatter(trait)
@@ -526,14 +546,14 @@ async def me(ctx, *args):
     # steps: session -> chronicle -> characters
     sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
     if len(sessions):
-        players = dbm.db.query("""
+        playercharacters = dbm.db.query("""
 SELECT pc.id, pc.fullname, pc.id
 FROM ChronicleCharacterRel cc
 join PlayerCharacter pc on (pc.id = cc.playerchar)
 where cc.chronicle = $chronicle and pc.player = $player
 """, vars=dict(chronicle=sessions[0]['chronicle'], player=ctx.message.author.id))
-        if len(players) == 1:
-            pc = players[0]
+        if len(playercharacters) == 1:
+            pc = playercharacters[0]
             if len(args) == 0:
                 response = f"Stai interpretando {pc['fullname']}"
             else:
@@ -588,11 +608,8 @@ where cc.chronicle = $chronicle and pc.player = $player
                             for i in range(n): # applico i danni uno alla volta perchè sono un nabbo
                                 if dmgtype == "c" and new_health.endswith("c"): # non rischio di cambiare la lunghezza
                                     new_health = new_health[:-1]+"l"
-                                    print(i, "safe up")
                                 else:
-                                    print(i, "nosafe")
                                     if len(new_health) < trait['max_value']: # non ho già raggiunto il massimo
-                                        print(i, "can add")
                                         if dmgtype == "c":                                        
                                             new_health += "c"
                                         elif dmgtype == "a":
@@ -601,7 +618,6 @@ where cc.chronicle = $chronicle and pc.player = $player
                                             la = new_health.rfind("a")+1
                                             new_health = new_health[:la] + "l" + new_health[la:]
                                     else:  # oh no
-                                        print(i, "full")
                                         convert = False
                                         if dmgtype == "c":
                                             if trait['cur_value'] > 0: # trick per salvarsi mezzo aggravato
@@ -675,7 +691,7 @@ where cc.chronicle = $chronicle and pc.player = $player
                 else:
                     response = "Stai usando il comando in modo improprio"
 
-        elif len(players) > 1:
+        elif len(playercharacters) > 1:
             response = f'Stai interpretando più di un personaggio in questa cronaca, non so a chi ti riferisci!{players}'
         else:
             response = 'Non stai interpretando un personaggio in questa cronaca!'
@@ -722,7 +738,7 @@ async def pgmod_create(ctx, args):
 
         # permission checks
         issuer = ctx.message.author.id
-        if ctx.message.author.id != owner: # chiunque può crearsi un pg
+        if ctx.message.author.id != owner: # chiunque può crearsi un pg, ma per crearlo a qualcun'altro serve essere ST/admin
             st, _ = isStoryteller(issuer)
             ba, _ = isBotAdmin(issuer)
             if not (st or ba):
@@ -799,10 +815,19 @@ async def pgmod_traitAdd(ctx, args):
         issuer = ctx.message.author.id
         st, _ = isStoryteller(issuer) # della cronaca?
         ba, _ = isBotAdmin(issuer)
-        co = character['owner'] == issuer
-        # todo: se issuer è owner, solo se pg slegato da cronache oppure c'è sessione attiva
+        co = False
+        if character['owner'] == issuer:
+            #1: unlinked
+            co = co or not len(dbm.db.select('ChronicleCharacterRel', where='playerchar=$id', vars=dict(id=charid)))
+            #2 active session
+            co = co or len(dbm.db.query("""
+SELECT pc.id
+FROM GameSession gs
+join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
+where gs.channel = $channel and cc.playerchar = $charid
+""", vars=dict(channel=ctx.channel.id, charid=charid)))
         if not (st or ba or co):
-            raise BotException("Per modificare un personaggio è necessario essere proprietari del PG, Admin o Storyteller")
+            raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
 
         istrait, trait = isValidTrait(traitid)
         if not istrait:
@@ -830,10 +855,19 @@ async def pgmod_traitMod(ctx, args):
         issuer = ctx.message.author.id
         st, _ = isStoryteller(issuer) # della cronaca?
         ba, _ = isBotAdmin(issuer)
-        co = character['owner'] == issuer
-        # todo: se issuer è owner, solo se pg slegato da cronache oppure c'è sessione attiva
+        co = False
+        if character['owner'] == issuer:
+            #1: unlinked
+            co = co or not len(dbm.db.select('ChronicleCharacterRel', where='playerchar=$id', vars=dict(id=charid)))
+            #2 active session
+            co = co or len(dbm.db.query("""
+SELECT pc.id
+FROM GameSession gs
+join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
+where gs.channel = $channel and cc.playerchar = $charid
+""", vars=dict(channel=ctx.channel.id, charid=charid)))
         if not (st or ba or co):
-            raise BotException("Per modificare un personaggio è necessario essere proprietari del PG, Admin o Storyteller")
+            raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
 
         traitid = args[1].lower()
         istrait, trait = isValidTrait(traitid)
