@@ -442,9 +442,13 @@ async def session(ctx, *args):
 def getTrait(db, pc_id, trait_id):
     #traits = db.select('CharacterTrait',  where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc_id))
     traits = dbm.db.query("""
-SELECT *
+SELECT
+    ct.*,
+    t.*,
+    tt.textbased as textbased
 FROM CharacterTrait ct
 join Trait t on (t.id = ct.trait)
+join TraitType tt on (t.traittype = tt.id)
 where ct.trait = $trait and ct.playerchar = $pc
 """, vars=dict(trait=trait_id, pc=pc_id))
     if len(traits) == 0:
@@ -491,6 +495,8 @@ hurt_levels = [
 ]
 
 def prettyHealth(trait, levels = 7):
+    if trait['max_value'] <= 0:
+        return 'Non hai ancora inizializzato la tua salute!'
     hs = trait['text_value']
     hs = hs + (" "*(trait['max_value']-len(hs)))
     columns = len(hs) // levels 
@@ -526,8 +532,13 @@ def prettyMaxPointTracker(trait, emojis, separator = ""):
 def prettyPointAccumulator(trait):
     return f"{trait['name']}: {trait['cur_value']}"
 
+def prettyTextTrait(trait):
+    return f"{trait['name']}: {trait['text_value']}"
+
 def trackerFormatter(trait):
-    if trait['trackertype']==0:
+    if trait['textbased']:
+        return prettyTextTrait
+    elif trait['trackertype']==0:
         return prettyDotTrait
     elif trait['trackertype']==1:
         if trait['id'] == 'sangue':
@@ -755,8 +766,8 @@ async def pgmod_create(ctx, args):
 insert into CharacterTrait
     select t.id as trait, 
     pc.id as playerchar, 
-    t.default_value as cur_value, 
-    t.default_value as max_value, 
+    0 as cur_value, 
+    0 as max_value, 
     "" as text_value,
     case 
     WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
@@ -801,7 +812,7 @@ async def pgmod_chronicleAdd(ctx, args):
 
 async def pgmod_traitAdd(ctx, args):
     helptext = "Argomenti: nome breve del pg, nome breve del tratto, valore"
-    if len(args) != 3:
+    if len(args) < 3:
         return helptext
     else:
         charid = args[0].lower()
@@ -834,7 +845,7 @@ where gs.channel = $channel and cc.playerchar = $charid
             raise BotException(f"Il tratto {traitid} non esiste!")
         ttype = dbm.db.select('TraitType', where='id=$id', vars=dict(id=trait['traittype']))[0]
         if ttype['textbased']:
-            dbm.db.insert("CharacterTrait", trait=traitid, playerchar=charid, cur_value = trait['default_value'], max_value = trait['default_value'], text_value = args[2], pimp_max = 0)
+            dbm.db.insert("CharacterTrait", trait=traitid, playerchar=charid, cur_value = 0, max_value = 0, text_value = " ".join(args[2:]), pimp_max = 0)
             return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
         else:
             pimp = 6 if trait['traittype'] in ['fisico', 'sociale', 'mentale'] else 0
@@ -987,7 +998,7 @@ async def gmadm_newTrait(ctx, args):
             raise BotException(f"{stdarg} non è un'opzione valida")
         
         traitname = " ".join(args[4:])
-        dbm.db.insert("Trait", id = traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0, default_value = 0)
+        dbm.db.insert("Trait", id = traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0)
 
         response = f'Il tratto {traitname} è stato inserito'
         # todo: se std, aggiungilo a tutti i pg
@@ -998,8 +1009,8 @@ async def gmadm_newTrait(ctx, args):
     insert into CharacterTrait
         select t.id as trait, 
         pc.id as playerchar, 
-        t.default_value as cur_value, 
-        t.default_value as max_value, 
+        0 as cur_value, 
+        0 as max_value, 
         "" as text_value,
         case 
         WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
