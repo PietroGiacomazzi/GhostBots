@@ -417,6 +417,10 @@ async def roll(ctx, *args):
 async def salut(ctx):
     await atSend(ctx, 'Shalom!')
 
+@bot.command(brief='Pay respect.')
+async def respect(ctx):
+	await atSend(ctx, ':regional_indicator_f:')
+
 @bot.command(brief='Fa sapere il ping del Bot')
 async def ping(ctx):
     await atSend(ctx, f' Ping: {round(bot.latency * 1000)}ms')
