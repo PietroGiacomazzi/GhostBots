@@ -154,6 +154,61 @@ async def coin(ctx):
     moneta=['Testa' , 'Croce']
     await atSend(ctx, f'{random.choice(moneta)}')
 
+# dato un canale e un utente, trova il pg interpretato
+def getActiveChar(ctx):
+    playercharacters = dbm.db.query("""
+SELECT pc.*
+FROM GameSession gs
+join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
+join PlayerCharacter pc on (pc.id = cc.playerchar)
+where gs.channel = $channel and pc.player = $player
+""", vars=dict(channel=ctx.channel.id, player=ctx.message.author.id))
+    if len(playercharacters) == 0:
+        raise BotException("Non stai interpretando nessun personaggio!")
+    if len(playercharacters) > 1:
+        raise BotException("Stai interplretando più di un personaggio in questa cronaca, non so a chi ti riferisci!")
+    return playercharacters[0]
+
+def getTrait(pc_id, trait_id):
+    traits = dbm.db.query("""
+SELECT
+    ct.*,
+    t.*,
+    tt.textbased as textbased
+FROM CharacterTrait ct
+join Trait t on (t.id = ct.trait)
+join TraitType tt on (t.traittype = tt.id)
+where ct.trait = $trait and ct.playerchar = $pc
+""", vars=dict(trait=trait_id, pc=pc_id))
+    if len(traits) == 0:
+        raise BotException(f'Non hai il tratto {trait_id}')
+    return traits[0]
+
+def isBotAdmin(userid):
+    admins = dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=userid))
+    return bool(len(admins)), (admins[0] if (len(admins)) else None)
+
+def isStoryteller(userid):
+    storytellers = dbm.db.select('Storyteller',  where='userid = $userid', vars=dict(userid=userid))
+    return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
+
+def isCharacterOwner(userid, character):
+    characters = dbm.db.select('PlayerCharacter',  where='owner = $owner and id=$character', vars=dict(userid=userid, character=character))
+    return bool(len(characters)), (characters[0] if (len(characters)) else None)
+
+def isChronicleStoryteller(userid, chronicle):
+    storytellers = dbm.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=userid, chronicle = chronicle))
+    return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
+
+def isValidTrait(traitid):
+    traits = dbm.db.select('Trait', where='id=$id', vars=dict(id=traitid))
+    return bool(len(traits)), (traits[0] if (len(traits)) else None)
+
+def isValidTraitType(traittypeid):
+    traittypes = dbm.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
+    return bool(len(traittypes)), (traittypes[0] if (len(traittypes)) else None)
+    
+
 roll_longdescription = """
 .roll 10d10 - tiro senza difficoltà
 .roll 10d10 somma - somma il numero dei tiri
@@ -176,28 +231,38 @@ async def roll(ctx, *args):
     try:
         n = -1
         faces = -1
-        if args[0].lower() in INIZIATIVA_CMD:
+        if len(args) == 0:
+            raise ValueError("roll cosa diomadonna")
+        what = args[0].lower()
+        if what in INIZIATIVA_CMD:
             n = 1
             faces = 10
             iniziativa = True
-        else:
-            if len(args) == 0:
-                raise ValueError("roll cosa diomadonna")
-            split = args[0].split("d")
-            if len(split) > 2:
-                raise ValueError("Troppe 'd' b0ss")
-            if len(split) == 1:
-                raise ValueError(f'"{split[0]}" cosa')
-            if split[0] == "":
-                split[0] = "1"
-            if not split[0].isdigit():
-                raise ValueError(f'"{split[0]}" non è un numero intero positivo')
-            if split[1] == "":
-                split[1] = "10"
-            if not split[1].isdigit():
-                raise ValueError(f'"{split[1]}" non è un numero intero positivo')
-            n = int(split[0])
-            faces = int(split[1])
+        else:            
+            singletrait, _ = isValidTrait(what)
+            if what.count("+") or singletrait:
+                character = getActiveChar(ctx)
+                split = what.split("+")
+                faces = 10
+                n = 0
+                for trait in split:
+                    n += getTrait(character['id'], trait)['cur_value']
+            else:
+                split = what.split("d")
+                if len(split) > 2:
+                    raise ValueError("Troppe 'd' b0ss")
+                if len(split) == 1:
+                    raise ValueError(f'"{split[0]}" cosa')
+                if split[0] == "":
+                    split[0] = "1"
+                if not split[0].isdigit():
+                    raise ValueError(f'"{split[0]}" non è un numero intero positivo')
+                if split[1] == "":
+                    split[1] = "10"
+                if not split[1].isdigit():
+                    raise ValueError(f'"{split[1]}" non è un numero intero positivo')
+                n = int(split[0])
+                faces = int(split[1])
         if n == 0:
             raise ValueError(f'{n} non è > 0')
         if  faces == 0:
@@ -348,7 +413,6 @@ async def roll(ctx, *args):
         response = str(e)
     await atSend(ctx, response)
 
-
 @bot.command(brief='Lascia che il Greedy Ghost ti saluti.')
 async def salut(ctx):
     await atSend(ctx, 'Shalom!')
@@ -392,6 +456,11 @@ async def dbtest(ctx):
     except Exception as e:
         response = f'C\'è stato un problema: {e}'
     await atSend(ctx, response)
+
+
+@bot.command(brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata")
+async def start(ctx, *args):
+    await atSend(ctx, f'{random.randint(1, 100)}')
 
 session_start_aliases = ['start', 's']
 session_end_aliases = ['end', 'e', 'edn'] # ehehehehe
@@ -438,23 +507,6 @@ async def session(ctx, *args):
         else:
             response = "Stai usando il comando in modo improprio"
     await atSend(ctx, response)
-
-def getTrait(db, pc_id, trait_id):
-    #traits = db.select('CharacterTrait',  where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc_id))
-    traits = dbm.db.query("""
-SELECT
-    ct.*,
-    t.*,
-    tt.textbased as textbased
-FROM CharacterTrait ct
-join Trait t on (t.id = ct.trait)
-join TraitType tt on (t.traittype = tt.id)
-where ct.trait = $trait and ct.playerchar = $pc
-""", vars=dict(trait=trait_id, pc=pc_id))
-    if len(traits) == 0:
-        raise BotException(f'Non hai il tratto {trait_id}')
-    return traits[0]
-
 
 damage_types = ["a", "l", "c"]
 
@@ -552,188 +604,164 @@ def trackerFormatter(trait):
     else:
         return defaultTraitFormatter
 
-@bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = 'Richiede sessione attiva - .me NomeTratto Operazione - Basato sul valore corrente del Tratto')
+me_description = """.me <NomeTratto> [<Operazione>]
+
+<Nometratto>: Nome del tratto (o somma di tratti)
+<Operazione>: +/-/= n (se assente viene invece visualizzato il valore corrente)
+
+-Richiede sessione attiva
+-Basato sul valore corrente del Tratto'
+"""
+
+@bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
 async def me(ctx, *args):
-    # steps: session -> chronicle -> characters
-    sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
-    if len(sessions):
-        playercharacters = dbm.db.query("""
-SELECT pc.id, pc.fullname, pc.id
-FROM ChronicleCharacterRel cc
-join PlayerCharacter pc on (pc.id = cc.playerchar)
-where cc.chronicle = $chronicle and pc.player = $player
-""", vars=dict(chronicle=sessions[0]['chronicle'], player=ctx.message.author.id))
-        if len(playercharacters) == 1:
-            pc = playercharacters[0]
-            if len(args) == 0:
-                response = f"Stai interpretando {pc['fullname']}"
-            else:
-                trait_id = args[0].lower()
-                trait = getTrait(dbm.db, pc['id'], trait_id)
-                prettyFormatter = trackerFormatter(trait)
-                if len(args) == 1:
-                    response = prettyFormatter(trait)
-                elif len(args) >= 2 and (args[1].startswith("+") or args[1].startswith("-") or args[1].startswith("=")): # todo: me x = y
-                    param = "".join(args[1:]) # squish
-                    if trait['pimp_max']==0 and trait['trackertype']==0:
-                        raise BotException(f"Non puoi modificare {trait['name']}")
-                    if trait['trackertype']!=2:
-                        n = param[1:]
-                        if n.isdigit() and n != "0":
-                            if param[0] == "=":
-                                n = int(param[1:]) - trait['cur_value'] # tricks
-                            else:
-                                n = int(param)
-                            new_val = trait['cur_value'] + n
-                            max_val = max(trait['max_value'], trait['pimp_max']) 
-                            if new_val<0:
-                                raise BotException(f'Non hai abbastanza {trait_id}!')
-                            elif new_val > max_val and trait['trackertype'] != 3:
-                                raise BotException(f"Non puoi avere {new_val} {trait['name'].lower()}. Valore massimo: {max_val}")
-                            #
-                            u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), cur_value = trait['cur_value'] + n)
-                            if u == 1:
-                                trait = getTrait(dbm.db, pc['id'], trait_id)
-                                response = prettyFormatter(trait)
-                            else:
-                                response = f'Qualcosa è andato storto, righe aggiornate: {u}'
-                        else:
-                            response = f'"{n}" non è un intero positivo'
-                    else: # salute
-                        op = param[0]
-                        n = param[1:-1]
-                        if n == '':
-                            n = 1
-                        elif n.isdigit():
-                            n = int(n)
-                        elif op == "=":
-                            pass
-                        else:
-                            raise BotException(f'"{n}" non è un parametro valido!')
-                        dmgtype = param[-1].lower()
-                        new_health = trait['text_value']
-                        if not dmgtype in damage_types:
-                            raise BotException(f'"{dmgtype}" non è un tipo di danno valido')
-                        if op == "+":
-                            rip = False
-                            for i in range(n): # applico i danni uno alla volta perchè sono un nabbo
-                                if dmgtype == "c" and new_health.endswith("c"): # non rischio di cambiare la lunghezza
-                                    new_health = new_health[:-1]+"l"
-                                else:
-                                    if len(new_health) < trait['max_value']: # non ho già raggiunto il massimo
-                                        if dmgtype == "c":                                        
-                                            new_health += "c"
-                                        elif dmgtype == "a":
-                                            new_health = "a"+new_health
-                                        else:
-                                            la = new_health.rfind("a")+1
-                                            new_health = new_health[:la] + "l" + new_health[la:]
-                                    else:  # oh no
-                                        convert = False
-                                        if dmgtype == "c":
-                                            if trait['cur_value'] > 0: # trick per salvarsi mezzo aggravato
-                                                trait['cur_value'] = 0
-                                            else:
-                                                convert = True
-                                                trait['cur_value'] = 1
-                                        elif dmgtype == 'l':
-                                            convert = True
-                                        else:
-                                            rip = True
-
-                                        if convert:
-                                            fl = new_health.find('l')
-                                            if fl >= 0:
-                                                new_health = new_health[:fl] + 'a' + new_health[fl+1:]
-                                            else:
-                                                rip = True
-                                        if rip:
-                                            break
-                            if new_health.count("a") == trait['max_value']:
-                                rip = True
-                            
-                            u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
-                            if u != 1 and not rip:
-                                raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
-                            trait = getTrait(dbm.db, pc['id'], trait_id)
-                            response = prettyFormatter(trait)
-                            if rip:
-                                response += "\n\n RIP"
-                        elif op == "-":
-                            if dmgtype == "a":
-                                if new_health.count(dmgtype) < n:
-                                    raise BotException("Non hai tutti quei danni aggravati")
-                                else:
-                                    new_health = new_health[n:]
-                            elif dmgtype == "l":
-                                if new_health.count(dmgtype) < n:
-                                    raise BotException("Non hai tutti quei danni letali")
-                                else:
-                                    fl = new_health.find(dmgtype)
-                                    new_health = new_health[:fl]+new_health[fl+n:]
-                            else: # dio can
-                                for i in range(n):
-                                    if trait['cur_value'] == 0:
-                                        trait['cur_value'] = 1 # togli il mezzo aggravato
-                                    else:
-                                        if new_health[-1] == 'c':
-                                            new_health = new_health[:-1]
-                                        elif new_health[-1] == 'l':
-                                            new_health = new_health[:-1]+'c'
-                                        else:
-                                            raise BotException("Non hai tutti quei danni contundenti")
-                            u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
-                            if u != 1:
-                                raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
-                            trait = getTrait(dbm.db, pc['id'], trait_id)
-                            response = prettyFormatter(trait)
-                        else: # =
-                            full = param[1:]
-                            counts = list(map(lambda x: full.count(x), damage_types))
-                            if sum(counts) !=  len(full):
-                                raise BotException(f'"{full}" non è un parametro valido!')
-                            new_health = "".join(list(map(lambda x: x[0]*x[1], zip(damage_types, counts)))) # siamo generosi e riordiniamo l'input
-                            
-                            u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = 1)
-                            if u != 1:
-                                raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
-                            trait = getTrait(dbm.db, pc['id'], trait_id)
-                            response = prettyFormatter(trait)
-                else:
-                    response = "Stai usando il comando in modo improprio"
-
-        elif len(playercharacters) > 1:
-            response = f'Stai interpretando più di un personaggio in questa cronaca, non so a chi ti riferisci!{players}'
-        else:
-            response = 'Non stai interpretando un personaggio in questa cronaca!'
+    pc = getActiveChar(ctx)
+    if len(args) == 0:
+        response = f"Stai interpretando {pc['fullname']}"
     else:
-        response = 'Nessuna sessione attiva in questo canale!'
+        trait_id = args[0].lower()
+        if len(args) == 1:
+            if trait_id.count("+") or :
+                count = 0
+                for tid in trait_id.split("+"):
+                    count += getTrait(pc['id'], tid)['cur_value']
+                response = f"{args[0]}: {count}"
+            else:
+                trait = getTrait(pc['id'], trait_id)
+                prettyFormatter = trackerFormatter(trait)
+                response = prettyFormatter(trait)
+        elif len(args) >= 2 and (args[1].startswith("+") or args[1].startswith("-") or args[1].startswith("=")): # todo: me x = y
+            trait = getTrait(pc['id'], trait_id)
+            prettyFormatter = trackerFormatter(trait)
+            param = "".join(args[1:]) # squish
+            if trait['pimp_max']==0 and trait['trackertype']==0:
+                raise BotException(f"Non puoi modificare il valore corrente di {trait['name']}")
+            if trait['trackertype']!=2:
+                n = param[1:]
+                if n.isdigit() and n != "0":
+                    if param[0] == "=":
+                        n = int(param[1:]) - trait['cur_value'] # tricks
+                    else:
+                        n = int(param)
+                    new_val = trait['cur_value'] + n
+                    max_val = max(trait['max_value'], trait['pimp_max']) 
+                    if new_val<0:
+                        raise BotException(f'Non hai abbastanza {trait_id}!')
+                    elif new_val > max_val and trait['trackertype'] != 3:
+                        raise BotException(f"Non puoi avere {new_val} {trait['name'].lower()}. Valore massimo: {max_val}")
+                    #
+                    u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), cur_value = trait['cur_value'] + n)
+                    if u == 1:
+                        trait = getTrait(pc['id'], trait_id)
+                        response = prettyFormatter(trait)
+                    else:
+                        response = f'Qualcosa è andato storto, righe aggiornate: {u}'
+                else:
+                    response = f'"{n}" non è un intero positivo'
+            else: # salute
+                op = param[0]
+                n = param[1:-1]
+                if n == '':
+                    n = 1
+                elif n.isdigit():
+                    n = int(n)
+                elif op == "=":
+                    pass
+                else:
+                    raise BotException(f'"{n}" non è un parametro valido!')
+                dmgtype = param[-1].lower()
+                new_health = trait['text_value']
+                if not dmgtype in damage_types:
+                    raise BotException(f'"{dmgtype}" non è un tipo di danno valido')
+                if op == "+":
+                    rip = False
+                    for i in range(n): # applico i danni uno alla volta perchè sono un nabbo
+                        if dmgtype == "c" and new_health.endswith("c"): # non rischio di cambiare la lunghezza
+                            new_health = new_health[:-1]+"l"
+                        else:
+                            if len(new_health) < trait['max_value']: # non ho già raggiunto il massimo
+                                if dmgtype == "c":                                        
+                                    new_health += "c"
+                                elif dmgtype == "a":
+                                    new_health = "a"+new_health
+                                else:
+                                    la = new_health.rfind("a")+1
+                                    new_health = new_health[:la] + "l" + new_health[la:]
+                            else:  # oh no
+                                convert = False
+                                if dmgtype == "c":
+                                    if trait['cur_value'] > 0: # trick per salvarsi mezzo aggravato
+                                        trait['cur_value'] = 0
+                                    else:
+                                        convert = True
+                                        trait['cur_value'] = 1
+                                elif dmgtype == 'l':
+                                    convert = True
+                                else:
+                                    rip = True
+
+                                if convert:
+                                    fl = new_health.find('l')
+                                    if fl >= 0:
+                                        new_health = new_health[:fl] + 'a' + new_health[fl+1:]
+                                    else:
+                                        rip = True
+                                if rip:
+                                    break
+                    if new_health.count("a") == trait['max_value']:
+                        rip = True
+                    
+                    u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
+                    if u != 1 and not rip:
+                        raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
+                    trait = getTrait(pc['id'], trait_id)
+                    response = prettyFormatter(trait)
+                    if rip:
+                        response += "\n\n RIP"
+                elif op == "-":
+                    if dmgtype == "a":
+                        if new_health.count(dmgtype) < n:
+                            raise BotException("Non hai tutti quei danni aggravati")
+                        else:
+                            new_health = new_health[n:]
+                    elif dmgtype == "l":
+                        if new_health.count(dmgtype) < n:
+                            raise BotException("Non hai tutti quei danni letali")
+                        else:
+                            fl = new_health.find(dmgtype)
+                            new_health = new_health[:fl]+new_health[fl+n:]
+                    else: # dio can
+                        for i in range(n):
+                            if trait['cur_value'] == 0:
+                                trait['cur_value'] = 1 # togli il mezzo aggravato
+                            else:
+                                if new_health[-1] == 'c':
+                                    new_health = new_health[:-1]
+                                elif new_health[-1] == 'l':
+                                    new_health = new_health[:-1]+'c'
+                                else:
+                                    raise BotException("Non hai tutti quei danni contundenti")
+                    u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
+                    if u != 1:
+                        raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
+                    trait = getTrait(pc['id'], trait_id)
+                    response = prettyFormatter(trait)
+                else: # =
+                    full = param[1:]
+                    counts = list(map(lambda x: full.count(x), damage_types))
+                    if sum(counts) !=  len(full):
+                        raise BotException(f'"{full}" non è un parametro valido!')
+                    new_health = "".join(list(map(lambda x: x[0]*x[1], zip(damage_types, counts)))) # siamo generosi e riordiniamo l'input
+                    
+                    u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = 1)
+                    if u != 1:
+                        raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
+                    trait = getTrait(pc['id'], trait_id)
+                    response = prettyFormatter(trait)
+        else:
+            response = "Stai usando il comando in modo improprio"
+
     await atSend(ctx, response)
-
-def isBotAdmin(userid):
-    admins = dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=userid))
-    return bool(len(admins)), (admins[0] if (len(admins)) else None)
-
-def isStoryteller(userid):
-    storytellers = dbm.db.select('Storyteller',  where='userid = $userid', vars=dict(userid=userid))
-    return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
-
-def isCharacterOwner(userid, character):
-    characters = dbm.db.select('PlayerCharacter',  where='owner = $owner and id=$character', vars=dict(userid=userid, character=character))
-    return bool(len(characters)), (characters[0] if (len(characters)) else None)
-
-def isChronicleStoryteller(userid, chronicle):
-    storytellers = dbm.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=userid, chronicle = chronicle))
-    return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
-
-def isValidTrait(traitid):
-    traits = dbm.db.select('Trait', where='id=$id', vars=dict(id=traitid))
-    return bool(len(traits)), (traits[0] if (len(traits)) else None)
-
-def isValidTraitType(traittypeid):
-    traittypes = dbm.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
-    return bool(len(traittypes)), (traittypes[0] if (len(traittypes)) else None)
-    
 
 async def pgmod_create(ctx, args):
     helptext = "Argomenti: nome breve (senza spazi), menzione al proprietario, nome completo del personaggio"
@@ -761,7 +789,6 @@ async def pgmod_create(ctx, args):
                 user = await bot.fetch_user(owner)
                 dbm.db.insert('People', userid=owner, name=user.name)
             dbm.db.insert('PlayerCharacter', id=chid, owner=owner, player=owner, fullname=fullname)
-                #dbm.db.select('PlayerCharacter', where='userid = $userid', vars=dict(userid=ctx.message.author.id)))
             dbm.db.query("""
 insert into CharacterTrait
     select t.id as trait, 
@@ -790,13 +817,15 @@ async def pgmod_chronicleAdd(ctx, args):
     if len(args) != 2:
         return helptext
     else:
-        characters = dbm.db.select('PlayerCharacter', where='id=$id', vars=dict(id=args[0]))
+        charid = args[0].lower()
+        characters = dbm.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
         if not len(characters):
-            raise BotException(f"Il personaggio {args[0]} non esiste!")
+            raise BotException(f"Il personaggio {charid} non esiste!")
         character = characters[0]
-        chronicles = dbm.db.select('Chronicle', where='id=$id', vars=dict(id=args[1]))
+        chronid = args[1].lower()
+        chronicles = dbm.db.select('Chronicle', where='id=$id', vars=dict(id=chronid))
         if not len(chronicles):
-            raise BotException(f"La cronaca {args[1]} non esiste!")
+            raise BotException(f"La cronaca {chronid} non esiste!")
         chronicle = chronicles[0]
 
         # permission checks
@@ -807,7 +836,7 @@ async def pgmod_chronicleAdd(ctx, args):
             raise BotException("Per associare un pg ad una cronaca necessario essere Admin o Storyteller di quella cronaca")
         
         # todo check link esistente
-        dbm.db.insert("ChronicleCharacterRel", chronicle=args[1].lower(), playerchar=args[0].lower())
+        dbm.db.insert("ChronicleCharacterRel", chronicle=chronid, playerchar=charid)
         return f"{character['fullname']} ora gioca a {chronicle['name']}"
 
 async def pgmod_traitAdd(ctx, args):
@@ -927,7 +956,7 @@ async def gmadm_listChronicles(ctx, args):
 
 async def gmadm_newChronicle(ctx, args):
     helptext = "Argomenti: nome breve della cronaca (no spazi), nome completo della cronaca"
-    if len(args) != 2:
+    if len(args) < 2:
         return helptext
     else:
         shortname = args[0].lower()
@@ -954,7 +983,7 @@ async def gmadm_newChronicle(ctx, args):
             return f"Cronaca {fullname} inserita ed associata a {issuer_user}"    
 
 async def gmadm_newTrait(ctx, args):
-    if len(args) != 5:
+    if len(args) < 5:
         helptext = "Argomenti: nome breve del tratto (no spazi), tipo del tratto (vedi sotto), tipo del tracker associato (vedi sotto), standard ([y, s, 1] o [n, 0]), nome completo del tratto\n\n"
         ttypes = dbm.db.select('TraitType', what = "id, name")
         ttypesl = ttypes.list()
@@ -1046,8 +1075,9 @@ async def gmadm(ctx, *args):
     if len(args) == 0:
         response += gameAdmin_longdescription
     else:
+        subcmd = args[0]
         if subcmd in gameAdmin_subcommands:
-            response = await gameAdmin_subcommands[args[0]][0](ctx, args[1:])
+            response = await gameAdmin_subcommands[subcmd][0](ctx, args[1:])
         else:
             response = f'"{subcmd}" non è un sotttocomando valido!\n'+gameAdmin_longdescription
         
