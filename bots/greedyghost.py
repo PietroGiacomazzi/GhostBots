@@ -625,7 +625,7 @@ async def me(ctx, *args):
     else:
         trait_id = args[0].lower()
         if len(args) == 1:
-            if trait_id.count("+") or :
+            if trait_id.count("+"):
                 count = 0
                 for tid in trait_id.split("+"):
                     count += getTrait(pc['id'], tid)['cur_value']
