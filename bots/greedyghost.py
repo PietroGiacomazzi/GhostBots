@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from discord.ext import commands
-import random, sys, configparser, web, traceback
+import random, sys, configparser, web, traceback, MySQLdb
 import support.vtm_res as vtm_res
 
 if len(sys.argv) == 1:
@@ -107,7 +107,9 @@ def findSplit(idx, splits):
 class DBManager:
     def __init__(self, config):
         self.cfg = config
-        self.db = web.database(dbn=config['type'], user=config['user'], pw=config['pw'], db=config['database'])
+        self.reconnect()
+    def reconnect(self):
+        self.db = web.database(dbn=self.cfg['type'], user=self.cfg['user'], pw=self.cfg['pw'], db=self.cfg['database']) # wait_timeout = 3153600# seconds
 
 class BotException(Exception): # use this for 'known' error situations
     def __init__(self, msg):
@@ -115,7 +117,7 @@ class BotException(Exception): # use this for 'known' error situations
     
 dbm = DBManager(config['Database'])
 
-botcmd_prefixes = ['.', 'gg']
+botcmd_prefixes = ['.']
 bot = commands.Bot(botcmd_prefixes)
 
 #executed once on bot boot
@@ -130,29 +132,9 @@ async def on_ready():
     #print(f'Guild Members:\n - {members}')
     #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send("bot is online")
 
-#ignored_errors = [commands.errors.CommandNotFound]
-
-@bot.event
-async def on_command_error(ctx, error):
-    ftb = traceback.format_exc()
-    #logging.warning(traceback.format_exc()) #logs the error
-    ignored = (commands.CommandNotFound, )
-    error = getattr(error, 'original', error)
-    if isinstance(error, ignored):
-        print(error)
-    elif isinstance(error, BotException):
-        await atSend(ctx, f'{error}')
-    else:
-        await atSend(ctx, f'Congratulazioni! hai trovato un modo per rompere il comando!')
-        #print("debug user:", int(config['Discord']['debuguser']))
-        debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
-        await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
-
-
-@bot.command(name='coin', help = 'Testa o Croce.')
-async def coin(ctx):
-    moneta=['Testa' , 'Croce']
-    await atSend(ctx, f'{random.choice(moneta)}')
+def isValidCharacter(charid):
+    characters = dbm.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
+    return bool(len(characters)), (characters[0] if (len(characters)) else None)
 
 # dato un canale e un utente, trova il pg interpretato
 def getActiveChar(ctx):
@@ -207,7 +189,45 @@ def isValidTrait(traitid):
 def isValidTraitType(traittypeid):
     traittypes = dbm.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
     return bool(len(traittypes)), (traittypes[0] if (len(traittypes)) else None)
-    
+
+@bot.event
+async def on_command_error(ctx, error):
+    ftb = traceback.format_exc()
+    #logging.warning(traceback.format_exc()) #logs the error
+    #ignored = (commands.CommandNotFound, )
+    error = getattr(error, 'original', error)
+    #if isinstance(error, ignored):
+    #    print(error)
+    if isinstance(error, commands.CommandNotFound):
+        try:
+            msgsplit = ctx.message.content.split(" ")
+            msgsplit[0] = msgsplit[0][1:] # toglie prefisso
+            charid = msgsplit[0]
+            ic, character = isValidCharacter(charid)
+            if ic:
+                await pgmanage(ctx, *msgsplit)
+        except MySQLdb.OperationalError:
+            dbm.reconnect()
+            await atSend(ctx, f'Ho dovuto ripristinare al connessione Database, per favore riprova')
+        except BotException as e:
+            await atSend(ctx, f'{e}')   
+    elif isinstance(error, BotException):
+        await atSend(ctx, f'{error}')     
+    elif isinstance(error, MySQLdb.OperationalError):
+        dbm.reconnect()
+        await atSend(ctx, f'Ho divuto ripristinare al connessione Database, per favore riprova')
+    else:
+        await atSend(ctx, f'Congratulazioni! hai trovato un modo per rompere il comando!')
+        #print("debug user:", int(config['Discord']['debuguser']))
+        debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
+        await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
+
+
+@bot.command(name='coin', help = 'Testa o Croce.')
+async def coin(ctx):
+    moneta=['Testa' , 'Croce']
+    await atSend(ctx, f'{random.choice(moneta)}')
+ 
 
 roll_longdescription = """
 .roll 10d10 - tiro senza difficoltà
@@ -608,18 +628,8 @@ def trackerFormatter(trait):
     else:
         return defaultTraitFormatter
 
-me_description = """.me <NomeTratto> [<Operazione>]
-
-<Nometratto>: Nome del tratto (o somma di tratti)
-<Operazione>: +/-/= n (se assente viene invece visualizzato il valore corrente)
-
--Richiede sessione attiva
--Basato sul valore corrente del Tratto'
-"""
-
-@bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
-async def me(ctx, *args):
-    pc = getActiveChar(ctx)
+async def pc_interact(pc, *args):
+    response = ''
     if len(args) == 0:
         response = f"Stai interpretando {pc['fullname']}"
     else:
@@ -764,8 +774,57 @@ async def me(ctx, *args):
                     response = prettyFormatter(trait)
         else:
             response = "Stai usando il comando in modo improprio"
+    return response
+
+me_description = """.me <NomeTratto> [<Operazione>]
+
+<Nometratto>: Nome del tratto (o somma di tratti)
+<Operazione>: +/-/= n (se assente viene invece visualizzato il valore corrente)
+
+-Richiede sessione attiva
+-Basato sul valore corrente del Tratto'
+"""
+
+@bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
+async def me(ctx, *args):
+    pc = getActiveChar(ctx)
+    response = await pc_interact(pc, *args)
 
     await atSend(ctx, response)
+
+@bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = "come '.me', ma si può usare in 2 modi:\n\n1) .<nomepg> [argomenti di .me]\n2) .pgmanage <nomepg> [argomenti di .me]")
+async def pgmanage(ctx, *args):
+    if len(args)==0:
+        raise BotException('Specifica un pg!')
+
+    charid = args[0].lower()
+    isChar, character = isValidCharacter(charid)
+    if not isChar:
+        raise BotException(f"Il personaggio {charid} non esiste!")
+
+    # permission checks
+    issuer = ctx.message.author.id
+    st, _ = isStoryteller(issuer) # della cronaca?
+    ba, _ = isBotAdmin(issuer)
+    co = False
+    if character['player'] == issuer:
+        #1: unlinked
+        co = co or not len(dbm.db.select('ChronicleCharacterRel', where='playerchar=$id', vars=dict(id=charid)))
+        #2 active session
+        co = co or len(dbm.db.query("""
+SELECT pc.id
+FROM GameSession gs
+join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
+where gs.channel = $channel and cc.playerchar = $charid
+""", vars=dict(channel=ctx.channel.id, charid=charid)))
+    if not (st or ba or co):
+        return # non vogliamo che .rossellini faccia cose
+        #raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
+    
+    response = await pc_interact(character, *args[1:])
+
+    await atSend(ctx, response)
+    
 
 async def pgmod_create(ctx, args):
     helptext = "Argomenti: nome breve (senza spazi), menzione al proprietario, nome completo del personaggio"
@@ -822,10 +881,9 @@ async def pgmod_chronicleAdd(ctx, args):
         return helptext
     else:
         charid = args[0].lower()
-        characters = dbm.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
-        if not len(characters):
+        isChar, character = isValidCharacter(charid)
+        if not isChar:
             raise BotException(f"Il personaggio {charid} non esiste!")
-        character = characters[0]
         chronid = args[1].lower()
         chronicles = dbm.db.select('Chronicle', where='id=$id', vars=dict(id=chronid))
         if not len(chronicles):
@@ -843,6 +901,7 @@ async def pgmod_chronicleAdd(ctx, args):
         dbm.db.insert("ChronicleCharacterRel", chronicle=chronid, playerchar=charid)
         return f"{character['fullname']} ora gioca a {chronicle['name']}"
 
+
 async def pgmod_traitAdd(ctx, args):
     helptext = "Argomenti: nome breve del pg, nome breve del tratto, valore"
     if len(args) < 3:
@@ -850,10 +909,9 @@ async def pgmod_traitAdd(ctx, args):
     else:
         charid = args[0].lower()
         traitid = args[1].lower()
-        characters = dbm.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
-        if not len(characters):
-            raise BotException(f"Il personaggio {args[0]} non esiste!")
-        character = characters[0]
+        isChar, character = isValidCharacter(charid)
+        if not isChar:
+            raise BotException(f"Il personaggio {charid} non esiste!")
 
         # permission checks
         issuer = ctx.message.author.id
@@ -890,10 +948,10 @@ async def pgmod_traitMod(ctx, args):
     if len(args) != 3:
         return helptext
     else:
-        characters = dbm.db.select('PlayerCharacter', where='id=$id', vars=dict(id=args[0]))
-        if not len(characters):
-            raise BotException(f"Il personaggio {args[0]} non esiste!")
-        character = characters[0]
+        charid = args[0].lower()
+        isChar, character = isValidCharacter(charid)
+        if not isChar:
+            raise BotException(f"Il personaggio {charid} non esiste!")
 
         # permission checks
         issuer = ctx.message.author.id
