@@ -163,8 +163,10 @@ join TraitType tt on (t.traittype = tt.id)
 where ct.trait = $trait and ct.playerchar = $pc
 """, vars=dict(trait=trait_id, pc=pc_id))
     if len(traits) == 0:
-        raise BotException(f'Non hai il tratto {trait_id}')
+        raise BotException(f'{pc_id} non ha il tratto {trait_id}')
     return traits[0]
+
+# todo has_trait?
 
 def isBotAdmin(userid):
     admins = dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=userid))
@@ -934,10 +936,16 @@ where gs.channel = $channel and cc.playerchar = $charid
         istrait, trait = isValidTrait(traitid)
         if not istrait:
             raise BotException(f"Il tratto {traitid} non esiste!")
+        
+        ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']))
+        if len(ptraits):
+            raise BotException(f"{character['fullname']} ha già il tratto {trait['name']} ")
+        
         ttype = dbm.db.select('TraitType', where='id=$id', vars=dict(id=trait['traittype']))[0]
         if ttype['textbased']:
-            dbm.db.insert("CharacterTrait", trait=traitid, playerchar=charid, cur_value = 0, max_value = 0, text_value = " ".join(args[2:]), pimp_max = 0)
-            return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
+            textval = " ".join(args[2:])
+            dbm.db.insert("CharacterTrait", trait=traitid, playerchar=charid, cur_value = 0, max_value = 0, text_value = textval, pimp_max = 0)
+            return f"{character['fullname']} ora ha {trait['name']} {textval}"
         else:
             pimp = 6 if trait['traittype'] in ['fisico', 'sociale', 'mentale'] else 0
             dbm.db.insert("CharacterTrait", trait=traitid, playerchar=charid, cur_value = args[2], max_value = args[2], text_value = "", pimp_max = pimp)
@@ -945,7 +953,7 @@ where gs.channel = $channel and cc.playerchar = $charid
 
 async def pgmod_traitMod(ctx, args):
     helptext = "Argomenti: nome breve del pg, nome breve del tratto, nuovo valore"
-    if len(args) != 3:
+    if len(args) < 3:
         return helptext
     else:
         charid = args[0].lower()
@@ -981,8 +989,9 @@ where gs.channel = $channel and cc.playerchar = $charid
             raise BotException(f"{character['fullname']} non ha il tratto {trait['name']} ")
         ttype = dbm.db.select('TraitType', where='id=$id', vars=dict(id=trait['traittype']))[0]
         if ttype['textbased']:
-            dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']), text_value = args[2])
-            return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
+            textval = " ".join(args[2:])
+            dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']), text_value = textval)
+            return f"{character['fullname']} ora ha {trait['name']} {textval}"
         else:
             dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']), cur_value = args[2], max_value = args[2])
             return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
@@ -997,7 +1006,7 @@ pgmod_longdescription = "\n".join(list(map(lambda x: botcmd_prefixes[0]+"pgmod "
 
 @bot.command(brief='Crea e modifica personaggi', description = pgmod_longdescription)
 async def pgmod(ctx, *args):
-    response = 'Azioni disponibili (ogni azione ha il suo help):\n'
+    response = 'Azioni disponibili (invoca una azione senza argomenti per conoscere il funzionamento):\n'
     if len(args) == 0:
         response += pgmod_longdescription
     else:
@@ -1017,7 +1026,7 @@ async def gmadm_listChronicles(ctx, args):
 
 
 async def gmadm_newChronicle(ctx, args):
-    helptext = "Argomenti: nome breve della cronaca (no spazi), nome completo della cronaca"
+    helptext = "Argomenti: <id> <nome completo> \n\nId non ammette spazi."
     if len(args) < 2:
         return helptext
     else:
@@ -1042,11 +1051,52 @@ async def gmadm_newChronicle(ctx, args):
         else:
             t.commit()
             issuer_user = await bot.fetch_user(issuer)
-            return f"Cronaca {fullname} inserita ed associata a {issuer_user}"    
+            return f"Cronaca {fullname} inserita ed associata a {issuer_user}"
+
+query_addTraitToPCs = """
+    insert into CharacterTrait
+        select t.id as trait, 
+        pc.id as playerchar, 
+        0 as cur_value, 
+        0 as max_value, 
+        "" as text_value,
+        case 
+        WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
+        else 0
+        end
+        as pimp_max
+        from Trait t, PlayerCharacter pc
+        where t.standard = true
+        and t.id = $traitid;
+    """
+
+query_addTraitToPCs_safe = """
+    insert into CharacterTrait
+        select t.id as trait, 
+        pc.id as playerchar, 
+        0 as cur_value, 
+        0 as max_value, 
+        "" as text_value,
+        case 
+        WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
+        else 0
+        end
+        as pimp_max
+        from Trait t, PlayerCharacter pc
+        where t.standard = true
+        and t.id = $traitid
+        and not exists (
+            select trait
+            from CharacterTrait ct
+            where ct.trait = $traitid and ct.playerchar = pc.id
+        );
+    """
 
 async def gmadm_newTrait(ctx, args):
     if len(args) < 5:
-        helptext = "Argomenti: nome breve del tratto (no spazi), tipo del tratto (vedi sotto), tipo del tracker associato (vedi sotto), standard ([y, s, 1] o [n, 0]), nome completo del tratto\n\n"
+        helptext = "Argomenti: <id> <tipo> <tracker> <standard> <nome completo>\n\n"
+        helptext += "Gli id non ammettono spazi.\n\n"
+        helptext += "<standard> ammette [y, s, 1] per Sì e [n, 0] per No\n\n"
         ttypes = dbm.db.select('TraitType', what = "id, name")
         ttypesl = ttypes.list()
         helptext += "Tipi di tratto: \n"
@@ -1060,7 +1110,7 @@ async def gmadm_newTrait(ctx, args):
 """
         return helptext
     else:
-         # permission checks
+        # permission checks
         issuer = ctx.message.author.id
         st, _ = isStoryteller(issuer)
         ba, _ = isBotAdmin(issuer)
@@ -1096,22 +1146,7 @@ async def gmadm_newTrait(ctx, args):
         if std:
             t = dbm.db.transaction()
             try:
-                dbm.db.query("""
-    insert into CharacterTrait
-        select t.id as trait, 
-        pc.id as playerchar, 
-        0 as cur_value, 
-        0 as max_value, 
-        "" as text_value,
-        case 
-        WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
-        else 0
-        end
-        as pimp_max
-        from Trait t, PlayerCharacter pc
-        where t.standard = true
-        and t.id = $traitid;
-    """, vars = dict(traitid=traitid))
+                dbm.db.query(query_addTraitToPCs, vars = dict(traitid=traitid))
             except:
                 t.rollback()
                 raise
@@ -1120,12 +1155,115 @@ async def gmadm_newTrait(ctx, args):
                 response +=  f'\nIl nuovo talento standard {traitname} è stato assegnato ai personaggi!'
 
         return response
+
+async def gmadm_updateTrait(ctx, args):
+    if len(args) < 6:
+        helptext = "Argomenti: <vecchio_id> <nuovo_id> <tipo> <tracker> <standard> <nome completo>\n\n"
+        helptext += "Gli id non ammettono spazi.\n\n"
+        helptext += "<standard> ammette [y, s, 1] per Sì e [n, 0] per No\n\n"
+        ttypes = dbm.db.select('TraitType', what = "id, name")
+        ttypesl = ttypes.list()
+        helptext += "Tipi di tratto: \n"
+        helptext += "\n".join(list(map(lambda x : f"\t**{x['id']}**: {x['name']}", ttypesl)))
+        #helptext += "\n".join(list(map(lambda x : ", ".join(list(map(lambda y: y+": "+str(x[y]), x.keys()))), ttypesl)))
+        helptext += """\n\nTipi di tracker:
+    **0**: Nessun tracker (Elementi normali di scheda)
+    **1**: Punti con massimo (Volontà, Sangue...)
+    **2**: Danni (salute...)
+    **3**: Punti senza massimo (esperienza...)
+"""
+        return helptext
+    else:
+        # permission checks
+        issuer = ctx.message.author.id
+        st, _ = isStoryteller(issuer)
+        ba, _ = isBotAdmin(issuer)
+        if not (st or ba):
+            raise BotException("Per creare un tratto è necessario essere Admin o Storyteller")
+
+        old_traitid = args[0].lower()
+        istrait, old_trait = isValidTrait(old_traitid)
+        if not istrait:
+            raise BotException(f"Il tratto {old_traitid} non esiste!")
         
+        new_traitid = args[1].lower()
+        istrait, new_trait = isValidTrait(new_traitid)
+        if istrait and (old_traitid!=new_traitid):
+            raise BotException(f"Il tratto {new_traitid} esiste già!")
+
+        traittypeid = args[2].lower()
+        istraittype, traittype = isValidTraitType(traittypeid)
+        if not istraittype:
+            raise BotException(f"Il tipo di tratto {traittypeid} non esiste!")
+
+        if not args[3].isdigit():
+            raise BotException(f"{args[2]} non è un intero >= 0!")
+        tracktype = int(args[3])
+        if not tracktype in [0, 1, 2, 3]: # todo dehardcode
+            raise BotException(f"{tracktype} non è tracker valido!")
+
+        stdarg = args[4].lower()
+        std = stdarg in ['y', 's', '1']
+        if not std and not stdarg in ['n', '0']:
+            raise BotException(f"{stdarg} non è un'opzione valida")
+
+        traitname = " ".join(args[5:])
+        dbm.db.update("Trait", where= 'id = $oldid' , vars=dict(oldid = old_traitid), id = new_traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0)
+
+        response = f'Il tratto {traitname} è stato inserito'
+        # todo: se std, aggiungilo a tutti i pg
+        if std and not old_trait['standard']:
+            t = dbm.db.transaction()
+            try:
+                dbm.db.query(query_addTraitToPCs_safe, vars = dict(traitid=new_traitid))
+            except:
+                t.rollback()
+                raise
+            else:
+                t.commit()
+                response +=  f'\nIl nuovo talento standard {traitname} è stato assegnato ai personaggi!'
+        elif not std and old_trait['standard']:
+            t = dbm.db.transaction()
+            try:
+                dbm.db.query("""
+    delete from CharacterTrait
+    where trait = $traitid and max_value = 0 and cur_value = 0 and text_value = '';
+    """, vars = dict(traitid=new_traitid))
+            except:
+                t.rollback()
+                raise
+            else:
+                t.commit()
+                response +=  f'\nIl talento {traitname} è stato rimosso dai personaggi che non avevano pallini'
+
+        return response
+
+async def gmadm_deleteTrait(ctx, args):
+    return "non implementato"
+
+async def gmadm_searchTrait(ctx, args):
+    if len(args) == 0:
+        helptext = "Argomenti: parte del nome breve o nome completo del tratto"
+        return helptext
+    else:
+        searchstring = "%" + (" ".join(args)) + "%"
+        lower_version = searchstring.lower()
+        traits = dbm.db.select("Trait", where="id like $search_lower or name like $search_string", vars=dict(search_lower=lower_version, search_string = searchstring))
+        if not len(traits):
+            return 'Nessun match!'
+        response = 'Tratti trovati:\n'
+        for trait in traits:
+            response += f"\n{trait['id']}: {trait['name']}"
+        return response
+
 
 gameAdmin_subcommands = {
     "listChronicles": [gmadm_listChronicles, "Elenca le cronache"],
     "newChronicle": [gmadm_newChronicle, "Crea una nuova cronaca associata allo ST che invoca il comando"],
-    "newTrait": [gmadm_newTrait, "Crea nuovo tratto"]
+    "newTrait": [gmadm_newTrait, "Crea nuovo tratto"],
+    "updt": [gmadm_updateTrait, "Modifica un tratto"],
+    "delet": [gmadm_deleteTrait, "Cancella un tratto"],
+    "searcht": [gmadm_searchTrait, "Cerca un tratto"]
     # todo: nomina storyteller, associa storyteller a cronaca
     # todo: dissociazioni varie
     }
@@ -1133,7 +1271,7 @@ gameAdmin_longdescription = "\n".join(list(map(lambda x: botcmd_prefixes[0]+"gma
 
 @bot.command(brief="Gestione dell'ambiente di gioco", description = gameAdmin_longdescription)
 async def gmadm(ctx, *args):
-    response = 'Azioni disponibili (ogni azione ha il suo help):\n'
+    response = 'Azioni disponibili (invoca una azione senza argomenti per conoscere il funzionamento):\n'
     if len(args) == 0:
         response += gameAdmin_longdescription
     else:
