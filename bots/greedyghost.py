@@ -20,7 +20,9 @@ MULTI_CMD = ["multi", "m"]
 DANNI_CMD = ["danni", "dmg"]
 PROGRESSI_CMD = ["progressi", "p"]
 SPLIT_CMD = ["split"]
+
 INIZIATIVA_CMD = ["iniziativa", "iniz"]
+RIFLESSI_CMD = ["riflessi", "r"]
 
 NORMALE = 0
 SOMMA = 1
@@ -84,6 +86,12 @@ def rollStatusNormal(n):
         return f':orange_square: **Fallimento drammatico**'
     else:
         return f':sos: **Fallimento critico**'
+
+def rollStatusReflexes(n):
+    if n >= 1:
+        return f':green_square: ** Successo!**'
+    else:
+        return f':yellow_square: **Fallimento!**'
 
 def rollAndFormatVTM(ndice, nfaces, diff, statusFunc = rollStatusNormal, extra_succ = 0, cancel = True, spec = False):
     successi, tiro, cancel = vtm_res.roller(ndice, nfaces, diff, cancel, spec)
@@ -192,6 +200,10 @@ def isValidTraitType(traittypeid):
     traittypes = dbm.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
     return bool(len(traittypes)), (traittypes[0] if (len(traittypes)) else None)
 
+def validateTraitName(traitid):
+    forbidden_chars = [" ", "+"]
+    return sum(map(lambda x: traitid.count(x), forbidden_chars)) == 0
+
 @bot.event
 async def on_command_error(ctx, error):
     ftb = traceback.format_exc()
@@ -250,11 +262,12 @@ roll_longdescription = """
 .roll 10d10 multi 3 split 2 6 7 split 3 4 5 - multipla [3] con split al 2° e 3° tiro
 """
 
-# todo: usare delle funzioni di validazione e usare BotException per gli errori
+# todo: rifare sta merda che è orrendo da leggere e da modificare
 @bot.command(name='roll', aliases=['r', 'tira', 'lancia'], brief = 'Tira dadi', description = roll_longdescription)
 async def roll(ctx, *args):
-    #print("roll args:", repr(args))
+    response = ''
     iniziativa = False
+    riflessi = False
     try:
         n = -1
         faces = -1
@@ -265,6 +278,10 @@ async def roll(ctx, *args):
             n = 1
             faces = 10
             iniziativa = True
+        elif what in RIFLESSI_CMD:
+            n = 1
+            faces = 10
+            riflessi = True
         else:            
             singletrait, _ = isValidTrait(what)
             if what.count("+") or singletrait:
@@ -298,7 +315,7 @@ async def roll(ctx, *args):
             raise ValueError(f'{n} dadi sono troppi b0ss')
         if faces > max_faces:
             raise ValueError(f'{faces} facce sono un po\' tante')
-        if len(args) == 1: #simple roll
+        if len(args) == 1 and (not iniziativa)  and (not riflessi): #simple roll
             raw_roll = list(map(lambda x: random.randint(1, faces), range(n)))
             response = repr(raw_roll)
         else:
@@ -383,10 +400,36 @@ async def roll(ctx, *args):
             # decido cosa fare
             if iniziativa:
                 raw_roll = random.randint(1, faces)
-                final_val = raw_roll+add
+                bonuses_log = []
+                bonus = add
+                if add:
+                    bonuses_log.append( f'bonus: {add}' )
+                try:
+                    character = getActiveChar(ctx)
+                    for traitid in ['prontezza', 'destrezza', 'velocità']:
+                        try:
+                            val = getTrait(character['id'], traitid)['cur_value']
+                            bonus += val
+                            bonuses_log.append( f'{traitid}: {val}' )
+                        except BotException:
+                            pass
+                except BotException:
+                    response += 'Nessun personaggio !\n'
+                if len(bonuses_log):
+                    response += (", ".join(bonuses_log)) + "\n"
+                final_val = raw_roll+bonus
                 if multi or len(split) or (not rolltype in [NORMALE, SOMMA]) or diff:
                     raise BotException("Combinazione di parametri non valida!")
-                response = f'Iniziativa: **{final_val}**, tiro: [{raw_roll}]' + (f'+{add}' if add else '')
+                response += f'Iniziativa: **{final_val}**, tiro: [{raw_roll}]' + (f'+{bonus}' if bonus else '')
+            elif riflessi:
+                if multi or len(split) or (not rolltype in [NORMALE, SOMMA]) or diff:
+                    raise BotException("Combinazione di parametri non valida!")
+                character = getActiveChar(ctx)
+                volonta = getTrait(character['id'], 'volonta')['cur_value']
+                prontezza = getTrait(character['id'], 'prontezza')['cur_value']
+                diff = 10 - prontezza
+                response = f'Volontà corrente: {volonta}, Prontezza: {prontezza} -> {volonta}d{faces} diff ({faces}-{prontezza})\n'
+                response += rollAndFormatVTM(volonta, faces, diff, rollStatusReflexes, add)
             elif multi:
                 if rolltype == NORMALE:
                     response = ""
@@ -498,6 +541,7 @@ session_end_aliases = ['end', 'e', 'edn'] # ehehehehe
 @bot.command(brief='Controlla le sessioni di gioco', description = ".session: informazioni sulla sessione\n.session start <nomecronaca>: inizia una sessione (richiede essere admin o storyteller della cronaca da iniziare)\n.session end: termina la sessione (richiede essere admin o storyteller della cronaca da terminare)\n\n Le sessioni sono basate sui canali: un canale può ospitare una sessione alla volta, ma la stessa cronaca può avere sessioni attive in più canali.")
 async def session(ctx, *args):
     response = ''
+    issuer = str(ctx.message.author.id)
     # find chronicle first? yes cause i want info about it
     sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
     if len(args) == 0:
@@ -510,21 +554,25 @@ async def session(ctx, *args):
     else:
         action = args[0].lower()       
         if action in session_start_aliases and len(args) == 2:
-            chronicle = args[1].lower()
-            can_do = len(dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=ctx.message.author.id))) + len(dbm.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=ctx.message.author.id, chronicle = chronicle)))
+            chronicleid = args[1].lower()
+            st, _ = isChronicleStoryteller(issuer, chronicleid)
+            ba, _ = isBotAdmin(issuer)
+            can_do = st or ba
+            #can_do = len(dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=ctx.message.author.id))) + len(dbm.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=ctx.message.author.id, chronicle = chronicle)))
             if len(sessions):
                 response = "C'è già una sessione in corso in questo canale"
             elif can_do:
-                dbm.db.insert('GameSession', chronicle=chronicle, channel=ctx.channel.id)
-                response = f'Sessione iniziata per la cronaca {chronicle}'
+                dbm.db.insert('GameSession', chronicle=chronicleid, channel=ctx.channel.id)
+                chronicle = dbm.db.select('Chronicle', where='id=$chronicleid', vars=dict(chronicleid=chronicleid))[0]
+                response = f"Sessione iniziata per la cronaca {chronicle['name']}"
                 # todo lista dei pg?
             else:
                 response = "Non hai il ruolo di Storyteller per la questa cronaca"
         elif action in session_end_aliases and len(args) == 1:
             if len(sessions):
-                isAdmin = len(dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=ctx.message.author.id)))
+                ba, _ = isBotAdmin(issuer)
                 st = dbm.db.query('select sc.chronicle from StoryTellerChronicleRel sc join GameSession gs on (sc.chronicle = gs.chronicle) where gs.channel=$channel and sc.storyteller = $st', vars=dict(channel=ctx.channel.id, st=ctx.message.author.id))
-                can_do = isAdmin + len(st)
+                can_do = ba or bool(len(st))
                 if can_do:
                     n = dbm.db.delete('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
                     if n:
@@ -1038,7 +1086,7 @@ async def pgmod(ctx, *args):
         if subcmd in pgmod_subcommands:
             response = await pgmod_subcommands[subcmd][0](ctx, args[1:])
         else:
-            response = f'"{subcmd}" non è un sotttocomando valido!\n'+pgmod_longdescription
+            response = f'"{subcmd}" non è un sottocomando valido!\n'+pgmod_longdescription
 
     await atSend(ctx, response)
 
@@ -1146,6 +1194,9 @@ async def gmadm_newTrait(ctx, args):
         if istrait:
             raise BotException(f"Il tratto {traitid} esiste già!")
 
+        if not validateTraitName(traitid):
+            raise BotException(f"'{traitid}' non è un id valido!")
+
         traittypeid = args[1].lower()
         istraittype, traittype = isValidTraitType(traittypeid)
         if not istraittype:
@@ -1203,7 +1254,7 @@ async def gmadm_updateTrait(ctx, args):
         st, _ = isStoryteller(issuer)
         ba, _ = isBotAdmin(issuer)
         if not (st or ba):
-            raise BotException("Per creare un tratto è necessario essere Admin o Storyteller")
+            raise BotException("Per modificare un tratto è necessario essere Admin o Storyteller")
 
         old_traitid = args[0].lower()
         istrait, old_trait = isValidTrait(old_traitid)
@@ -1214,6 +1265,9 @@ async def gmadm_updateTrait(ctx, args):
         istrait, new_trait = isValidTrait(new_traitid)
         if istrait and (old_traitid!=new_traitid):
             raise BotException(f"Il tratto {new_traitid} esiste già!")
+
+        if not validateTraitName(new_traitid):
+            raise BotException(f"'{new_traitid}' non è un id valido!")
 
         traittypeid = args[2].lower()
         istraittype, traittype = isValidTraitType(traittypeid)
@@ -1280,7 +1334,6 @@ async def gmadm_searchTrait(ctx, args):
             response += f"\n{trait['id']}: {trait['name']}"
         return response
 
-
 gameAdmin_subcommands = {
     "listChronicles": [gmadm_listChronicles, "Elenca le cronache"],
     "newChronicle": [gmadm_newChronicle, "Crea una nuova cronaca associata allo ST che invoca il comando"],
@@ -1303,7 +1356,7 @@ async def gmadm(ctx, *args):
         if subcmd in gameAdmin_subcommands:
             response = await gameAdmin_subcommands[subcmd][0](ctx, args[1:])
         else:
-            response = f'"{subcmd}" non è un sotttocomando valido!\n'+gameAdmin_longdescription
+            response = f'"{subcmd}" non è un sottocomando valido!\n'+gameAdmin_longdescription
         
     await atSend(ctx, response)
 
