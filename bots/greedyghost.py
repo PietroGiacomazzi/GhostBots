@@ -3,6 +3,8 @@
 from discord.ext import commands
 import random, sys, configparser, web, traceback, MySQLdb
 import support.vtm_res as vtm_res
+import support.ghostDB as ghostDB
+import support.utils as utils
 
 if len(sys.argv) == 1:
     print("Specifica un file di configurazione!")
@@ -24,10 +26,11 @@ SPLIT_CMD = ["split"]
 INIZIATIVA_CMD = ["iniziativa", "iniz"]
 RIFLESSI_CMD = ["riflessi", "r"]
 
-NORMALE = 0
-SOMMA = 1
-DANNI = 2
-PROGRESSI = 3
+RollType = utils.enum("NORMALE", "SOMMA", "DANNI", "PROGRESSI")
+RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE")
+RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES")
+
+INFINITY = float("inf")
 
 max_dice = 100
 max_faces = 100
@@ -112,18 +115,15 @@ def findSplit(idx, splits):
             return splits[si][1:]
     return []
 
-class DBManager:
-    def __init__(self, config):
-        self.cfg = config
-        self.reconnect()
-    def reconnect(self):
-        self.db = web.database(dbn=self.cfg['type'], user=self.cfg['user'], pw=self.cfg['pw'], db=self.cfg['database']) # wait_timeout = 3153600# seconds
+def validateTraitName(traitid):
+    forbidden_chars = [" ", "+"]
+    return sum(map(lambda x: traitid.count(x), forbidden_chars)) == 0
 
 class BotException(Exception): # use this for 'known' error situations
     def __init__(self, msg):
         super(BotException, self).__init__(msg)
     
-dbm = DBManager(config['Database'])
+dbm = ghostDB.DBManager(config['Database'])
 
 botcmd_prefixes = ['.']
 bot = commands.Bot(botcmd_prefixes)
@@ -140,70 +140,6 @@ async def on_ready():
     #print(f'Guild Members:\n - {members}')
     #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send("bot is online")
 
-def isValidCharacter(charid):
-    characters = dbm.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
-    return bool(len(characters)), (characters[0] if (len(characters)) else None)
-
-# dato un canale e un utente, trova il pg interpretato
-def getActiveChar(ctx):
-    playercharacters = dbm.db.query("""
-SELECT pc.*
-FROM GameSession gs
-join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
-join PlayerCharacter pc on (pc.id = cc.playerchar)
-where gs.channel = $channel and pc.player = $player
-""", vars=dict(channel=ctx.channel.id, player=ctx.message.author.id))
-    if len(playercharacters) == 0:
-        raise BotException("Non stai interpretando nessun personaggio!")
-    if len(playercharacters) > 1:
-        raise BotException("Stai interplretando più di un personaggio in questa cronaca, non so a chi ti riferisci!")
-    return playercharacters[0]
-
-def getTrait(pc_id, trait_id):
-    traits = dbm.db.query("""
-SELECT
-    ct.*,
-    t.*,
-    tt.textbased as textbased
-FROM CharacterTrait ct
-join Trait t on (t.id = ct.trait)
-join TraitType tt on (t.traittype = tt.id)
-where ct.trait = $trait and ct.playerchar = $pc
-""", vars=dict(trait=trait_id, pc=pc_id))
-    if len(traits) == 0:
-        raise BotException(f'{pc_id} non ha il tratto {trait_id}')
-    return traits[0]
-
-# todo has_trait?
-
-def isBotAdmin(userid):
-    admins = dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=userid))
-    return bool(len(admins)), (admins[0] if (len(admins)) else None)
-
-def isStoryteller(userid):
-    storytellers = dbm.db.select('Storyteller',  where='userid = $userid', vars=dict(userid=userid))
-    return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
-
-def isCharacterOwner(userid, character):
-    characters = dbm.db.select('PlayerCharacter',  where='owner = $owner and id=$character', vars=dict(userid=userid, character=character))
-    return bool(len(characters)), (characters[0] if (len(characters)) else None)
-
-def isChronicleStoryteller(userid, chronicle):
-    storytellers = dbm.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=userid, chronicle = chronicle))
-    return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
-
-def isValidTrait(traitid):
-    traits = dbm.db.select('Trait', where='id=$id', vars=dict(id=traitid))
-    return bool(len(traits)), (traits[0] if (len(traits)) else None)
-
-def isValidTraitType(traittypeid):
-    traittypes = dbm.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
-    return bool(len(traittypes)), (traittypes[0] if (len(traittypes)) else None)
-
-def validateTraitName(traitid):
-    forbidden_chars = [" ", "+"]
-    return sum(map(lambda x: traitid.count(x), forbidden_chars)) == 0
-
 @bot.event
 async def on_command_error(ctx, error):
     ftb = traceback.format_exc()
@@ -217,7 +153,7 @@ async def on_command_error(ctx, error):
             msgsplit = ctx.message.content.split(" ")
             msgsplit[0] = msgsplit[0][1:] # toglie prefisso
             charid = msgsplit[0]
-            ic, character = isValidCharacter(charid)
+            ic, character = dbm.isValidCharacter(charid)
             if ic:
                 await pgmanage(ctx, *msgsplit)
         except MySQLdb.OperationalError as e:
@@ -229,9 +165,13 @@ async def on_command_error(ctx, error):
                 debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
                 await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
         except BotException as e:
+            await atSend(ctx, f'{e}')
+        except ghostDB.DBException as e:
             await atSend(ctx, f'{e}')   
     elif isinstance(error, BotException):
-        await atSend(ctx, f'{error}')     
+        await atSend(ctx, f'{error}')
+    elif isinstance(error, ghostDB.DBException):
+        await atSend(ctx, f'{error}')
     else:
         if isinstance(error, MySQLdb.OperationalError) and error.args[0] == 2006:
             dbm.reconnect()
@@ -249,6 +189,8 @@ async def coin(ctx):
     await atSend(ctx, f'{random.choice(moneta)}')
 
 roll_longdescription = """
+.roll <cosa> <come>
+
 .roll 10d10 - tiro senza difficoltà
 .roll 10d10 somma - somma il numero dei tiri
 .roll 10d10 diff 6 - tiro con difficoltà specifica
@@ -260,229 +202,260 @@ roll_longdescription = """
 .roll 10d10 split 6 7 - split a difficoltà separate [6, 7]
 .roll 10d10 diff 6 multi 3 split 2 6 7  - multipla [3] con split [al 2° tiro] a difficoltà separate [6,7]
 .roll 10d10 multi 3 split 2 6 7 split 3 4 5 - multipla [3] con split al 2° e 3° tiro
+
+Si può sosrtituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e se c'è una sessione aperta verranno prese le statisciche del pg rilevante
+
+Abbreviazioni:
+
+.roll iniziativa: equivale a .roll 1d10 +(destrezza+prontezza+velocità)
+.roll riflessi: equivale a .roll volontà diff (10-prontezza)
 """
 
-# todo: rifare sta merda che è orrendo da leggere e da modificare
-@bot.command(name='roll', aliases=['r', 'tira', 'lancia'], brief = 'Tira dadi', description = roll_longdescription)
-async def roll(ctx, *args):
-    response = ''
-    iniziativa = False
-    riflessi = False
-    try:
-        n = -1
-        faces = -1
-        if len(args) == 0:
-            raise ValueError("roll cosa diomadonna")
-        what = args[0].lower()
-        if what in INIZIATIVA_CMD:
-            n = 1
-            faces = 10
-            iniziativa = True
-        elif what in RIFLESSI_CMD:
-            n = 1
-            faces = 10
-            riflessi = True
-        else:            
-            singletrait, _ = isValidTrait(what)
-            if what.count("+") or singletrait:
-                character = getActiveChar(ctx)
-                split = what.split("+")
-                faces = 10
-                n = 0
-                for trait in split:
-                    n += getTrait(character['id'], trait)['cur_value']
-            else:
-                split = what.split("d")
-                if len(split) > 2:
-                    raise ValueError("Troppe 'd' b0ss")
-                if len(split) == 1:
-                    raise ValueError(f'"{split[0]}" cosa')
-                if split[0] == "":
-                    split[0] = "1"
-                if not split[0].isdigit():
-                    raise ValueError(f'"{split[0]}" non è un numero intero positivo')
-                if split[1] == "":
-                    split[1] = "10"
-                if not split[1].isdigit():
-                    raise ValueError(f'"{split[1]}" non è un numero intero positivo')
-                n = int(split[0])
-                faces = int(split[1])
-        if n == 0:
-            raise ValueError(f'{n} non è > 0')
-        if  faces == 0:
-            raise ValueError(f'{faces} non è > 0')
-        if n > max_dice:
-            raise ValueError(f'{n} dadi sono troppi b0ss')
-        if faces > max_faces:
-            raise ValueError(f'{faces} facce sono un po\' tante')
-        if len(args) == 1 and (not iniziativa)  and (not riflessi): #simple roll
-            raw_roll = list(map(lambda x: random.randint(1, faces), range(n)))
-            response = repr(raw_roll)
-        else:
-            diff = None
-            multi = None
-            split = [] # lista di liste [indice, diff1, diff2]
-            rolltype = 0 # somma, progressi...
-            add = 0 # extra successi
-            # leggo gli argomenti
-            i = 1
-            while i < len(args):
-                if args[i] in SOMMA_CMD:
-                    rolltype = SOMMA
-                elif args[i] in DIFF_CMD:
-                    if diff:
-                        raise ValueError(f'mi hai già dato una difficoltà')
-                    if len(args) == i+1:
-                        raise ValueError(f'diff cosa')
-                    if not args[i+1].isdigit():
-                        raise ValueError(f'"{args[i+1]}" non è una difficoltà valida')
-                    diff = int(args[i+1])
-                    if diff > 10 or diff < 2:
-                        raise ValueError(f'{args[i+1]} non è una difficoltà valida')
-                    i += 1 
-                elif args[i] in MULTI_CMD:
-                    if len(split):
-                        raise ValueError(f'multi va specificato prima di split')
-                    if multi:
-                        raise ValueError(f'Stai tentando di innestare 2 multiple?')
-                    if len(args) == i+1:
-                        raise ValueError(f'multi cosa')
-                    if not args[i+1].isdigit():
-                        raise ValueError(f'"{args[i+1]}" non è un numero di mosse valido')
-                    multi = int(args[i+1])
-                    if multi < 2:
-                        raise ValueError(f'una multipla deve avere almeno 2 tiri!')
-                    if n-multi-(multi-1) <= 0:
-                        raise ValueError(f'Hai lo 0.0001% di riuscita, prova a ridurre i movimenti') # non hai abbastanza dadi per questo numero di mosse!
-                    i += 1
-                elif args[i] in DANNI_CMD:
-                    rolltype = DANNI
-                elif args[i] in PROGRESSI_CMD:
-                    rolltype = PROGRESSI
-                elif args[i] in SPLIT_CMD:
-                    roll_index = 0
-                    if multi:
-                        if len(args) < i+4:
-                            raise ValueError(f'split prende almeno 3 parametri con multi!')
-                        if not args[i+1].isdigit() or args[i+1] == "0":
-                            raise ValueError(f'"{args[i+1]}" non è un intero positivo')
-                        roll_index = int(args[i+1])-1
-                        if roll_index >= multi:
-                            raise ValueError(f'"Non puoi splittare il tiro {args[i+1]} con multi {multi}')
-                        if sum(filter(lambda x: x[0] == roll_index, split)): # cerco se ho giò splittato questo tiro
-                            raise ValueError(f'Stai già splittando il tiro {roll_index+1}')
-                        i += 1
-                    else: # not an elif because reasons
-                        if len(args) < i+3:
-                            raise ValueError(f'split prende almeno 2 parametri!')
-                    temp = args[i+1:i+3]
-                    if (not temp[0].isdigit()) or temp[0] == "0":
-                        raise ValueError(f'"{temp[0]}" non è un intero positivo')
-                    if (not temp[1].isdigit()) or temp[1] == "0":
-                        raise ValueError(f'"{temp[1]}" non è un intero positivo')
-                    split.append( [roll_index] + list(map(int, temp)))
-                    i += 2
-                elif args[i].startswith("+"):
-                    raw = args[i][1:]
-                    if raw == "":
-                        if len(args) == i+1:
-                            raise ValueError(f'+ cosa')
-                        raw = args[i+1]
-                        i += 1
-                    if not raw.isdigit() or raw == "0":
-                        raise ValueError(f'"{raw}" non è un intero positivo')
-                    add = int(raw)
-                else:
-                    width = 3
-                    ht = " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
-                    raise ValueError(f"L'argomento '{args[i]}' in '{ht}' non mi è particolarmente chiaro")
-                i += 1
-            # decido cosa fare
-            if iniziativa:
-                raw_roll = random.randint(1, faces)
-                bonuses_log = []
-                bonus = add
-                if add:
-                    bonuses_log.append( f'bonus: {add}' )
-                try:
-                    character = getActiveChar(ctx)
-                    for traitid in ['prontezza', 'destrezza', 'velocità']:
-                        try:
-                            val = getTrait(character['id'], traitid)['cur_value']
-                            bonus += val
-                            bonuses_log.append( f'{traitid}: {val}' )
-                        except BotException:
-                            pass
-                except BotException:
-                    response += 'Nessun personaggio !\n'
-                if len(bonuses_log):
-                    response += (", ".join(bonuses_log)) + "\n"
-                final_val = raw_roll+bonus
-                if multi or len(split) or (not rolltype in [NORMALE, SOMMA]) or diff:
-                    raise BotException("Combinazione di parametri non valida!")
-                response += f'Iniziativa: **{final_val}**, tiro: [{raw_roll}]' + (f'+{bonus}' if bonus else '')
-            elif riflessi:
-                if multi or len(split) or (not rolltype in [NORMALE, SOMMA]) or diff:
-                    raise BotException("Combinazione di parametri non valida!")
-                character = getActiveChar(ctx)
-                volonta = getTrait(character['id'], 'volonta')['cur_value']
-                prontezza = getTrait(character['id'], 'prontezza')['cur_value']
-                diff = 10 - prontezza
-                response = f'Volontà corrente: {volonta}, Prontezza: {prontezza} -> {volonta}d{faces} diff ({faces}-{prontezza})\n'
-                response += rollAndFormatVTM(volonta, faces, diff, rollStatusReflexes, add)
-            elif multi:
-                if rolltype == NORMALE:
-                    response = ""
-                    if not diff:
-                        raise ValueError(f'Si ma mi devi dare una difficoltà')
-                    for i in range(multi):
-                        parziale = ''
-                        ndadi = n-i-multi
-                        split_diffs = findSplit(i, split)
-                        if len(split_diffs):
-                            pools = [(ndadi-ndadi//2), ndadi//2]
-                            for j in range(len(pools)):
-                                parziale += f'\nTiro {j+1}: '+ rollAndFormatVTM(pools[j], faces, split_diffs[j])
-                        else:
-                            parziale = rollAndFormatVTM(ndadi, faces, diff)
-                        response += f'\nAzione {i+1}: '+parziale # line break all'inizio tanto c'è il @mention
-                else:
-                    raise ValueError(f'Combinazione di parametri non supportata')
-            else: # 1 tiro solo 
-                if len(split):
-                    if rolltype == NORMALE:
-                        pools = [(n-n//2), n//2]
-                        response = ''
-                        for i in range(len(pools)):
-                            parziale = rollAndFormatVTM(pools[i], faces, split[0][i+1])
-                            response += f'\nTiro {i+1}: '+parziale
-                    else:
-                        raise ValueError(f'Combinazione di parametri non supportata')
-                else:
-                    if rolltype == NORMALE: # tiro normale
-                        if not diff:
-                            raise ValueError(f'Si ma mi devi dare una difficoltà')
-                        #successi, tiro = vtm_res.decider(sorted(raw_roll), diff)
-                        response = rollAndFormatVTM(n, faces, diff, rollStatusNormal, add)
-                    elif rolltype == SOMMA:
-                        raw_roll = list(map(lambda x: random.randint(1, faces), range(n)))
-                        somma = sum(raw_roll)+add
-                        response = f'somma: **{somma}**, tiro: {raw_roll}' + (f'+{add}' if add else '')
-                    elif rolltype == DANNI:
-                        if not diff:
-                            diff = 6
-                        response = rollAndFormatVTM(n, faces, diff, rollStatusDMG, add, False)
-                    elif rolltype == PROGRESSI:
-                        if not diff:
-                            diff = 6
-                        response = rollAndFormatVTM(n, faces, diff, rollStatusProgress, add, False, True)
-                    else:
-                        raise ValueError(f'Tipo di tiro sconosciuto: {rolltype}')
-            
-    except ValueError as e:
-        response = str(e)
-    await atSend(ctx, response)
+# input: l'espressione <what> in .roll <what> [<args>]
+# output: tipo di tiro, numero di dadi, numero di facce
+def parseRollWhat(ctx, what):
+    n = -1
+    faces = -1
 
+    # tiri custom 
+    if what in INIZIATIVA_CMD:
+        return RollCat.INITIATIVE, 1, 10
+    if what in RIFLESSI_CMD:
+        return RollCat.REFLEXES, 1, 10
+
+    # combinazione di tratti
+    singletrait, _ = dbm.isValidTrait(what)
+    if what.count("+") or singletrait:
+        character = dbm.getActiveChar(ctx)
+        split = what.split("+")
+        faces = 10
+        n = 0
+        for trait in split:
+            n += dbm.getTrait(character['id'], trait)['cur_value']
+        return RollCat.DICE, n, faces
+
+    # espressione xdy
+    split = what.split("d")
+    if len(split) > 2:
+        raise BotException("Troppe 'd' b0ss")
+    if len(split) == 1:
+        raise BotException(f'"{split[0]}" cosa')
+    if split[0] == "":
+        split[0] = "1"
+    if not split[0].isdigit():
+        raise BotException(f'"{split[0]}" non è un numero intero positivo')
+    if split[1] == "":
+        split[1] = "10"
+    if not split[1].isdigit():
+        raise BotException(f'"{split[1]}" non è un numero intero positivo')
+    n = int(split[0])
+    faces = int(split[1])
+    if n == 0:
+        raise BotException(f'{n} non è > 0')
+    if  faces == 0:
+        raise BotException(f'{faces} non è > 0')
+    if n > max_dice:
+        raise BotException(f'{n} dadi sono troppi b0ss')
+    if faces > max_faces:
+        raise BotException(f'{faces} facce sono un po\' tante')
+    return RollCat.DICE, n, faces
+
+def validateNumber(args, i, err_msg = 'un intero positivo'):
+    if not args[i].isdigit():
+        raise ValueError(f'"{args[i]}" non è {err_msg}')
+    return i, int(args[i])
+
+def validateBoundedNumber(args, i, min_bound, max_bound = INFINITY, err_msg = "un numero nell'intervallo accettato"):
+    _, num = validateNumber(args, i)
+    if num > max_bound or num < min_bound:
+        raise ValueError(f'{num} non è {err_msg}')
+    return i, num
+
+def validateIntegerGreatZero(args, i):
+    return validateBoundedNumber(args, i, 1, err_msg = "un intero maggiore di zero")
+
+def validateDifficulty(args, i):
+    return validateBoundedNumber(args, i, 2, 10, "una difficoltà valida")
+
+# input: sequenza di argomenti per .roll
+# output: dizionario popolato con gli argomenti validati
+def parseRollArgs(args, n):
+    parsed = {
+        RollArg.ROLLTYPE: RollType.NORMALE # default
+        }
+    # leggo gli argomenti scorrendo args
+    i = 0
+    while i < len(args):
+        if args[i] in SOMMA_CMD:
+            parsed[RollArg.ROLLTYPE] = RollType.SOMMA
+        elif args[i] in DIFF_CMD:
+            if RollArg.DIFF in parsed:
+                raise ValueError(f'mi hai già dato una difficoltà')
+            if len(args) == i+1:
+                raise ValueError(f'diff cosa')
+            i, diff = validateDifficulty(args, i+1)
+            parsed[RollArg.DIFF] = diff
+        elif args[i] in MULTI_CMD:
+            if RollArg.SPLIT in parsed:
+                raise ValueError(f'multi va specificato prima di split')
+            if RollArg.MULTI in parsed:
+                raise ValueError(f'Stai tentando di innestare 2 multiple?')
+            if len(args) == i+1:
+                raise ValueError(f'multi cosa')
+            max_moves = (n+1)/2
+            i, multi = validateBoundedNumber(args, i+1, 2, max_moves, f"un numero di mosse valido per il tuo dice pool (da 2 a {int(max_moves)})")
+            parsed[RollArg.MULTI] = multi
+        elif args[i] in DANNI_CMD:
+            parsed[RollArg.ROLLTYPE] = RollType.DANNI
+        elif args[i] in PROGRESSI_CMD:
+            parsed[RollArg.ROLLTYPE] = RollType.PROGRESSI
+        elif args[i] in SPLIT_CMD:
+            roll_index = 0
+            split = []
+            if RollArg.SPLIT in parsed: # fetch previous splits
+                split = parsed[RollArg.SPLIT]
+            if RollArg.MULTI in parsed:
+                if len(args) < i+4:
+                    raise ValueError(f'split prende almeno 3 parametri con multi!')
+                i, temp = validateIntegerGreatZero(args, i+1)
+                roll_index = temp-1
+                if roll_index >= parsed[RollArg.MULTI]:
+                    raise ValueError(f'"Non puoi splittare il tiro {args[i+1]} con multi {multi}')
+                if sum(filter(lambda x: x[0] == roll_index, split)): # cerco se ho giò splittato questo tiro
+                    raise ValueError(f'Stai già splittando il tiro {roll_index+1}')
+            else: # not an elif because reasons
+                if len(args) < i+3:
+                    raise ValueError(f'split prende almeno 2 parametri!')
+            i, d1 = validateIntegerGreatZero(args, i+1)
+            i, d2 = validateIntegerGreatZero(args, i+1)
+            split.append( [roll_index] + list(map(int, [d1, d2])))
+            parsed[RollArg.SPLIT] = split # save the new split
+        elif args[i].startswith("+"):
+            raw = args[i][1:]
+            if raw == "":
+                if len(args) == i+1:
+                    raise ValueError(f'+ cosa')
+                raw = args[i+1] # support for space
+                i += 1
+            if not raw.isdigit() or raw == "0":
+                raise ValueError(f'"{raw}" non è un intero positivo')
+            add = int(raw)
+            parsed[RollArg.ADD] = add
+        else:
+            width = 3
+            ht = " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
+            raise ValueError(f"L'argomento '{args[i]}' in '{ht}' non mi è particolarmente chiaro")
+        i += 1
+    return parsed
+
+@bot.command(name='roll', aliases=['r', 'tira', 'lancia'], brief = 'Tira dadi', description = roll_longdescription) 
+async def roll(ctx, *args):
+    if len(args) == 0:
+        raise BotException("roll cosa diomadonna")
+    # capisco quanti dadi tirare
+    what = args[0].lower()
+    action, ndice, nfaces = parseRollWhat(ctx, what)
+    # leggo e imposto le varie opzioni
+    parsed = None
+    try:
+        parsed = parseRollArgs(args[1:], ndice)
+    except ValueError as e:
+        await atSend(ctx, str(e))
+        return
+
+    # decido cosa fare
+    if len(args) == 1 and action == RollCat.DICE : #simple roll
+        raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
+        await atSend(ctx, repr(raw_roll))
+        return
+
+    response = ''
+    add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
+    if action == RollCat.INITIATIVE:
+        if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
+            raise BotException("Combinazione di parametri non valida!")
+        raw_roll = random.randint(1, nfaces)
+        bonuses_log = []
+        bonus = add
+        if add:
+            bonuses_log.append( f'bonus: {add}' )
+        try:
+            character = dbm.getActiveChar(ctx)
+            for traitid in ['prontezza', 'destrezza', 'velocità']:
+                try:
+                    val = dbm.getTrait(character['id'], traitid)['cur_value']
+                    bonus += val
+                    bonuses_log.append( f'{traitid}: {val}' )
+                except BotException:
+                    pass
+        except BotException:
+            response += 'Nessun personaggio !\n'
+        if len(bonuses_log):
+            response += (", ".join(bonuses_log)) + "\n"
+        final_val = raw_roll+bonus
+        response += f'Iniziativa: **{final_val}**, tiro: [{raw_roll}]' + (f'+{bonus}' if bonus else '')
+    elif action == RollCat.REFLEXES:
+        if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
+            raise BotException("Combinazione di parametri non valida!")
+        character = dbm.getActiveChar(ctx)
+        volonta = dbm.getTrait(character['id'], 'volonta')['cur_value']
+        prontezza = dbm.getTrait(character['id'], 'prontezza')['cur_value']
+        diff = 10 - prontezza
+        response = f'Volontà corrente: {volonta}, Prontezza: {prontezza} -> {volonta}d{nfaces} diff ({nfaces}-{prontezza})\n'
+        response += rollAndFormatVTM(volonta, nfaces, diff, rollStatusReflexes, add)
+    elif RollArg.MULTI in parsed:
+        multi = parsed[RollArg.MULTI]
+        split = []
+        if RollArg.SPLIT in parsed:
+            split = parsed[RollArg.SPLIT]
+        if parsed[RollArg.ROLLTYPE] == RollType.NORMALE:
+            response = ""
+            if not RollArg.DIFF in parsed:
+                raise BotException(f'Si ma mi devi dare una difficoltà')
+            for i in range(multi):
+                parziale = ''
+                ndadi = ndice-i-multi
+                split_diffs = findSplit(i, split)
+                if len(split_diffs):
+                    pools = [(ndadi-ndadi//2), ndadi//2]
+                    for j in range(len(pools)):
+                        parziale += f'\nTiro {j+1}: '+ rollAndFormatVTM(pools[j], nfaces, split_diffs[j])
+                else:
+                    parziale = rollAndFormatVTM(ndadi, nfaces, parsed[RollArg.DIFF])
+                response += f'\nAzione {i+1}: '+parziale # line break all'inizio tanto c'è il @mention
+        else:
+            raise BotException(f'Combinazione di parametri non supportata')
+    else: # 1 tiro solo 
+        if RollArg.SPLIT in parsed:
+            split = parsed[RollArg.SPLIT]
+            if parsed[RollArg.ROLLTYPE] == RollType.NORMALE:
+                pools = [(ndice-ndice//2), ndice//2]
+                response = ''
+                for i in range(len(pools)):
+                    parziale = rollAndFormatVTM(pools[i], nfaces, split[0][i+1])
+                    response += f'\nTiro {i+1}: '+parziale
+            else:
+                raise BotException(f'Combinazione di parametri non supportata')
+        else:
+            if parsed[RollArg.ROLLTYPE] == RollType.NORMALE: # tiro normale
+                if not RollArg.DIFF in parsed:
+                    raise BotException(f'Si ma mi devi dare una difficoltà')
+                response = rollAndFormatVTM(ndice, nfaces, parsed[RollArg.DIFF], rollStatusNormal, add)
+            elif parsed[RollArg.ROLLTYPE] == RollType.SOMMA:
+                raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
+                somma = sum(raw_roll)+add
+                response = f'somma: **{somma}**, tiro: {raw_roll}' + (f'+{add}' if add else '')
+            elif parsed[RollArg.ROLLTYPE] == RollType.DANNI:
+                diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
+                response = rollAndFormatVTM(ndice, nfaces, diff, rollStatusDMG, add, False)
+            elif parsed[RollArg.ROLLTYPE] == RollType.PROGRESSI:
+                diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
+                response = rollAndFormatVTM(ndice, nfaces, diff, rollStatusProgress, add, False, True)
+            else:
+                raise BotException(f'Tipo di tiro sconosciuto: {rolltype}')
+    await atSend(ctx, response)
+    
+        
 @bot.command(brief='Lascia che il Greedy Ghost ti saluti.')
 async def salut(ctx):
     await atSend(ctx, 'Shalom!')
@@ -555,8 +528,8 @@ async def session(ctx, *args):
         action = args[0].lower()       
         if action in session_start_aliases and len(args) == 2:
             chronicleid = args[1].lower()
-            st, _ = isChronicleStoryteller(issuer, chronicleid)
-            ba, _ = isBotAdmin(issuer)
+            st, _ = dbm.isChronicleStoryteller(issuer, chronicleid)
+            ba, _ = dbm.isBotAdmin(issuer)
             can_do = st or ba
             #can_do = len(dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=ctx.message.author.id))) + len(dbm.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=ctx.message.author.id, chronicle = chronicle)))
             if len(sessions):
@@ -570,7 +543,7 @@ async def session(ctx, *args):
                 response = "Non hai il ruolo di Storyteller per la questa cronaca"
         elif action in session_end_aliases and len(args) == 1:
             if len(sessions):
-                ba, _ = isBotAdmin(issuer)
+                ba, _ = dbm.isBotAdmin(issuer)
                 st = dbm.db.query('select sc.chronicle from StoryTellerChronicleRel sc join GameSession gs on (sc.chronicle = gs.chronicle) where gs.channel=$channel and sc.storyteller = $st', vars=dict(channel=ctx.channel.id, st=ctx.message.author.id))
                 can_do = ba or bool(len(st))
                 if can_do:
@@ -700,10 +673,10 @@ async def pc_interact(pc, can_edit, *args):
         if trait_id.count("+"):
             count = 0
             for tid in trait_id.split("+"):
-                count += getTrait(pc['id'], tid)['cur_value']
+                count += dbm.getTrait(pc['id'], tid)['cur_value']
             return f"{args[0]}: {count}"
         else:
-            trait = getTrait(pc['id'], trait_id)
+            trait = dbm.getTrait(pc['id'], trait_id)
             prettyFormatter = trackerFormatter(trait)
             return prettyFormatter(trait)
 
@@ -716,7 +689,7 @@ async def pc_interact(pc, can_edit, *args):
     if not operazione in ["+", "-", "="]:
         return "Stai usando il comando in modo improprio"
  
-    trait = getTrait(pc['id'], trait_id)
+    trait = dbm.getTrait(pc['id'], trait_id)
     prettyFormatter = trackerFormatter(trait)
     if trait['pimp_max']==0 and trait['trackertype']==0:
         raise BotException(f"Non puoi modificare il valore corrente di {trait['name']}")
@@ -738,7 +711,7 @@ async def pc_interact(pc, can_edit, *args):
         #
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), cur_value = trait['cur_value'] + n)
         if u == 1:
-            trait = getTrait(pc['id'], trait_id)
+            trait = dbm.getTrait(pc['id'], trait_id)
             return prettyFormatter(trait)
         else:
             return f'Qualcosa è andato storto, righe aggiornate: {u}'
@@ -799,7 +772,7 @@ async def pc_interact(pc, can_edit, *args):
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
         if u != 1 and not rip:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
-        trait = getTrait(pc['id'], trait_id)
+        trait = dbm.getTrait(pc['id'], trait_id)
         response = prettyFormatter(trait)
         if rip:
             response += "\n\n RIP"
@@ -829,7 +802,7 @@ async def pc_interact(pc, can_edit, *args):
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
-        trait = getTrait(pc['id'], trait_id)
+        trait = dbm.getTrait(pc['id'], trait_id)
         response = prettyFormatter(trait)
     else: # =
         full = param[1:]
@@ -841,7 +814,7 @@ async def pc_interact(pc, can_edit, *args):
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = 1)
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
-        trait = getTrait(pc['id'], trait_id)
+        trait = dbm.getTrait(pc['id'], trait_id)
         response = prettyFormatter(trait)
 
     return response
@@ -857,7 +830,7 @@ me_description = """.me <NomeTratto> [<Operazione>]
 
 @bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
 async def me(ctx, *args):
-    pc = getActiveChar(ctx)
+    pc = dbm.getActiveChar(ctx)
     response = await pc_interact(pc, True, *args)
     await atSend(ctx, response)
 
@@ -867,7 +840,7 @@ async def pgmanage(ctx, *args):
         raise BotException('Specifica un pg!')
 
     charid = args[0].lower()
-    isChar, character = isValidCharacter(charid)
+    isChar, character = dbm.isValidCharacter(charid)
     if not isChar:
         raise BotException(f"Il personaggio {charid} non esiste!")
 
@@ -876,8 +849,8 @@ async def pgmanage(ctx, *args):
     playerid = character['player']
     co = playerid == issuer
     
-    st, _ = isStoryteller(issuer) # della cronaca?
-    ba, _ = isBotAdmin(issuer)    
+    st, _ = dbm.isStoryteller(issuer) # della cronaca?
+    ba, _ = dbm.isBotAdmin(issuer)    
     ce = st or ba # can edit
     if co and (not ce):
         #1: unlinked
@@ -911,8 +884,8 @@ async def pgmod_create(ctx, args):
         # permission checks
         issuer = str(ctx.message.author.id)
         if issuer != owner: # chiunque può crearsi un pg, ma per crearlo a qualcun'altro serve essere ST/admin
-            st, _ = isStoryteller(issuer)
-            ba, _ = isBotAdmin(issuer)
+            st, _ = dbm.isStoryteller(issuer)
+            ba, _ = dbm.isBotAdmin(issuer)
             if not (st or ba):
                 raise BotException("Per creare un pg ad un altra persona è necessario essere Admin o Storyteller")
         
@@ -951,7 +924,7 @@ async def pgmod_chronicleAdd(ctx, args):
         return helptext
     else:
         charid = args[0].lower()
-        isChar, character = isValidCharacter(charid)
+        isChar, character = dbm.isValidCharacter(charid)
         if not isChar:
             raise BotException(f"Il personaggio {charid} non esiste!")
         chronid = args[1].lower()
@@ -962,8 +935,8 @@ async def pgmod_chronicleAdd(ctx, args):
 
         # permission checks
         issuer = str(ctx.message.author.id)
-        st, _ = isChronicleStoryteller(issuer, chronicle['id'])
-        ba, _ = isBotAdmin(issuer)
+        st, _ = dbm.isChronicleStoryteller(issuer, chronicle['id'])
+        ba, _ = dbm.isBotAdmin(issuer)
         if not (st or ba):
             raise BotException("Per associare un pg ad una cronaca necessario essere Admin o Storyteller di quella cronaca")
         
@@ -979,7 +952,7 @@ async def pgmod_traitAdd(ctx, args):
     else:
         charid = args[0].lower()
         traitid = args[1].lower()
-        isChar, character = isValidCharacter(charid)
+        isChar, character = dbm.isValidCharacter(charid)
         if not isChar:
             raise BotException(f"Il personaggio {charid} non esiste!")
 
@@ -987,8 +960,8 @@ async def pgmod_traitAdd(ctx, args):
         issuer = str(ctx.message.author.id)
         ownerid = character['owner']
         
-        st, _ = isStoryteller(issuer) # della cronaca?
-        ba, _ = isBotAdmin(issuer)
+        st, _ = dbm.isStoryteller(issuer) # della cronaca?
+        ba, _ = dbm.isBotAdmin(issuer)
         co = False
         if ownerid == issuer and not (st or ba):
             #1: unlinked
@@ -1003,7 +976,7 @@ where gs.channel = $channel and cc.playerchar = $charid
         if not (st or ba or co):
             raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
 
-        istrait, trait = isValidTrait(traitid)
+        istrait, trait = dbm.isValidTrait(traitid)
         if not istrait:
             raise BotException(f"Il tratto {traitid} non esiste!")
         
@@ -1027,7 +1000,7 @@ async def pgmod_traitMod(ctx, args):
         return helptext
     else:
         charid = args[0].lower()
-        isChar, character = isValidCharacter(charid)
+        isChar, character = dbm.isValidCharacter(charid)
         if not isChar:
             raise BotException(f"Il personaggio {charid} non esiste!")
 
@@ -1035,8 +1008,8 @@ async def pgmod_traitMod(ctx, args):
         issuer = str(ctx.message.author.id)
         ownerid = character['owner']
         
-        st, _ = isStoryteller(issuer) # della cronaca?
-        ba, _ = isBotAdmin(issuer)
+        st, _ = dbm.isStoryteller(issuer) # della cronaca?
+        ba, _ = dbm.isBotAdmin(issuer)
         co = False
         if ownerid == issuer and not (st or ba):
             #1: unlinked
@@ -1052,7 +1025,7 @@ where gs.channel = $channel and cc.playerchar = $charid
             raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
 
         traitid = args[1].lower()
-        istrait, trait = isValidTrait(traitid)
+        istrait, trait = dbm.isValidTrait(traitid)
         if not istrait:
             raise BotException(f"Il tratto {traitid} non esiste!")
         
@@ -1074,23 +1047,6 @@ pgmod_subcommands = {
     "addt": [pgmod_traitAdd, "Aggiunge tratto ad un personaggio"],
     "modt": [pgmod_traitMod, "Modifica un tratto di un personaggio"]
     }
-pgmod_longdescription = "\n".join(list(map(lambda x: botcmd_prefixes[0]+"pgmod "+x+" [arg1, ...]: "+pgmod_subcommands[x][1], pgmod_subcommands.keys()))) + "\n\nInvoca un sottocomando senza argomenti per avere ulteriori informazioni sugli argomenti"
-
-@bot.command(brief='Crea e modifica personaggi', description = pgmod_longdescription)
-async def pgmod(ctx, *args):
-    response = 'Azioni disponibili (invoca una azione senza argomenti per conoscere il funzionamento):\n'
-    if len(args) == 0:
-        response += pgmod_longdescription
-    else:
-        subcmd = args[0]
-        if subcmd in pgmod_subcommands:
-            response = await pgmod_subcommands[subcmd][0](ctx, args[1:])
-        else:
-            response = f'"{subcmd}" non è un sottocomando valido!\n'+pgmod_longdescription
-
-    await atSend(ctx, response)
-
-##
 
 async def gmadm_listChronicles(ctx, args):
     # voglio anche gli ST collegati
@@ -1107,7 +1063,7 @@ async def gmadm_newChronicle(ctx, args):
 
         # permission checks
         issuer = str(ctx.message.author.id)
-        st, _ = isStoryteller(issuer) # della cronaca?
+        st, _ = dbm.isStoryteller(issuer) # della cronaca?
         # no botadmin perchè non è necessariente anche uno storyteller e dovrei faren check in più e non ho voglia
         if not (st):
             raise BotException("Per creare una cronaca è necessario essere Storyteller")
@@ -1184,13 +1140,13 @@ async def gmadm_newTrait(ctx, args):
     else:
         # permission checks
         issuer = ctx.message.author.id
-        st, _ = isStoryteller(issuer)
-        ba, _ = isBotAdmin(issuer)
+        st, _ = dbm.isStoryteller(issuer)
+        ba, _ = dbm.isBotAdmin(issuer)
         if not (st or ba):
             raise BotException("Per creare un tratto è necessario essere Admin o Storyteller")
         
         traitid = args[0].lower()
-        istrait, trait = isValidTrait(traitid)
+        istrait, trait = dbm.isValidTrait(traitid)
         if istrait:
             raise BotException(f"Il tratto {traitid} esiste già!")
 
@@ -1198,7 +1154,7 @@ async def gmadm_newTrait(ctx, args):
             raise BotException(f"'{traitid}' non è un id valido!")
 
         traittypeid = args[1].lower()
-        istraittype, traittype = isValidTraitType(traittypeid)
+        istraittype, traittype = dbm.isValidTraitType(traittypeid)
         if not istraittype:
             raise BotException(f"Il tipo di tratto {traittypeid} non esiste!")
 
@@ -1251,18 +1207,18 @@ async def gmadm_updateTrait(ctx, args):
     else:
         # permission checks
         issuer = ctx.message.author.id
-        st, _ = isStoryteller(issuer)
-        ba, _ = isBotAdmin(issuer)
+        st, _ = dbm.isStoryteller(issuer)
+        ba, _ = dbm.isBotAdmin(issuer)
         if not (st or ba):
             raise BotException("Per modificare un tratto è necessario essere Admin o Storyteller")
 
         old_traitid = args[0].lower()
-        istrait, old_trait = isValidTrait(old_traitid)
+        istrait, old_trait = dbm.isValidTrait(old_traitid)
         if not istrait:
             raise BotException(f"Il tratto {old_traitid} non esiste!")
         
         new_traitid = args[1].lower()
-        istrait, new_trait = isValidTrait(new_traitid)
+        istrait, new_trait = dbm.isValidTrait(new_traitid)
         if istrait and (old_traitid!=new_traitid):
             raise BotException(f"Il tratto {new_traitid} esiste già!")
 
@@ -1270,7 +1226,7 @@ async def gmadm_updateTrait(ctx, args):
             raise BotException(f"'{new_traitid}' non è un id valido!")
 
         traittypeid = args[2].lower()
-        istraittype, traittype = isValidTraitType(traittypeid)
+        istraittype, traittype = dbm.isValidTraitType(traittypeid)
         if not istraittype:
             raise BotException(f"Il tipo di tratto {traittypeid} non esiste!")
 
@@ -1344,20 +1300,26 @@ gameAdmin_subcommands = {
     # todo: nomina storyteller, associa storyteller a cronaca
     # todo: dissociazioni varie
     }
-gameAdmin_longdescription = "\n".join(list(map(lambda x: botcmd_prefixes[0]+"gmadm "+x+" [arg1, ...]: "+gameAdmin_subcommands[x][1], gameAdmin_subcommands.keys())))  + "\n\nInvoca un sottocomando senza argomenti per avere ulteriori informazioni sugli argomenti"
 
-@bot.command(brief="Gestione dell'ambiente di gioco", description = gameAdmin_longdescription)
-async def gmadm(ctx, *args):
-    response = 'Azioni disponibili (invoca una azione senza argomenti per conoscere il funzionamento):\n'
-    if len(args) == 0:
-        response += gameAdmin_longdescription
-    else:
-        subcmd = args[0]
-        if subcmd in gameAdmin_subcommands:
-            response = await gameAdmin_subcommands[subcmd][0](ctx, args[1:])
+def generateNestedCmd(cmd_name, cmd_brief, cmd_dict):
+    longdescription = "\n".join(list(map(lambda x: botcmd_prefixes[0]+cmd_name+" "+x+" [arg1, ...]: "+cmd_dict[x][1], cmd_dict.keys())))  + "\n\nInvoca un sottocomando senza argomenti per avere ulteriori informazioni sugli argomenti"
+
+    @bot.command(name=cmd_name, brief=cmd_brief, description = longdescription)
+    async def generatedCommand(ctx, *args):
+        response = 'Azioni disponibili (invoca una azione senza argomenti per conoscere il funzionamento):\n'
+        if len(args) == 0:
+            response += longdescription
         else:
-            response = f'"{subcmd}" non è un sottocomando valido!\n'+gameAdmin_longdescription
-        
-    await atSend(ctx, response)
+            subcmd = args[0]
+            if subcmd in cmd_dict:
+                response = await cmd_dict[subcmd][0](ctx, args[1:])
+            else:
+                response = f'"{subcmd}" non è un sottocomando valido!\n'+longdescription
+            
+        await atSend(ctx, response)
+
+gmadm = generateNestedCmd('gmadm', "Gestione dell'ambiente di gioco", gameAdmin_subcommands)
+pgmod = generateNestedCmd('pgmod', "Gestione prsonaggi", pgmod_subcommands)
+
 
 bot.run(TOKEN)
