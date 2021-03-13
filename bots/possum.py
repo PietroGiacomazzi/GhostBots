@@ -79,7 +79,13 @@ async def rossellini(ctx):
 		'Riuscirai a fare schifo anche oggi? Si.. ovvio che si' ,
 		'Ma tu guarda! Devo insultarti ancora, che lavoro delizioso. Fai schifo.' ,
 		'Sarebbe stato più produttivo rovistare nella casella postale della discarica' ,
-		'Non ti bastava essere Italiano? Dovevi per forza essere anche osceno?' 
+		'Non ti bastava essere Italiano? Dovevi per forza essere anche osceno?' ,
+		"Nessuno si stanca mai di ricordarti che è meglio il bidone dell'umido" ,
+		'Oggi nel bidone della monnezza ho trovato le tue palle, da quanto le avevi perse?' ,
+		'Sei più imbarazzante del tuo amico nero' ,
+		'Prima o poi riuscirò a morderti davvero' ,
+		'Guardarti in faccia rischia di farmi morire di nuovo' ,
+		'Maledetto Rossellini' 
 		 ]
 	await ctx.send(f'{random.choice(insulti)}')
 
