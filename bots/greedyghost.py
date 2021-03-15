@@ -23,12 +23,13 @@ DANNI_CMD = ["danni", "dmg"]
 PROGRESSI_CMD = ["progressi", "p"]
 SPLIT_CMD = ["split"]
 
+SOAK_CMD = ["soak", "assorbi"]
 INIZIATIVA_CMD = ["iniziativa", "iniz"]
 RIFLESSI_CMD = ["riflessi", "r"]
 
-RollType = utils.enum("NORMALE", "SOMMA", "DANNI", "PROGRESSI")
-RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE")
-RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES")
+RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES", "SOAK") # macro categoria che divide le azioni di tiro
+RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE") # argomenti del tiro
+RollType = utils.enum("NORMALE", "SOMMA", "DANNI", "PROGRESSI") # sottotipo dell'argomento RollType
 
 INFINITY = float("inf")
 
@@ -95,6 +96,14 @@ def rollStatusReflexes(n):
         return f':green_square: ** Successo!**'
     else:
         return f':yellow_square: **Fallimento!**'
+
+def rollStatusSoak(n):
+    if n == 1:
+        return f':green_square: **{1} Danno assorbito**'
+    elif n > 1:
+        return f':green_square: **{n} Danni assorbiti**'
+    else:
+        return f':red_square: **Nessun danno assorbito**'
 
 def rollAndFormatVTM(ndice, nfaces, diff, statusFunc = rollStatusNormal, extra_succ = 0, cancel = True, spec = False):
     successi, tiro, cancel = vtm_res.roller(ndice, nfaces, diff, cancel, spec)
@@ -203,12 +212,13 @@ roll_longdescription = """
 .roll 10d10 diff 6 multi 3 split 2 6 7  - multipla [3] con split [al 2° tiro] a difficoltà separate [6,7]
 .roll 10d10 multi 3 split 2 6 7 split 3 4 5 - multipla [3] con split al 2° e 3° tiro
 
-Si può sosrtituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e se c'è una sessione aperta verranno prese le statisciche del pg rilevante
+Si può sosrtituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e se c'è una sessione aperta verranno prese le statistiche del pg rilevante
 
-Abbreviazioni:
+Scorciatoie:
 
 .roll iniziativa: equivale a .roll 1d10 +(destrezza+prontezza+velocità)
 .roll riflessi: equivale a .roll volontà diff (10-prontezza)
+.roll assorbi: equivale a .roll costituzione+robustezza diff 6 danni
 """
 
 # input: l'espressione <what> in .roll <what> [<args>]
@@ -222,6 +232,8 @@ def parseRollWhat(ctx, what):
         return RollCat.INITIATIVE, 1, 10
     if what in RIFLESSI_CMD:
         return RollCat.REFLEXES, 1, 10
+    if what in SOAK_CMD:
+        return RollCat.SOAK, 1, 10
 
     # combinazione di tratti
     singletrait, _ = dbm.isValidTrait(what)
@@ -370,6 +382,8 @@ async def roll(ctx, *args):
         return
 
     response = ''
+    if parsed[RollArg.ROLLTYPE] == RollType.NORMALE and not RollArg.DIFF in parsed and RollArg.ADD in parsed: #se non c'è difficoltà tramuta un tiro in un tiro somma instile dnd
+        parsed[RollArg.ROLLTYPE] = RollType.SOMMA
     add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
     if action == RollCat.INITIATIVE:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
@@ -403,6 +417,17 @@ async def roll(ctx, *args):
         diff = 10 - prontezza
         response = f'Volontà corrente: {volonta}, Prontezza: {prontezza} -> {volonta}d{nfaces} diff ({nfaces}-{prontezza})\n'
         response += rollAndFormatVTM(volonta, nfaces, diff, rollStatusReflexes, add)
+    elif action == RollCat.SOAK:
+        if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or RollArg.ADD in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE:
+            raise BotException("Combinazione di parametri non valida!")
+        diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
+        character = dbm.getActiveChar(ctx)
+        pool = dbm.getTrait(character['id'], 'costituzione')['cur_value']
+        try:
+            pool += dbm.getTrait(character['id'], 'robustezza')['cur_value']
+        except BotException:
+            pass
+        response = rollAndFormatVTM(pool, nfaces, diff, rollStatusSoak, 0)
     elif RollArg.MULTI in parsed:
         multi = parsed[RollArg.MULTI]
         split = []
