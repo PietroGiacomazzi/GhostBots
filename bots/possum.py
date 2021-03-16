@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import discord
 from discord.ext import commands
 import random, sys, configparser
 import support.vtm_res
@@ -25,6 +26,7 @@ async def on_ready():
             f'{bot.user} is connected to the following guild:\n'
             f'{guild.name} (id: {guild.id})'
         )
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="Rossellini con aria affamata"))
     #members = '\n - '.join([member.name for member in guild.members])
     #print(f'Guild Members:\n - {members}')
     #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send("bot is online")
