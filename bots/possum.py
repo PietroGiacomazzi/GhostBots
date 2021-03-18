@@ -87,7 +87,12 @@ async def rossellini(ctx):
 		'Sei più imbarazzante del tuo amico nero' ,
 		'Prima o poi riuscirò a morderti davvero' ,
 		'Guardarti in faccia rischia di farmi morire di nuovo' ,
-		'Maledetto Rossellini' 
+		'Maledetto Rossellini' ,
+		'Oggi mi sento buono, +1 iniziativa ma non a Rossellini' ,
+		'+1 ad iniziativa solo a Rossellini, così crepa prima' ,
+		'Resuscita la vastità del cazzo che me ne frega di te' ,
+		"Lorenzo sai che ora è? E' ora che ti levi dal cazzo" ,
+		'Entra nel tuo ambiente naturale: muori'
 		 ]
 	await ctx.send(f'{random.choice(insulti)}')
 
