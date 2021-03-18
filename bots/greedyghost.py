@@ -515,14 +515,6 @@ async def divina(ctx, *, question):
 		]
     await atSend(ctx, f'Domanda: {question}\nRisposta: {random.choice(responses)}')
 
-@bot.command(aliases=['Paradiso' , 'Torta'] , brief='Ricorda a Sam il vero Vietnam' , help = 'Il regno del colesterolo')
-async def paradise(ctx):
-	replies=['https://funnelcakesparadise.com/wp-content/uploads/2020/06/FUNNEL-CAKE-PARADISE-MENU-4.png' ,
-		 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_U_TC2RrY1HupVVnqaYbh8icE5fQ5RtZaEA&usqp=CAU' ,
-		 ':motorized_wheelchair: :cake: :baby_bottle: :drop_of_blood:' ,
-		 'https://funnelcakesparadise.com/wp-content/uploads/2017/12/Catering-Menu-2.png' ]
-	await atSend(ctx, f'{random.choice(replies)}')	
-		
 	
 @bot.command(brief='Testa il database rispondendo con la lista degli amministratori')
 async def dbtest(ctx):
