@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from discord.ext import commands
-import random, sys, configparser, web, traceback, MySQLdb
+import random, sys, configparser, web, traceback, MySQLdb, discord
 import support.vtm_res as vtm_res
 import support.ghostDB as ghostDB
 import support.utils as utils
@@ -543,8 +543,87 @@ async def dbtest(ctx):
 async def start(ctx, *args):
     await atSend(ctx, f'{random.randint(1, 100)}')
 
-session_start_aliases = ['start', 's']
-session_end_aliases = ['end', 'e', 'edn'] # ehehehehe
+
+@bot.group(brief='Controlla le sessioni di gioco', description = "Le sessioni sono basate sui canali: un canale può ospitare una sessione alla volta, ma la stessa cronaca può avere sessioni attive in più canali.")
+async def session(ctx):
+    if ctx.invoked_subcommand is None:
+        sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
+        if len(sessions):
+            chronicle = dbm.db.select('Chronicle', where='id=$chronicle', vars=dict(chronicle=sessions[0]['chronicle']))
+            cn = chronicle[0]['name']
+            await atSend(ctx, f"Sessione attiva: {cn}")
+        else:
+            await atSend(ctx, "Nessuna sessione attiva in questo canale!")
+        
+
+@session.command(brief = 'Inizia una sessione', description = '.session start <nomecronaca>: inizia una sessione per <nomecronaca> (richiede essere admin o storyteller della cronaca da iniziare) (richiede essere admin o storyteller della cronaca da iniziare)')
+async def start(ctx, *args):
+    issuer = str(ctx.message.author.id)
+    sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
+    chronicleid = args[0].lower()
+    st, _ = dbm.isChronicleStoryteller(issuer, chronicleid)
+    ba, _ = dbm.isBotAdmin(issuer)
+    can_do = st or ba
+    #can_do = len(dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=ctx.message.author.id))) + len(dbm.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=ctx.message.author.id, chronicle = chronicle)))
+    if len(sessions):
+        response = "C'è già una sessione in corso in questo canale"
+    elif can_do:
+        dbm.db.insert('GameSession', chronicle=chronicleid, channel=ctx.channel.id)
+        chronicle = dbm.db.select('Chronicle', where='id=$chronicleid', vars=dict(chronicleid=chronicleid))[0]
+        response = f"Sessione iniziata per la cronaca {chronicle['name']}"
+        # todo lista dei pg?
+    else:
+        response = "Non hai il ruolo di Storyteller per la questa cronaca"
+    await atSend(ctx, response)
+
+@session.command(name = 'list', brief = 'Elenca le sessioni aperte', description = 'Elenca le sessioni aperte. richiede di essere admin o storyteller')
+async def session_list(ctx):
+    issuer = ctx.message.author.id
+    st, _ = dbm.isStoryteller(issuer)
+    ba, _ = dbm.isBotAdmin(issuer)
+    if not (st or ba):
+        raise BotException("no.")
+    
+    sessions = dbm.db.select('GameSession').list()
+    channels = []
+    for s in sessions:
+        ch = await bot.fetch_channel(int(s['channel']))
+        channels.append(ch)
+    lines = []
+    #pvt = 0
+    for session, channel in zip(sessions, channels):
+        if isinstance(channel, discord.abc.GuildChannel):
+            lines.append(f"{channel.category}/{channel.name}: {session['chronicle']}")
+        #elif isinstance(channel, discord.abc.PrivateChannel):
+        #    pvt += 1
+    if not len(lines):
+        lines.append("Nessuna!")
+    response = "Sessioni attive:\n" + ("\n".join(lines))
+    await atSend(ctx, response)
+    
+
+@session.command(brief = 'Termina la sessione corrente', description = 'Termina la sessione corrente. Richiede di essere admin o storyteller della sessione in corso.')
+async def end(ctx):
+    response = ''
+    issuer = str(ctx.message.author.id)
+    sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
+    if len(sessions):
+        ba, _ = dbm.isBotAdmin(issuer)
+        st = dbm.db.query('select sc.chronicle from StoryTellerChronicleRel sc join GameSession gs on (sc.chronicle = gs.chronicle) where gs.channel=$channel and sc.storyteller = $st', vars=dict(channel=ctx.channel.id, st=ctx.message.author.id))
+        can_do = ba or bool(len(st))
+        if can_do:
+            n = dbm.db.delete('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
+            if n:
+                response = f'sessione terminata'
+            else: # non dovrebbe mai accadere
+                response = f'la cronaca non ha una sessione aperta in questo canale'
+        else:
+            response = "Non hai il ruolo di Storyteller per la questa cronaca"
+    else:
+        response = "Nessuna sessione attiva in questo canale!"
+    await atSend(ctx, response)
+
+"""
 @bot.command(brief='Controlla le sessioni di gioco', description = ".session: informazioni sulla sessione\n.session start <nomecronaca>: inizia una sessione (richiede essere admin o storyteller della cronaca da iniziare)\n.session end: termina la sessione (richiede essere admin o storyteller della cronaca da terminare)\n\n Le sessioni sono basate sui canali: un canale può ospitare una sessione alla volta, ma la stessa cronaca può avere sessioni attive in più canali.")
 async def session(ctx, *args):
     response = ''
@@ -593,6 +672,8 @@ async def session(ctx, *args):
         else:
             response = "Stai usando il comando in modo improprio"
     await atSend(ctx, response)
+"""
+
 
 damage_types = ["a", "l", "c"]
 
@@ -1351,6 +1432,7 @@ def generateNestedCmd(cmd_name, cmd_brief, cmd_dict):
                 response = f'"{subcmd}" non è un sottocomando valido!\n'+longdescription
             
         await atSend(ctx, response)
+    #return generatedCommand
 
 gmadm = generateNestedCmd('gmadm', "Gestione dell'ambiente di gioco", gameAdmin_subcommands)
 pgmod = generateNestedCmd('pgmod', "Gestione prsonaggi", pgmod_subcommands)
