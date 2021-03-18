@@ -170,7 +170,7 @@ async def on_command_error(ctx, error):
                 dbm.reconnect()
                 await atSend(ctx, f'Ho dovuto ripristinare al connessione Database, per favore riprova')
             else:
-                await atSend(ctx, f'Congratulazioni! hai trovato un modo per rompere il comando!')
+                await atSend(ctx, f'Congratulazioni! Hai trovato un modo per rompere il comando!')
                 debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
                 await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
         except BotException as e:
@@ -186,7 +186,7 @@ async def on_command_error(ctx, error):
             dbm.reconnect()
             await atSend(ctx, f'Ho dovuto ripristinare al connessione Database, per favore riprova')
         else:
-            await atSend(ctx, f'Congratulazioni! hai trovato un modo per rompere il comando!')
+            await atSend(ctx, f'Congratulazioni! Hai trovato un modo per rompere il comando!')
         #print("debug user:", int(config['Discord']['debuguser']))
         debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
         await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
@@ -200,17 +200,17 @@ async def coin(ctx):
 roll_longdescription = """
 .roll <cosa> <come>
 
-.roll 10d10 - tiro senza difficoltà
-.roll 10d10 somma - somma il numero dei tiri
-.roll 10d10 diff 6 - tiro con difficoltà specifica
-.roll 10d10 danni - tiro danni
-.roll 10d10 +5 danni - tiro danni con modificatore
-.roll 10d10 progressi - tiro per i progressi del giocatore
-.roll 10d10 lapse - tiro per i progressi in timelapse del giocatore
-.roll 10d10 multi 3 diff 6 - tiro multiplo
-.roll 10d10 split 6 7 - split a difficoltà separate [6, 7]
-.roll 10d10 diff 6 multi 3 split 2 6 7  - multipla [3] con split [al 2° tiro] a difficoltà separate [6,7]
-.roll 10d10 multi 3 split 2 6 7 split 3 4 5 - multipla [3] con split al 2° e 3° tiro
+.roll 10d10 - Tiro senza difficoltà
+.roll 10d10 somma - Somma il numero dei tiri
+.roll 10d10 diff 6 - Tiro con difficoltà specifica
+.roll 10d10 danni - Tiro danni
+.roll 10d10 +5 danni - Tiro danni con modificatore
+.roll 10d10 progressi - Tiro per i progressi del giocatore
+.roll 10d10 lapse - Tiro per i progressi in timelapse del giocatore
+.roll 10d10 multi 3 diff 6 - Tiro multiplo
+.roll 10d10 split 6 7 - Split a difficoltà separate [6, 7]
+.roll 10d10 diff 6 multi 3 split 2 6 7  - Multipla [3] con split [al 2° tiro] a difficoltà separate [6,7]
+.roll 10d10 multi 3 split 2 6 7 split 3 4 5 - Multipla [3] con split al 2° e 3° tiro
 
 Si può sosrtituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e se c'è una sessione aperta verranno prese le statistiche del pg rilevante
 
@@ -507,7 +507,7 @@ async def divina(ctx, *, question):
 		'Meglio chiedere a Rossellini.',
 		'Le prospettive sono buone.',
 		'Ci puoi contare.',
-		'Nebuloso il futuro è.',
+		'Difficile dare una risposta.',
 		'Sarebbe meglio non risponderti adesso.',
 		'Sarebbe uno spoiler troppo grosso.',
 		'Non ci contare.',
@@ -515,6 +515,15 @@ async def divina(ctx, *, question):
 		]
     await atSend(ctx, f'Domanda: {question}\nRisposta: {random.choice(responses)}')
 
+@bot.command(aliases=['Paradiso' , 'Torta'] , brief='Ricorda a Sam il vero Vietnam' , help = 'Il regno del colesterolo')
+async def paradise(ctx):
+	replies=['https://funnelcakesparadise.com/wp-content/uploads/2020/06/FUNNEL-CAKE-PARADISE-MENU-4.png' ,
+		 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_U_TC2RrY1HupVVnqaYbh8icE5fQ5RtZaEA&usqp=CAU' ,
+		 ':motorized_wheelchair: :cake: :baby_bottle: :drop_of_blood:' ,
+		 'https://funnelcakesparadise.com/wp-content/uploads/2017/12/Catering-Menu-2.png' ]
+	await atSend(ctx, f'{random.choice(replies)}')	
+		
+	
 @bot.command(brief='Testa il database rispondendo con la lista degli amministratori')
 async def dbtest(ctx):
     admins = []    
