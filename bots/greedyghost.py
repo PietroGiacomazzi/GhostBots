@@ -530,6 +530,33 @@ async def dbtest(ctx):
         response = f'C\'è stato un problema: {e}'
     await atSend(ctx, response)
 
+@bot.command(name = 'search', brief = "Cerca un tratto", description = "Cerca un tratto:\n\n .search <termine di ricerca> -> elenco dei risultati")
+async def search_trait(ctx, *args):
+    response = ''
+    if len(args) == 0:
+        response = "Specifica un termine di ricerca!"
+    else:
+        searchstring = "%" + (" ".join(args)) + "%"
+        lower_version = searchstring.lower()
+        traits = dbm.db.select("Trait", where="id like $search_lower or name like $search_string", vars=dict(search_lower=lower_version, search_string = searchstring))
+        if not len(traits):
+            response =  'Nessun match!'
+        else:
+            response = 'Tratti trovati:\n'
+            for trait in traits:
+                response += f"\n{trait['id']}: {trait['name']}"
+    await atSend(ctx, response)
+
+@bot.command(brief = "Richiama l'attenzione dello storyteller", description = "Richiama l'attenzione dello storyteller della cronaca attiva nel canale in cui viene invocato")
+async def call(ctx, *args):
+    character = dbm.getActiveChar(ctx)
+    sts = dbm.getChannelStoryTellers(ctx.channel.id)
+    response = f"{character['fullname']} ({ctx.message.author}) richiede la tua attenzione!"
+    for st in sts:
+        stuser = await bot.fetch_user(st['storyteller'])
+        response += f' {stuser.mention}'
+    await atSend(ctx, response)
+
 
 @bot.command(brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata")
 async def start(ctx, *args):
@@ -1330,28 +1357,12 @@ async def gmadm_updateTrait(ctx, args):
 async def gmadm_deleteTrait(ctx, args):
     return "non implementato"
 
-async def gmadm_searchTrait(ctx, args):
-    if len(args) == 0:
-        helptext = "Argomenti: parte del nome breve o nome completo del tratto"
-        return helptext
-    else:
-        searchstring = "%" + (" ".join(args)) + "%"
-        lower_version = searchstring.lower()
-        traits = dbm.db.select("Trait", where="id like $search_lower or name like $search_string", vars=dict(search_lower=lower_version, search_string = searchstring))
-        if not len(traits):
-            return 'Nessun match!'
-        response = 'Tratti trovati:\n'
-        for trait in traits:
-            response += f"\n{trait['id']}: {trait['name']}"
-        return response
-
 gameAdmin_subcommands = {
     "listChronicles": [gmadm_listChronicles, "Elenca le cronache"],
     "newChronicle": [gmadm_newChronicle, "Crea una nuova cronaca associata allo ST che invoca il comando"],
     "newTrait": [gmadm_newTrait, "Crea nuovo tratto"],
     "updt": [gmadm_updateTrait, "Modifica un tratto"],
-    "delet": [gmadm_deleteTrait, "Cancella un tratto"],
-    "searcht": [gmadm_searchTrait, "Cerca un tratto"]
+    "delet": [gmadm_deleteTrait, "Cancella un tratto"]
     # todo: nomina storyteller, associa storyteller a cronaca
     # todo: dissociazioni varie
     }

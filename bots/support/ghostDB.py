@@ -41,6 +41,16 @@ class DBManager:
         if len(traits) == 0:
             raise DBException(f'{pc_id} non ha il tratto {trait_id}')
         return traits[0]
+    def getChannelStoryTellers(self, channelid):
+        sts = self.db.query("""
+    SELECT  *
+    FROM GameSession gs
+    join StoryTellerChronicleRel stcr on (gs.chronicle = stcr.chronicle)
+    where gs.channel = $channel
+    """, vars=dict(channel=channelid))
+        if len(sts) == 0:
+            raise DBException(f'Non ci sono sessioni attive in questo canale, oppure questa cronoca non ha un storyteller')
+        return sts.list()
     def isBotAdmin(self, userid):
         admins = self.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=userid))
         return bool(len(admins)), (admins[0] if (len(admins)) else None)
