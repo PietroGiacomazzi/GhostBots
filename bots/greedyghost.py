@@ -20,15 +20,17 @@ SOMMA_CMD = ["somma", "s", "lapse"]
 DIFF_CMD = ["diff", "d"]
 MULTI_CMD = ["multi", "m"]
 DANNI_CMD = ["danni", "dmg"]
-PROGRESSI_CMD = ["progressi", "p"]
+PROGRESSI_CMD = ["progressi"]
 SPLIT_CMD = ["split"]
+PENALITA_CMD = ["penalita", "penalità", "p"]
+DADI_CMD = ["dadi"]
 
 SOAK_CMD = ["soak", "assorbi"]
 INIZIATIVA_CMD = ["iniziativa", "iniz"]
 RIFLESSI_CMD = ["riflessi", "r"]
 
 RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES", "SOAK") # macro categoria che divide le azioni di tiro
-RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE") # argomenti del tiro
+RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE", "PENALITA", "DADI") # argomenti del tiro
 RollType = utils.enum("NORMALE", "SOMMA", "DANNI", "PROGRESSI") # sottotipo dell'argomento RollType
 
 INFINITY = float("inf")
@@ -198,27 +200,35 @@ async def coin(ctx):
     await atSend(ctx, f'{random.choice(moneta)}')
 
 roll_longdescription = """
-.roll <cosa> <come>
+Comando base
+.roll <cosa> <argomento1> <argomento2>...
 
-.roll 10d10 - Tiro senza difficoltà
-.roll 10d10 somma - Somma il numero dei tiri
-.roll 10d10 diff 6 - Tiro con difficoltà specifica
-.roll 10d10 danni - Tiro danni
-.roll 10d10 +5 danni - Tiro danni con modificatore
-.roll 10d10 progressi - Tiro per i progressi del giocatore
-.roll 10d10 lapse - Tiro per i progressi in timelapse del giocatore
-.roll 10d10 multi 3 diff 6 - Tiro multiplo
-.roll 10d10 split 6 7 - Split a difficoltà separate [6, 7]
-.roll 10d10 diff 6 multi 3 split 2 6 7  - Multipla [3] con split [al 2° tiro] a difficoltà separate [6,7]
-.roll 10d10 multi 3 split 2 6 7 split 3 4 5 - Multipla [3] con split al 2° e 3° tiro
+.roll 10d10                                 -> Tiro senza difficoltà
+.roll 10d10 somma                           -> Somma il numero dei tiri
+.roll 10d10 diff 6                          -> Tiro con difficoltà specifica
+.roll 10d10 danni                           -> Tiro danni
+.roll 10d10 +5 danni                        -> Tiro danni con modificatore
+.roll 10d10 progressi                       -> Tiro per i progressi del giocatore
+.roll 10d10 lapse                           -> Tiro per i progressi in timelapse del giocatore
+.roll 10d10 multi 3 diff 6                  -> Tiro multiplo
+.roll 10d10 split 6 7                       -> Split a difficoltà separate [6, 7]
+.roll 10d10 diff 6 multi 3 split 2 6 7      -> Multipla [3] con split [al 2° tiro] a difficoltà separate [6,7]
+.roll 10d10 multi 3 split 2 6 7 split 3 4 5 -> Multipla [3] con split al 2° e 3° tiro
 
-Si può sosrtituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e se c'è una sessione aperta verranno prese le statistiche del pg rilevante
+A sessione attiva:
 
-Scorciatoie:
+.roll tratto1+tratto2 -> Si può sostituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e verranno prese le statistiche del pg rilevante
+.roll iniziativa      -> equivale a .roll 1d10 +(destrezza+prontezza+velocità)
+.roll riflessi        -> equivale a .roll volontà diff (10-prontezza)
+.roll assorbi         -> equivale a .roll costituzione+robustezza diff 6 danni
+.roll <cose> penalita -> applica la penalità corrente derivata dalla salute
+.roll <cose> dadi N   -> modifica il numero di dadi del tiro (N puù essere positivo o negativo), utile per modificare un tiro basato sui tratti
 
-.roll iniziativa: equivale a .roll 1d10 +(destrezza+prontezza+velocità)
-.roll riflessi: equivale a .roll volontà diff (10-prontezza)
-.roll assorbi: equivale a .roll costituzione+robustezza diff 6 danni
+Note sugli spazi in ".roll <cosa> <argomento1> <argomento2>..."
+
+In <cosa> non ci vanno mai spazi (XdY, o tratto1+tratto2)
+in <come> bisogna spaziare tutto (multi 6, diff 4).
+A volte il bot prenderà anche 2 argomenti attaccati (diff8, multi3) se è una coppia argomento-parametro, ma non è garantito
 """
 
 # input: l'espressione <what> in .roll <what> [<args>]
@@ -226,6 +236,7 @@ Scorciatoie:
 def parseRollWhat(ctx, what):
     n = -1
     faces = -1
+    character = None
 
     # tiri custom 
     if what in INIZIATIVA_CMD:
@@ -244,7 +255,7 @@ def parseRollWhat(ctx, what):
         n = 0
         for trait in split:
             n += dbm.getTrait(character['id'], trait)['cur_value']
-        return RollCat.DICE, n, faces
+        return RollCat.DICE, n, faces, character
 
     # espressione xdy
     split = what.split("d")
@@ -270,7 +281,19 @@ def parseRollWhat(ctx, what):
         raise BotException(f'{n} dadi sono troppi b0ss')
     if faces > max_faces:
         raise BotException(f'{faces} facce sono un po\' tante')
-    return RollCat.DICE, n, faces
+    return RollCat.DICE, n, faces, character
+
+def validateInteger(args, i, err_msg = 'un intero'):
+    try:
+        return i, int(args[i])
+    except ValueError:
+        raise ValueError(f'"{args[i]}" non è {err_msg}')
+
+def validateBoundedInteger(args, i, min_val, max_val, err_msg = "non è nell'intervallo specificato"):
+    j, val = validateInteger(args, i)
+    if val < min_val or val > max_val:
+        raise ValueError(f'{args[i]} {err_msg}')
+    return j, val
 
 def validateNumber(args, i, err_msg = 'un intero positivo'):
     if not args[i].isdigit():
@@ -291,10 +314,11 @@ def validateDifficulty(args, i):
 
 # input: sequenza di argomenti per .roll
 # output: dizionario popolato con gli argomenti validati
-def parseRollArgs(args, n):
+def parseRollArgs(args_raw, n):
     parsed = {
         RollArg.ROLLTYPE: RollType.NORMALE # default
         }
+    args = list(args_raw)
     # leggo gli argomenti scorrendo args
     i = 0
     while i < len(args):
@@ -314,9 +338,8 @@ def parseRollArgs(args, n):
                 raise ValueError(f'Stai tentando di innestare 2 multiple?')
             if len(args) == i+1:
                 raise ValueError(f'multi cosa')
-            max_moves = (n+1)/2
-            i, multi = validateBoundedNumber(args, i+1, 2, max_moves, f"un numero di mosse valido per il tuo dice pool (da 2 a {int(max_moves)})")
-            parsed[RollArg.MULTI] = multi
+            i, multi = validateBoundedNumber(args, i+1, 2, INFINITY, f"multi prende come paramento un numero >= 2")# controlliamo il numero di mosse sotto, dopo aver applicato bonus o penalità al numero di dadi
+            parsed[RollArg.MULTI] = multi            
         elif args[i] in DANNI_CMD:
             parsed[RollArg.ROLLTYPE] = RollType.DANNI
         elif args[i] in PROGRESSI_CMD:
@@ -353,10 +376,35 @@ def parseRollArgs(args, n):
                 raise ValueError(f'"{raw}" non è un intero positivo')
             add = int(raw)
             parsed[RollArg.ADD] = add
+        elif args[i] in PENALITA_CMD:
+            parsed[RollArg.PENALITA] = True
+        elif args[i] in DADI_CMD:
+            if len(args) == i+1:
+                raise ValueError(f'dadi cosa')
+            i, val = validateBoundedInteger(args, i+1, -100, +100) # lel 
+            parsed[RollArg.DADI] = val
         else:
-            width = 3
-            ht = " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
-            raise ValueError(f"L'argomento '{args[i]}' in '{ht}' non mi è particolarmente chiaro")
+            # provo a staccare parametri attaccati
+            did_split = False
+            idx = 0
+            tests = DIFF_CMD+MULTI_CMD+DADI_CMD
+            while not did_split and idx < len(tests):
+                cmd = tests[idx]
+                if args[i].startswith(cmd):
+                    try:
+                        _ = int(args[i][len(cmd):])
+                        args = args[:i] + [cmd, args[i][len(cmd):]] + args[i+1:]
+                        did_split = True
+                    except ValueError:
+                        pass
+                idx += 1
+            # F
+            if not did_split:
+                width = 3
+                ht = " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
+                raise ValueError(f"L'argomento '{args[i]}' in '{ht}' non mi è particolarmente chiaro")
+            else:
+                i -= 1 # forzo rilettura
         i += 1
     return parsed
 
@@ -366,7 +414,7 @@ async def roll(ctx, *args):
         raise BotException("roll cosa diomadonna")
     # capisco quanti dadi tirare
     what = args[0].lower()
-    action, ndice, nfaces = parseRollWhat(ctx, what)
+    action, ndice, nfaces, character = parseRollWhat(ctx, what)
     # leggo e imposto le varie opzioni
     parsed = None
     try:
@@ -374,6 +422,31 @@ async def roll(ctx, *args):
     except ValueError as e:
         await atSend(ctx, str(e))
         return
+
+    # modifico il numero di dadi
+    if RollArg.PENALITA in parsed:
+        if not character:
+            character = dbm.getActiveChar(ctx)
+        health = dbm.getTrait(character['id'], 'salute')
+        penalty, _ = parseHealth(health)
+        ndice += penalty[0]
+
+    if RollArg.DADI in parsed:
+        ndice += parsed[RollArg.DADI]
+
+    if ndice > max_dice:
+        raise BotException("Hai superato il massimo numero di dadi!")
+    if ndice <= 0:
+        raise BotException("Hai ridotto il tuo pool di dadi sotto 0!")
+
+    # check n° di mosse per le multiple
+    if RollArg.MULTI in parsed:
+        multi = parsed[RollArg.MULTI]
+        max_moves = int( ((ndice+1)/2) -0.1) # (ndice+1)/2 è il numero di mosse in cui si rompe, non il massimo. togliendo 0.1 e arrotondando per difetto copro sia il caso intero che il caso con .5
+        if max_moves == 1:
+            raise BotException("Non hai abbastanza dadi per una multipla!")
+        elif multi > max_moves:
+            raise BotException(f"Non hai abbastanza dadi, puoi arrivare al massimo a {max_moves} azioni con {ndice} dadi!")
 
     # decido cosa fare
     if len(args) == 1 and action == RollCat.DICE : #simple roll
@@ -400,9 +473,9 @@ async def roll(ctx, *args):
                     val = dbm.getTrait(character['id'], traitid)['cur_value']
                     bonus += val
                     bonuses_log.append( f'{traitid}: {val}' )
-                except BotException:
+                except ghostDB.DBException:
                     pass
-        except BotException:
+        except ghostDB.DBException:
             response += 'Nessun personaggio !\n'
         if len(bonuses_log):
             response += (", ".join(bonuses_log)) + "\n"
@@ -425,7 +498,7 @@ async def roll(ctx, *args):
         pool = dbm.getTrait(character['id'], 'costituzione')['cur_value']
         try:
             pool += dbm.getTrait(character['id'], 'robustezza')['cur_value']
-        except BotException:
+        except ghostDB.DBException:
             pass
         response = rollAndFormatVTM(pool, nfaces, diff, rollStatusSoak, 0)
     elif RollArg.MULTI in parsed:
@@ -479,8 +552,7 @@ async def roll(ctx, *args):
             else:
                 raise BotException(f'Tipo di tiro sconosciuto: {rolltype}')
     await atSend(ctx, response)
-    
-        
+       
 @bot.command(brief='Lascia che il Greedy Ghost ti saluti.')
 async def salut(ctx):
     await atSend(ctx, 'Shalom!')
@@ -668,7 +740,8 @@ healthToEmoji = {
     'B': '<:hl_blocked:815338465260077077>'
     }
 
-
+# --- old begin
+"""
 hurt_levels = [
     "Illeso",
     "Contuso",
@@ -680,7 +753,7 @@ hurt_levels = [
     "Incapacitato"
 ]
 
-def prettyHealth(trait, levels = 7):
+def old_prettyHealth(trait, levels = 7):
     if trait['max_value'] <= 0:
         return 'Non hai ancora inizializzato la tua salute!'
     hs = trait['text_value']
@@ -701,6 +774,51 @@ def prettyHealth(trait, levels = 7):
             prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], hs[cursor:cursor+columns]+"B"*(extra > 0))))
             cursor += columns
     return hurt_levels[hurt_level] +"\n"+ prettytext
+"""
+# --- old end
+
+hurt_levels_vampire = [
+    (0, "Illeso"),
+    (0, "Contuso"),
+    (-1, "Graffiato"),
+    (-1, "Leso"),
+    (-2, "Ferito"),
+    (-2, "Straziato"),
+    (-5, "Menomato"),
+    (-INFINITY, "Incapacitato"),
+]
+
+
+def parseHealth(trait, levels_list = hurt_levels_vampire):
+    if trait['max_value'] <= 0:
+        return 'Non hai ancora inizializzato la tua salute!'
+    hs = trait['text_value']
+    hs = hs + (" "*(trait['max_value']-len(hs)))
+    levels = len(levels_list) - 1 
+    columns = len(hs) // levels 
+    extra = len(hs) % levels
+    width = columns + (extra > 0)
+    cursor = 0
+    hurt_level = 0
+    health_lines = []
+    for i in range(levels):
+        if hs[cursor] != " ":
+            hurt_level = i+1
+        if i < extra:
+            health_lines.append(hs[cursor:cursor+width])#prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], hs[cursor:cursor+width])))
+            cursor += width
+        else:
+            health_lines.append(hs[cursor:cursor+columns]+"B"*(extra > 0)) #prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], hs[cursor:cursor+columns]+"B"*(extra > 0))))
+            cursor += columns
+    #return hurt_levels[hurt_level] +"\n"+ prettytext
+    return hurt_levels_vampire[hurt_level], health_lines
+
+def prettyHealth(trait, levels_list = hurt_levels_vampire):
+    penalty, parsed = parseHealth(trait, levels_list)
+    prettytext = 'Salute:'
+    for line in parsed:
+        prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], line)))
+    return f'{penalty[1]} ({penalty[0]})' +"\n"+ prettytext
 
 def prettyFDV(trait):
     return defaultTraitFormatter(trait)
@@ -1381,9 +1499,8 @@ def generateNestedCmd(cmd_name, cmd_brief, cmd_dict):
                 response = await cmd_dict[subcmd][0](ctx, args[1:])
             else:
                 response = f'"{subcmd}" non è un sottocomando valido!\n'+longdescription
-            
         await atSend(ctx, response)
-    #return generatedCommand
+    return generatedCommand
 
 gmadm = generateNestedCmd('gmadm', "Gestione dell'ambiente di gioco", gameAdmin_subcommands)
 pgmod = generateNestedCmd('pgmod', "Gestione prsonaggi", pgmod_subcommands)
