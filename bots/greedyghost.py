@@ -398,8 +398,7 @@ def parseRollArgs(args_raw, n):
                     except ValueError:
                         pass
                 idx += 1
-            # F
-            if not did_split:
+            if not did_split: # F
                 width = 3
                 ht = " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
                 raise ValueError(f"L'argomento '{args[i]}' in '{ht}' non mi è particolarmente chiaro")
@@ -739,43 +738,6 @@ healthToEmoji = {
     ' ': '<:hl_free:815338465348026388>',
     'B': '<:hl_blocked:815338465260077077>'
     }
-
-# --- old begin
-"""
-hurt_levels = [
-    "Illeso",
-    "Contuso",
-    "Graffiato (-1)",
-    "Leso (-1)",
-    "Ferito (-2)",
-    "Straziato (-2)",
-    "Menomato (-5)",
-    "Incapacitato"
-]
-
-def old_prettyHealth(trait, levels = 7):
-    if trait['max_value'] <= 0:
-        return 'Non hai ancora inizializzato la tua salute!'
-    hs = trait['text_value']
-    hs = hs + (" "*(trait['max_value']-len(hs)))
-    columns = len(hs) // levels 
-    extra = len(hs) % levels
-    width = columns + (extra > 0)
-    prettytext = 'Salute:'
-    cursor = 0
-    hurt_level = 0
-    for i in range(levels):
-        if hs[cursor] != " ":
-            hurt_level = i+1
-        if i < extra:
-            prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], hs[cursor:cursor+width])))
-            cursor += width
-        else:
-            prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], hs[cursor:cursor+columns]+"B"*(extra > 0))))
-            cursor += columns
-    return hurt_levels[hurt_level] +"\n"+ prettytext
-"""
-# --- old end
 
 hurt_levels_vampire = [
     (0, "Illeso"),
