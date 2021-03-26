@@ -92,7 +92,15 @@ async def rossellini(ctx):
 		'+1 ad iniziativa solo a Rossellini, così crepa prima' ,
 		'Resuscita la vastità del cazzo che me ne frega di te' ,
 		"Lorenzo sai che ora è? E' ora che ti levi dal cazzo" ,
-		'Entra nel tuo ambiente naturale: muori'
+		'Entra nel tuo ambiente naturale: muori' ,
+		'Ho trovato una cosa che ti farebbe bene: un sacco pieno di ceffoni' ,
+		'Hai il carisma di una fetta merdosa di una torta al guano' ,
+		'Con quel muso mi fai perdere il pelo fantasma che mi rimane' ,
+		"+ 1 all'iniziativa di chi ti insulta nei prossimi 3 secondi" ,
+		'Maledetta quella volta che mamma Rossellini e papà Rossellini hanno deciso di vomitare assieme' ,
+		'Non potevi rimanere in Italia? Qui abbiamo già i nostri problemi del cazzo' ,
+		'La prossima volta chiedi aiuto al Papa' ,
+			 
 		 ]
 	await ctx.send(f'{random.choice(insulti)}')
 
