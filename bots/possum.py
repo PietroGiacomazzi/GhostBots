@@ -113,6 +113,10 @@ async def rossellini(ctx):
             'Maledetta quella volta che mamma Rossellini e papà Rossellini hanno deciso di vomitare assieme' ,
             'Non potevi rimanere in Italia? Qui abbiamo già i nostri problemi del cazzo' ,
             'La prossima volta chiedi aiuto al Papa' ,
+	    'Usa quei rituali, razza di topo de fogna' ,
+	    'Fammi indovinare, quel coso si è mosso, meglio sparagli, vero?' ,
+	    '+1 Iniziativa fino a quando Rossellini non usa un rituale' ,
+	    'Tra un pò sono più utile io di te, e ti ricordo che sono morto, e mi vedi solo tu'  
              ]
     await ctx.send(f'{random.choice(insulti)}')
 
