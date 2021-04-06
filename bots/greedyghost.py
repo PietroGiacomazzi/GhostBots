@@ -25,18 +25,21 @@ SPLIT_CMD = ["split"]
 PENALITA_CMD = ["penalita", "penalità", "p"]
 DADI_CMD = ["dadi"]
 
+PERMANENTE_CMD = ["permanente", "perm"]
 SOAK_CMD = ["soak", "assorbi"]
 INIZIATIVA_CMD = ["iniziativa", "iniz"]
 RIFLESSI_CMD = ["riflessi", "r"]
+STATISTICS_CMD = ["statistica", "stats", "stat"]
 
 RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES", "SOAK") # macro categoria che divide le azioni di tiro
-RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE", "PENALITA", "DADI") # argomenti del tiro
+RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE", "PENALITA", "DADI", "PERMANENTE", "STATS") # argomenti del tiro
 RollType = utils.enum("NORMALE", "SOMMA", "DANNI", "PROGRESSI") # sottotipo dell'argomento RollType
 
 INFINITY = float("inf")
 
-max_dice = 100
-max_faces = 100
+max_dice = int(config['BotOptions']['max_dice'])
+max_faces = int(config['BotOptions']['max_faces'])
+statistics_samples = int(config['BotOptions']['stat_samples'])
 
 
 die_emoji = {
@@ -107,15 +110,37 @@ def rollStatusSoak(n):
     else:
         return f':red_square: **Nessun danno assorbito**'
 
-def rollAndFormatVTM(ndice, nfaces, diff, statusFunc = rollStatusNormal, extra_succ = 0, cancel = True, spec = False):
-    successi, tiro, cancel = vtm_res.roller(ndice, nfaces, diff, cancel, spec)
-    pretty = prettyRoll(tiro, diff, cancel)
-    successi += extra_succ
-    status = statusFunc(successi)
-    response = status + f' (diff {diff}): {pretty}'
-    if extra_succ:
-        response += f' **+{extra_succ}**'
-    return response
+def rollAndFormatVTM(ndice, nfaces, diff, statusFunc = rollStatusNormal, extra_succ = 0, canceling = True, spec = False, statistics = False):
+    if statistics:
+        total_successes = 0
+        passes = 0
+        fails = 0
+        critfails = 0
+        for i in range(statistics_samples):
+            successi, _, _ = vtm_res.roller(ndice, nfaces, diff, canceling, spec)
+            if successi > 0:
+                passes += 1
+                total_successes += (successi + extra_succ)
+            elif successi == 0 or successi == -2:
+                fails += 1
+            else:
+                critfails += 1
+        response =  f"""\n--- Simulazione con {statistics_samples} tiri di {ndice}d{nfaces} diff {diff} +{extra_succ}, {"con" if canceling else "senza"} canceling, {"con" if spec else "senza"} esplosione dei 10 ---
+Frequenza di successo: {round(100*passes/statistics_samples, 2)}%
+Frequenza di fallimento:  {round(100*(fails+critfails)/statistics_samples, 2)}%
+    ({round(100*fails/statistics_samples, 2)}% fallimenti regolari/drammatici e {round(100*critfails/statistics_samples, 2)}% fallimenti critici)
+Successi medi: {round(total_successes/statistics_samples, 2)}
+---"""
+        return response
+    else:        
+        successi, tiro, cancels = vtm_res.roller(ndice, nfaces, diff, canceling, spec)
+        pretty = prettyRoll(tiro, diff, cancels)
+        successi += extra_succ # posso fare sta roba solo perchè i successi extra vengono usati solo in casi in cui il canceling è spento
+        status = statusFunc(successi)
+        response = status + f' (diff {diff}): {pretty}'
+        if extra_succ:
+            response += f' **+{extra_succ}**'
+        return response
 
 def atSend(ctx, msg):
     return ctx.send(f'{ctx.message.author.mention} {msg}')
@@ -217,17 +242,18 @@ Comando base
 
 A sessione attiva:
 
-.roll tratto1+tratto2 -> Si può sostituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e verranno prese le statistiche del pg rilevante
-.roll iniziativa      -> equivale a .roll 1d10 +(destrezza+prontezza+velocità)
-.roll riflessi        -> equivale a .roll volontà diff (10-prontezza)
-.roll assorbi         -> equivale a .roll costituzione+robustezza diff 6 danni
-.roll <cose> penalita -> applica la penalità corrente derivata dalla salute
-.roll <cose> dadi N   -> modifica il numero di dadi del tiro (N puù essere positivo o negativo), utile per modificare un tiro basato sui tratti
+.roll tratto1+tratto2   -> Si può sostituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e verranno prese le statistiche del pg rilevante
+.roll iniziativa        -> equivale a .roll 1d10 +(destrezza+prontezza+velocità)
+.roll riflessi          -> equivale a .roll volontà diff (10-prontezza)
+.roll assorbi           -> equivale a .roll costituzione+robustezza diff 6 danni
+.roll <cose> penalita   -> applica la penalità corrente derivata dalla salute
+.roll <cose> dadi N     -> modifica il numero di dadi del tiro (N puù essere positivo o negativo), utile per modificare un tiro basato sui tratti
+.roll <cose> permanente -> usa i valori di scheda e non quelli potenziati/spesi (esempio: ".roll volontà permanente diff 7")
 
 Note sugli spazi in ".roll <cosa> <argomento1> <argomento2>..."
 
 In <cosa> non ci vanno mai spazi (XdY, o tratto1+tratto2)
-in <come> bisogna spaziare tutto (multi 6, diff 4).
+In <come> bisogna spaziare tutto (multi 6, diff 4).
 A volte il bot prenderà anche 2 argomenti attaccati (diff8, multi3) se è una coppia argomento-parametro, ma non è garantito
 """
 
@@ -240,11 +266,11 @@ def parseRollWhat(ctx, what):
 
     # tiri custom 
     if what in INIZIATIVA_CMD:
-        return RollCat.INITIATIVE, 1, 10
+        return RollCat.INITIATIVE, 1, 1, 10, character
     if what in RIFLESSI_CMD:
-        return RollCat.REFLEXES, 1, 10
+        return RollCat.REFLEXES, 1, 1, 10, character
     if what in SOAK_CMD:
-        return RollCat.SOAK, 1, 10
+        return RollCat.SOAK, 1, 1, 10, character
 
     # combinazione di tratti
     singletrait, _ = dbm.isValidTrait(what)
@@ -253,9 +279,12 @@ def parseRollWhat(ctx, what):
         split = what.split("+")
         faces = 10
         n = 0
+        n_perm = 0
         for trait in split:
-            n += dbm.getTrait(character['id'], trait)['cur_value']
-        return RollCat.DICE, n, faces, character
+            temp = dbm.getTrait(character['id'], trait)
+            n += temp['cur_value']
+            n_perm += temp['max_value']
+        return RollCat.DICE, n, n_perm, faces, character
 
     # espressione xdy
     split = what.split("d")
@@ -281,7 +310,7 @@ def parseRollWhat(ctx, what):
         raise BotException(f'{n} dadi sono troppi b0ss')
     if faces > max_faces:
         raise BotException(f'{faces} facce sono un po\' tante')
-    return RollCat.DICE, n, faces, character
+    return RollCat.DICE, n, n, faces, character
 
 def validateInteger(args, i, err_msg = 'un intero'):
     try:
@@ -314,7 +343,7 @@ def validateDifficulty(args, i):
 
 # input: sequenza di argomenti per .roll
 # output: dizionario popolato con gli argomenti validati
-def parseRollArgs(args_raw, n):
+def parseRollArgs(args_raw):
     parsed = {
         RollArg.ROLLTYPE: RollType.NORMALE # default
         }
@@ -383,6 +412,10 @@ def parseRollArgs(args_raw, n):
                 raise ValueError(f'dadi cosa')
             i, val = validateBoundedInteger(args, i+1, -100, +100) # lel 
             parsed[RollArg.DADI] = val
+        elif args[i] in PERMANENTE_CMD:
+            parsed[RollArg.PERMANENTE] = True
+        elif args[i] in STATISTICS_CMD:
+            parsed[RollArg.STATS] = True
         else:
             # provo a staccare parametri attaccati
             did_split = False
@@ -413,16 +446,20 @@ async def roll(ctx, *args):
         raise BotException("roll cosa diomadonna")
     # capisco quanti dadi tirare
     what = args[0].lower()
-    action, ndice, nfaces, character = parseRollWhat(ctx, what)
+    action, ndice, ndice_perm, nfaces, character = parseRollWhat(ctx, what)
+    
     # leggo e imposto le varie opzioni
     parsed = None
     try:
-        parsed = parseRollArgs(args[1:], ndice)
+        parsed = parseRollArgs(args[1:])
     except ValueError as e:
         await atSend(ctx, str(e))
         return
-
+    
     # modifico il numero di dadi
+    if RollArg.PERMANENTE in parsed:
+        ndice = ndice_perm
+    
     if RollArg.PENALITA in parsed:
         if not character:
             character = dbm.getActiveChar(ctx)
@@ -452,6 +489,8 @@ async def roll(ctx, *args):
         raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
         await atSend(ctx, repr(raw_roll))
         return
+
+    stats = RollArg.STATS in parsed
 
     response = ''
     if parsed[RollArg.ROLLTYPE] == RollType.NORMALE and not RollArg.DIFF in parsed and RollArg.ADD in parsed: #se non c'è difficoltà tramuta un tiro in un tiro somma instile dnd
@@ -488,7 +527,7 @@ async def roll(ctx, *args):
         prontezza = dbm.getTrait(character['id'], 'prontezza')['cur_value']
         diff = 10 - prontezza
         response = f'Volontà corrente: {volonta}, Prontezza: {prontezza} -> {volonta}d{nfaces} diff ({nfaces}-{prontezza})\n'
-        response += rollAndFormatVTM(volonta, nfaces, diff, rollStatusReflexes, add)
+        response += rollAndFormatVTM(volonta, nfaces, diff, rollStatusReflexes, add, statistics = stats)
     elif action == RollCat.SOAK:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or RollArg.ADD in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE:
             raise BotException("Combinazione di parametri non valida!")
@@ -499,7 +538,7 @@ async def roll(ctx, *args):
             pool += dbm.getTrait(character['id'], 'robustezza')['cur_value']
         except ghostDB.DBException:
             pass
-        response = rollAndFormatVTM(pool, nfaces, diff, rollStatusSoak, 0)
+        response = rollAndFormatVTM(pool, nfaces, diff, rollStatusSoak, 0, False, statistics = stats)
     elif RollArg.MULTI in parsed:
         multi = parsed[RollArg.MULTI]
         split = []
@@ -516,9 +555,9 @@ async def roll(ctx, *args):
                 if len(split_diffs):
                     pools = [(ndadi-ndadi//2), ndadi//2]
                     for j in range(len(pools)):
-                        parziale += f'\nTiro {j+1}: '+ rollAndFormatVTM(pools[j], nfaces, split_diffs[j])
+                        parziale += f'\nTiro {j+1}: '+ rollAndFormatVTM(pools[j], nfaces, split_diffs[j], statistics = stats)
                 else:
-                    parziale = rollAndFormatVTM(ndadi, nfaces, parsed[RollArg.DIFF])
+                    parziale = rollAndFormatVTM(ndadi, nfaces, parsed[RollArg.DIFF], statistics = stats)
                 response += f'\nAzione {i+1}: '+parziale # line break all'inizio tanto c'è il @mention
         else:
             raise BotException(f'Combinazione di parametri non supportata')
@@ -529,7 +568,7 @@ async def roll(ctx, *args):
                 pools = [(ndice-ndice//2), ndice//2]
                 response = ''
                 for i in range(len(pools)):
-                    parziale = rollAndFormatVTM(pools[i], nfaces, split[0][i+1])
+                    parziale = rollAndFormatVTM(pools[i], nfaces, split[0][i+1], statistics = stats)
                     response += f'\nTiro {i+1}: '+parziale
             else:
                 raise BotException(f'Combinazione di parametri non supportata')
@@ -537,17 +576,17 @@ async def roll(ctx, *args):
             if parsed[RollArg.ROLLTYPE] == RollType.NORMALE: # tiro normale
                 if not RollArg.DIFF in parsed:
                     raise BotException(f'Si ma mi devi dare una difficoltà')
-                response = rollAndFormatVTM(ndice, nfaces, parsed[RollArg.DIFF], rollStatusNormal, add)
+                response = rollAndFormatVTM(ndice, nfaces, parsed[RollArg.DIFF], rollStatusNormal, add, statistics = stats)
             elif parsed[RollArg.ROLLTYPE] == RollType.SOMMA:
                 raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
                 somma = sum(raw_roll)+add
                 response = f'somma: **{somma}**, tiro: {raw_roll}' + (f'+{add}' if add else '')
             elif parsed[RollArg.ROLLTYPE] == RollType.DANNI:
                 diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
-                response = rollAndFormatVTM(ndice, nfaces, diff, rollStatusDMG, add, False)
+                response = rollAndFormatVTM(ndice, nfaces, diff, rollStatusDMG, add, False, statistics = stats)
             elif parsed[RollArg.ROLLTYPE] == RollType.PROGRESSI:
                 diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
-                response = rollAndFormatVTM(ndice, nfaces, diff, rollStatusProgress, add, False, True)
+                response = rollAndFormatVTM(ndice, nfaces, diff, rollStatusProgress, add, False, True, statistics = stats)
             else:
                 raise BotException(f'Tipo di tiro sconosciuto: {rolltype}')
     await atSend(ctx, response)
@@ -1027,7 +1066,7 @@ where gs.channel = $channel and cc.playerchar = $charid
     if not (st or ba or co):
         return # non vogliamo che .rossellini faccia cose
         #raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
-    
+
     response = await pc_interact(character, ce, *args[1:])
     await atSend(ctx, response)
 
@@ -1335,7 +1374,6 @@ async def gmadm_newTrait(ctx, args):
         dbm.db.insert("Trait", id = traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0)
 
         response = f'Il tratto {traitname} è stato inserito'
-        # todo: se std, aggiungilo a tutti i pg
         if std:
             t = dbm.db.transaction()
             try:
@@ -1465,7 +1503,7 @@ def generateNestedCmd(cmd_name, cmd_brief, cmd_dict):
     return generatedCommand
 
 gmadm = generateNestedCmd('gmadm', "Gestione dell'ambiente di gioco", gameAdmin_subcommands)
-pgmod = generateNestedCmd('pgmod', "Gestione prsonaggi", pgmod_subcommands)
+pgmod = generateNestedCmd('pgmod', "Gestione personaggi", pgmod_subcommands)
 
 
 bot.run(TOKEN)
