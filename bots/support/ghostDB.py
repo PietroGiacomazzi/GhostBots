@@ -58,7 +58,7 @@ class DBManager:
         storytellers = self.db.select('Storyteller',  where='userid = $userid', vars=dict(userid=userid))
         return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
     def isCharacterOwner(self, userid, character):
-        characters = self.db.select('PlayerCharacter',  where='owner = $owner and id=$character', vars=dict(userid=userid, character=character))
+        characters = self.db.select('PlayerCharacter',  where='owner = $owner and id=$character', vars=dict(owner=userid, character=character))
         return bool(len(characters)), (characters[0] if (len(characters)) else None)
     def isChronicleStoryteller(self, userid, chronicle):
         storytellers = self.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=userid, chronicle = chronicle))
