@@ -7,16 +7,136 @@ $def with (global_params)
     <link rel="stylesheet" href="/res/W3CSS/w3.css">
     <link rel="stylesheet" href="/res/custom/CSS/custom.css">
     <link rel="shortcut icon" type="image/x-icon" href="/res/custom/img/favicon.ico" />
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Tangerine" /> 
 </head>
 <body onload='populate_page()'>
-    <div class="w3-container">
-         <div class="w3-sidebar w3-bar-block" style="width:15%" id='side_menu'>
+    <div class="w3-container" id = "main">
+        
+		<div class="w3-sidebar w3-bar-block" style="width:10%" id='side_menu'>
 		</div>
 
-		<div style="margin-left:20%" id='main_sheet'>
-		<p>questi sono dei contenuti</p>
+		<div style="margin-left:15%" id='main_content'>
+		
+		<div id = "central_msg"  class="w3-display-middle"><p>Seleziona un personaggio</p></div>
+		
+		<div id = "charsheet_template"  style="display:none">
+		
+			<div id ="titolo" class="w3-container" >
+				<h1 id = "title_pgname" class="w3-tangerine" ></h1>
+				<img id = "title_clanicon" class="w3-topright"></img>
+			</div>
+			<div id ="testata" class="w3-container">
+			</div>
+			<div id ="attributi" class="w3-container ">
+				<h3 class = "w3-border-bottom">Attributi</h3>
+				<div class = "w3-cell-row">
+					<div class = "w3-container w3-cell">
+						<h4>Fisici</h4>
+						<table id ="fisico" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left">
+						<h4>Sociali</h4>
+						<table id ="sociale" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left">
+						<h4>Mentali</h4>
+						<table id ="mentale" class = "w3-table">
+						</table>
+					</div>
+				</div>
+			</div>
+			<div id ="abilita" class="w3-container">
+				<h3 class = "w3-border-bottom">Abilità</h3>
+				<div class = "w3-cell-row">
+					<div class = "w3-container w3-cell">
+						<h4>Attitudini</h4>
+						<table id ="attitudine" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left">
+						<h4>Capacità</h4>
+						<table id ="capacita" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left">
+						<h4>Conoscenze</h4>
+						<table id ="conoscenza" class = "w3-table">
+						</table>
+					</div>
+				</div>
+			</div>
+			<div id ="vantaggi" class="w3-container">
+				<h3 class = "w3-border-bottom">Vantaggi</h3>
+				<div class = "w3-cell-row">
+					<div class = "w3-container w3-cell">
+						<h4>Discipline</h4>
+						<table id ="disciplina" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left" id = "switch_viataum">
+						<h4>Vie Taumaturgiche</h4>
+						<table id ="viataum" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left"  id = "switch_vianecro">
+						<h4>Vie Necromantiche</h4>
+						<table id ="vianecro" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left"  id = "switch_viaduranki">
+						<h4>Dur-An-Ki</h4>
+						<table id ="viaduranki" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left"  id = "switch_combinata">
+						<h4>Combinate</h4>
+						<table id ="combinata" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left">
+						<h4>Background</h4>
+						<table id ="background" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left">
+						<h4>Virtù</h4>
+						<table id ="virtu" class = "w3-table">
+						</table>
+					</div>
+				</div>
+			</div>
+			<div id ="coda" class="w3-container">
+				<div class = "w3-cell-row w3-border-top">
+					<div class = "w3-container w3-cell">
+						<h4>Pregi e Difetti</h4>
+						<table id ="pregdif" class = "w3-table">
+						</table>
+						<div id = "switch_talento">
+						<h4>Talenti</h4>
+						<table id ="talento" class = "w3-table">
+						</table>
+						</div>
+					</div>
+					<div class = "w3-container w3-cell">
+						<table id ="uvp" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell">
+						<h4>Salute</h4>
+						<table id ="sal" class = "w3-table">
+						</table>
+						<table id ="px" class = "w3-table">
+						</table>
+					</div>
+				</div>
+			</div>
+			<div id ="temp_dump" class="w3-container">
+			</div>
 		</div>
-		<script src="../script.js"></script>
+		</div>
     </div>
+	<script src="../script.js"></script>
 </body>
 </html>

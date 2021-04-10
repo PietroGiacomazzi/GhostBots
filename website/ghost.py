@@ -183,10 +183,12 @@ class getCharacterTraits(APIResponse):
             co, _ = dbm.isCharacterOwner(self.session.discord_userid, self.input_data['charid'])
             if (ba or st or co):
                 traits = dbm.db.query("""
-    SELECT  *
+    SELECT  ct.*, tr.*, tt.textbased
     From CharacterTrait ct
     join Trait tr on (ct.trait = tr.id)
+    join TraitType tt on (tr.traittype = tt.id)
     where ct.playerchar = $charid
+    order by tr.ordering asc, tr.standard desc, ct.trait asc
     """, vars=dict(charid=self.input_data['charid']))
                 return traits.list()
             else:
