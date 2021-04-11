@@ -19,13 +19,14 @@ global_template_params = {
     }
 
 urls = (
-    '', 'main_page',
-    '/', 'listIndex',
-    '/login', 'loginPage',
+    #'', 'main_page',
+    '/list', 'listIndex',
     '/doLogin', 'doLogin',
+    '/doLogout', 'doLogout',
     '/discordCallback', 'discordCallback',
     '/session_info', 'session_info',
-    '/dashboard', 'dashboard',
+    '', 'dashboard',
+    '/', 'dashboard',
     '/getMyCharacters', 'getMyCharacters',
     '/getCharacterTraits', 'getCharacterTraits'
     )
@@ -81,15 +82,6 @@ class main_page:
         web.header('Content-Type', 'text/html')
         return "\n<br/>".join(map(lambda x: "<a href="+web.ctx.home+x+" >"+x+"</a>",urls[::2]))
 
-class loginPage(WebPageResponse):
-    def __init__(self):
-        super(loginPage, self).__init__(config, session)
-    def mGET(self):
-        try:
-            return render.simplemessage(f'already logged in as: {self.session.discord_username}#{self.session.discord_userdiscriminator}')
-        except AttributeError as e:  
-            return render.login("doLogin")
-
 class doLogin(WebPageResponse):
     def __init__(self):
         super(doLogin, self).__init__(config, session)
@@ -101,6 +93,14 @@ class doLogin(WebPageResponse):
             authorization_url, state = discord.authorization_url(AUTHORIZATION_BASE_URL)
             self.session.oauth2_state = state
             raise web.seeother(authorization_url)
+
+
+class doLogout(WebPageResponse):
+    def __init__(self):
+        super(doLogout, self).__init__(config, session, min_access_level = 0)
+    def mPOST(self):
+        self.session.kill()
+        raise web.seeother("/")
 
 class discordCallback(APIResponse):
     def __init__(self):
@@ -125,7 +125,7 @@ class discordCallback(APIResponse):
             self.session.discord_userid = user['id']
             self.session.discord_username = user['username']
             self.session.discord_userdiscriminator = user['discriminator']
-            raise web.seeother('/dashboard')
+            raise web.seeother('/')
 
 
 class listIndex(WebPageResponse):
@@ -154,7 +154,11 @@ class dashboard(WebPageResponse):
     def __init__(self):
         super(dashboard, self).__init__(config, session)
     def mGET(self):
-        return render.dashboard(global_template_params)
+        try:
+            return render.dashboard(global_template_params, f'{self.session.discord_username}#{self.session.discord_userdiscriminator}' ,"Logout", "doLogout", "Seleziona un personaggio")
+        except AttributeError:
+            return render.dashboard(global_template_params, '', "Login", "doLogin", "pls login")
+            
 
 class getMyCharacters(APIResponse):
     def __init__(self):

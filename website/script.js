@@ -4,16 +4,82 @@ function getCharMenuItem(characters){
 	get_remote_resource('../html_res/charMenuItem.html', 'text',  function(menuItem){populate_charmenu(menuItem, characters)});
 }
 
+function renderhealth(health_text, max_value)
+{
+	if (max_value <= 0)
+	{	
+		var health_render = document.createElement('p');
+		health_render.innerHTML = "N/A";
+		return health_render;
+	}
+	
+	hurt_levels_vampire = ["Illeso (0)", "Contuso (0)", "Graffiato (-1)",	"Leso (-1)", "Ferito (-2)", "Straziato (-2)", "Menomato (-5)",	"Incapacitato"];
+	
+	var img_map = new Map([
+	   ['a', 'hl_aggravated.png'],
+	   ['l', 'hl_lethal.png'],
+	   ['c', 'hl_bashing.png'],
+	   [' ', 'hl_free.png'],
+	   ['B', 'hl_blocked.png']
+	]);
+	
+	var health_render = document.createElement('table');
+	charsheet.setAttribute("class", 'w3-table');
+	
+	var hs = health_text;
+    hs = hs + (" ".repeat(max_value-hs.length));
+    var levels = hurt_levels_vampire.length - 1 ;
+    var columns = Math.floor(hs.length / levels )
+    var extra = hs.length % levels;
+    var width = columns + (extra > 0);
+    var cursor = 0;
+    var health_lines = [];
+	var i;
+    for (i = 0; i < levels; ++i)
+	{
+		var line = document.createElement('tr');
+		
+		var level = document.createElement('td');
+		level.setAttribute("class", "nopadding");
+		level.innerHTML = hurt_levels_vampire[i];
+		line.appendChild(level);
+        
+		var j;
+		var add;
+		if (i < extra)
+		{
+			add = width;
+		}
+		else
+		{
+			add = columns;
+		}
+		for (j=cursor; j<(cursor+add); ++j)
+		{
+			var cell = document.createElement('td');
+			cell.setAttribute("class", "nopadding");
+			console.log(hs[j]);
+			cell.innerHTML = '<img height="20" width="20" class = "w3-border" src="../img_res/'+img_map.get(hs[j])+'" />';
+			line.appendChild(cell);
+		}
+		if (extra > 0 && i >= extra)
+		{
+			var cell = document.createElement('td');
+			cell.setAttribute("class", "nopadding");
+			console.log(hs[j]);
+			cell.innerHTML = '<img height="20" width="20" class = "w3-border" src="../img_res/'+img_map.get("B")+'" />';
+			line.appendChild(cell);
+		}
+		cursor += add;
+		health_render.appendChild(line);
+	}
+	return health_render;
+}
+
 function populateSheet(characterTraits, character){
 	// create new sheet
 	var charsheet = window.sheet_template.cloneNode(true);
 	charsheet.setAttribute("id", 'charsheet');
-	//delete old sheet
-	/*var old_cs = document.getElementById('charsheet');
-	if (old_cs)
-	{
-		old_cs.remove();
-	}*/
 	// insert new sheet
 	var main = document.getElementById('main_content');
 	main.appendChild(charsheet);
@@ -22,8 +88,8 @@ function populateSheet(characterTraits, character){
 	//charsheet.innerHTML = '';
 	var temp_dump = document.getElementById('temp_dump');
 	temp_dump.innerHTML = '';
-	var dot = "⚫";
-	var emptydot = "⚪";
+	var dot = "⚫"; //9899
+	var emptydot = "⚪"; //9898
 	var square_full = "&#11035;"
 	var square_empty = "&#11036;"
 	var i;
@@ -32,8 +98,13 @@ function populateSheet(characterTraits, character){
 	   ['vianecro', true],
 	   ['combinata', true],
 	   ['talento', true],
-	   ['viaduranki', true]
+	   ['viaduranki', true],
+	   ['viaahku', true],
+	   ['viadarktaum', true],
+	   ['brujerizmo', true]
 	]);
+	
+	var generation = -1;
 	
     for (i = 0; i<characterTraits.length; ++i){
 		traitdata = characterTraits[i];
@@ -45,6 +116,7 @@ function populateSheet(characterTraits, character){
 		{
 			var c = document.createElement('tr'); 
 			c.setAttribute("id", traitdata.trait);
+			// tratti con visualizzazioni specifiche
 			if (traitdata.trait == 'volonta')
 			{
 				c.innerHTML = '<h4>Forza di Volontà</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p><p>'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, 10-traitdata.cur_value))+'</p>'; // todo elemento a parte?
@@ -61,6 +133,11 @@ function populateSheet(characterTraits, character){
 			{
 				c.innerHTML = '<p>'+traitdata.name+': '+traitdata.cur_value+'</p>'; // todo elemento a parte?
 			}
+			else if (traitdata.trait == 'salute')
+			{
+				c.appendChild(renderhealth(traitdata['text_value'], traitdata['max_value']));
+			}
+			// tratti std
 			else if (!traitdata.textbased)
 			{
 				var tname = traitdata.name;
@@ -68,7 +145,7 @@ function populateSheet(characterTraits, character){
 				{
 					tname = '<b>'+tname+'</b>';
 				}
-				c.innerHTML = '<td>'+tname+ ": " +"</td>" +'<td>'+(dot.repeat(traitdata.cur_value))+emptydot.repeat(Math.max(0, 6-traitdata.cur_value))+"</td>";
+				c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.cur_value))+emptydot.repeat(Math.max(0, 5-traitdata.cur_value))+"</td>";
 			}
 			else
 			{
@@ -79,6 +156,10 @@ function populateSheet(characterTraits, character){
 				c.innerHTML = temp;
 			}
 			sheetspot.appendChild(c);
+			if (traitdata.trait == 'generazione')
+			{
+				generation = 13-traitdata.max_value;
+			}
 		}
 		else
 		{
@@ -91,6 +172,13 @@ function populateSheet(characterTraits, character){
 			//c.addEventListener('click', function(id){var cid = id; return function() {load_charSheet(cid);}}(character.id))
 		}
 	}
+	// generazione
+	var sheetspot = document.getElementById("testata");
+	var c = document.createElement('tr'); 
+	c.setAttribute("id", "generazione_calcolata");
+	c.innerHTML = generation+"a Generazione"
+	sheetspot.appendChild(c);
+	// pegni blocchi ventaggi vuoti
 	for (var key of switches.keys()) {
 		if (switches.get(key))
 		{

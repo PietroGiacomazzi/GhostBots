@@ -1,23 +1,30 @@
-$def with (global_params)
+$def with (global_params, username, btntext, action, msg)
 <!doctype html>
 <html>
 <head>
     <meta charset="UTF-8">
     <title>Dashboard</title>
     <link rel="stylesheet" href="/res/W3CSS/w3.css">
-    <link rel="stylesheet" href="/res/custom/CSS/custom.css">
+    <link rel="stylesheet" href="../css/custom.css">
     <link rel="shortcut icon" type="image/x-icon" href="/res/custom/img/favicon.ico" />
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Tangerine" /> 
 </head>
 <body onload='populate_page()'>
+	<div class="w3-bar w3-black w3-top">
+		<form class="w3-bar-item" action="$action" method="POST">
+			<button id="loginlogout" class="w3-btn w3-indigo">$btntext</button>
+		</form> 
+		<span class="w3-bar-item">$username</span>
+	</div> 
+	
     <div class="w3-container" id = "main">
         
-		<div class="w3-sidebar w3-bar-block" style="width:10%" id='side_menu'>
+		<div class="w3-sidebar w3-bar-block" style="width:10%; margin-top:55px" id='side_menu'>
 		</div>
 
-		<div style="margin-left:15%" id='main_content'>
+		<div style="margin-left:15%; margin-top:55px" id='main_content'>
 		
-		<div id = "central_msg"  class="w3-display-middle"><p>Seleziona un personaggio</p></div>
+		<div id = "central_msg"  class="w3-display-middle"><p>$msg</p></div>
 		
 		<div id = "charsheet_template"  style="display:none">
 		
@@ -90,6 +97,21 @@ $def with (global_params)
 						<table id ="viaduranki" class = "w3-table">
 						</table>
 					</div>
+					<div class = "w3-container w3-cell w3-border-left"  id = "switch_viaahku">
+						<h4>Ahku</h4>
+						<table id ="viaahku" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left"  id = "switch_brujerizmo">
+						<h4>Brujerizmos</h4>
+						<table id ="brujerizmo" class = "w3-table">
+						</table>
+					</div>
+					<div class = "w3-container w3-cell w3-border-left"  id = "switch_viadarktaum">
+						<h4>Vie Taumaturgiche oscure</h4>
+						<table id ="viadarktaum" class = "w3-table">
+						</table>
+					</div>
 					<div class = "w3-container w3-cell w3-border-left"  id = "switch_combinata">
 						<h4>Combinate</h4>
 						<table id ="combinata" class = "w3-table">
@@ -114,7 +136,7 @@ $def with (global_params)
 						<table id ="pregdif" class = "w3-table">
 						</table>
 						<div id = "switch_talento">
-						<h4>Talenti</h4>
+						<h4>Talenti del Sangue</h4>
 						<table id ="talento" class = "w3-table">
 						</table>
 						</div>
