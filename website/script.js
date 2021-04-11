@@ -88,8 +88,10 @@ function populateSheet(characterTraits, character){
 	//charsheet.innerHTML = '';
 	var temp_dump = document.getElementById('temp_dump');
 	temp_dump.innerHTML = '';
-	var dot = "⚫"; //9899
-	var emptydot = "⚪"; //9898
+	var dot = "&#9899;"; //"⚫"; //9899
+	var emptydot = "&#9898;"; //"⚪"; //9898
+	var red_dot = "&#128308;";
+	var blue_dot = "&#128309;";
 	var square_full = "&#11035;"
 	var square_empty = "&#11036;"
 	var i;
@@ -145,7 +147,18 @@ function populateSheet(characterTraits, character){
 				{
 					tname = '<b>'+tname+'</b>';
 				}
-				c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.cur_value))+emptydot.repeat(Math.max(0, 5-traitdata.cur_value))+"</td>";
+				//c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.cur_value))+emptydot.repeat(Math.max(0, 5-traitdata.cur_value))+"</td>";
+				//c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 5-traitdata.max_value))+"</td>";
+				var temp = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+dot.repeat(Math.min(traitdata.cur_value,traitdata.max_value));
+				if (traitdata.cur_value < traitdata.max_value)
+					temp += red_dot.repeat(traitdata.max_value-traitdata.cur_value)
+				if (traitdata.cur_value>traitdata.max_value)
+					temp += blue_dot.repeat(traitdata.cur_value-traitdata.max_value)
+				max_dots = Math.max(traitdata.pimp_max, 5)
+				if (traitdata.cur_value < max_dots)
+					temp += emptydot.repeat(max_dots-Math.max(traitdata.max_value, traitdata.cur_value));
+				temp += "</td>"
+				c.innerHTML = temp;
 			}
 			else
 			{
