@@ -95,23 +95,30 @@ function populateSheet(characterTraits, character){
 	var square_full = "&#11035;"
 	var square_empty = "&#11036;"
 	var i;
-	var switches = new Map([
+	var switchesFree = new Map([
+	   ['combinata', true],
+	   ['talento', true]	
+	]);
+	var switchesVie = new Map([
 	   ['viataum', true],
 	   ['vianecro', true],
-	   ['combinata', true],
-	   ['talento', true],
 	   ['viaduranki', true],
 	   ['viaahku', true],
 	   ['viadarktaum', true],
 	   ['brujerizmo', true]
 	]);
+	var global_switches_vie = true;
 	
 	var generation = -1;
 	
     for (i = 0; i<characterTraits.length; ++i){
 		traitdata = characterTraits[i];
-		if (switches.get(traitdata.traittype)){
-			switches.set(traitdata.traittype, false);
+		if (switchesFree.get(traitdata.traittype)){
+			switchesFree.set(traitdata.traittype, false);
+		}
+		if (switchesVie.get(traitdata.traittype)){
+			switchesVie.set(traitdata.traittype, false);
+			global_switches_vie = false;
 		}
 		var sheetspot = document.getElementById(traitdata.traittype);
 		if (sheetspot)
@@ -149,7 +156,7 @@ function populateSheet(characterTraits, character){
 				}
 				//c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.cur_value))+emptydot.repeat(Math.max(0, 5-traitdata.cur_value))+"</td>";
 				//c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 5-traitdata.max_value))+"</td>";
-				var temp = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+dot.repeat(Math.min(traitdata.cur_value,traitdata.max_value));
+				var temp = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding" style="float:right">'+dot.repeat(Math.min(traitdata.cur_value,traitdata.max_value));
 				if (traitdata.cur_value < traitdata.max_value)
 					temp += red_dot.repeat(traitdata.max_value-traitdata.cur_value)
 				if (traitdata.cur_value>traitdata.max_value)
@@ -191,13 +198,24 @@ function populateSheet(characterTraits, character){
 	c.setAttribute("id", "generazione_calcolata");
 	c.innerHTML = generation+"a Generazione"
 	sheetspot.appendChild(c);
-	// pegni blocchi ventaggi vuoti
-	for (var key of switches.keys()) {
-		if (switches.get(key))
+	// spegni blocchi ventaggi vuoti
+	for (var key of switchesFree.keys()) {
+		if (switchesFree.get(key))
 		{
 			var temp = document.getElementById('switch_'+key);
 			temp.remove();
 		}
+	}
+	for (var key of switchesVie.keys()) {
+		if (switchesVie.get(key))
+		{
+			var temp = document.getElementById('switch_'+key);
+			temp.remove();
+		}
+	}
+	if (global_switches_vie){
+		var temp = document.getElementById('switch_vie');
+		temp.remove();
 	}
 	var central_msg = document.getElementById('central_msg');
 	central_msg.style.display = "none";
