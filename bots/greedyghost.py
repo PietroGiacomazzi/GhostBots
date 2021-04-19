@@ -211,33 +211,6 @@ async def on_command_error(ctx, error):
         debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
         await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
 
-"""
-        except MySQLdb.OperationalError as e:
-            if e.args[0] == 2006:
-                dbm.reconnect()
-                await atSend(ctx, f'Ho dovuto ripristinare al connessione Database, per favore riprova')
-            else:
-                await atSend(ctx, f'Congratulazioni! Hai trovato un modo per rompere il comando!')
-                debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
-                await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
-        except BotException as e:
-            await atSend(ctx, f'{e}')
-        except ghostDB.DBException as e:
-            await atSend(ctx, f'{e}')
-    if isinstance(error, BotException):
-        await atSend(ctx, f'{error}')
-    elif isinstance(error, ghostDB.DBException):
-        await atSend(ctx, f'{error}')
-    else:
-        if isinstance(error, MySQLdb.OperationalError) and error.args[0] == 2006:
-            dbm.reconnect()
-            await atSend(ctx, f'Ho dovuto ripristinare al connessione Database, per favore riprova')
-        else:
-            await atSend(ctx, f'Congratulazioni! Hai trovato un modo per rompere il comando!')
-        #print("debug user:", int(config['Discord']['debuguser']))
-        debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
-        await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
-"""
 
 @bot.command(name='coin', help = 'Testa o Croce.')
 async def coin(ctx):
