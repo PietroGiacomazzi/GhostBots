@@ -192,19 +192,12 @@ async def on_command_error(ctx, error):
             ic, character = dbm.isValidCharacter(charid)
             if ic:
                 await pgmanage(ctx, *msgsplit)
-        except MySQLdb.OperationalError as e:
-            if e.args[0] == 2006:
-                dbm.reconnect()
-                await atSend(ctx, f'Ho dovuto ripristinare al connessione Database, per favore riprova')
             else:
-                await atSend(ctx, f'Congratulazioni! Hai trovato un modo per rompere il comando!')
-                debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
-                await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
-        except BotException as e:
-            await atSend(ctx, f'{e}')
-        except ghostDB.DBException as e:
-            await atSend(ctx, f'{e}')   
-    elif isinstance(error, BotException):
+                await atSend(ctx, f'coes')
+            return
+        except Exception as e:
+            error = e
+    if isinstance(error, BotException):
         await atSend(ctx, f'{error}')
     elif isinstance(error, ghostDB.DBException):
         await atSend(ctx, f'{error}')
@@ -218,6 +211,33 @@ async def on_command_error(ctx, error):
         debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
         await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
 
+"""
+        except MySQLdb.OperationalError as e:
+            if e.args[0] == 2006:
+                dbm.reconnect()
+                await atSend(ctx, f'Ho dovuto ripristinare al connessione Database, per favore riprova')
+            else:
+                await atSend(ctx, f'Congratulazioni! Hai trovato un modo per rompere il comando!')
+                debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
+                await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
+        except BotException as e:
+            await atSend(ctx, f'{e}')
+        except ghostDB.DBException as e:
+            await atSend(ctx, f'{e}')
+    if isinstance(error, BotException):
+        await atSend(ctx, f'{error}')
+    elif isinstance(error, ghostDB.DBException):
+        await atSend(ctx, f'{error}')
+    else:
+        if isinstance(error, MySQLdb.OperationalError) and error.args[0] == 2006:
+            dbm.reconnect()
+            await atSend(ctx, f'Ho dovuto ripristinare al connessione Database, per favore riprova')
+        else:
+            await atSend(ctx, f'Congratulazioni! Hai trovato un modo per rompere il comando!')
+        #print("debug user:", int(config['Discord']['debuguser']))
+        debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
+        await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
+"""
 
 @bot.command(name='coin', help = 'Testa o Croce.')
 async def coin(ctx):
@@ -990,6 +1010,8 @@ async def pc_interact(pc, can_edit, *args):
                 fl = new_health.find(dmgtype)
                 new_health = new_health[:fl]+new_health[fl+n:]
         else: # dio can
+            if (int(trait['cur_value']) == 0 + new_health.count(dmgtype)+new_health.count("l")*2) < n:
+                raise BotException("Non hai tutti quei danni contundenti")
             for i in range(n):
                 if trait['cur_value'] == 0:
                     trait['cur_value'] = 1 # togli il mezzo aggravato
@@ -999,7 +1021,7 @@ async def pc_interact(pc, can_edit, *args):
                     elif new_health[-1] == 'l':
                         new_health = new_health[:-1]+'c'
                     else:
-                        raise BotException("Non hai tutti quei danni contundenti")
+                        raise BotException("Non hai tutti quei danni contundenti")# non dovrebbe mai succedere
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
@@ -1025,8 +1047,9 @@ me_description = """.me <NomeTratto> [<Operazione>]
 <Nometratto>: Nome del tratto (o somma di tratti)
 <Operazione>: +/-/= n (se assente viene invece visualizzato il valore corrente)
 
--Richiede sessione attiva
--Basato sul valore corrente del Tratto'
+- Richiede sessione attiva nel canale per capire di che personaggio si sta parlando
+- Basato sul valore corrente del tratto (potenziamenti temporanei, risorse spendibili...)
+- Per modificare il valore "vero" di un tratto, vedi .pgmod
 """
 
 @bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
@@ -1035,7 +1058,19 @@ async def me(ctx, *args):
     response = await pc_interact(pc, True, *args)
     await atSend(ctx, response)
 
-@bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = "come '.me', ma si può usare in 2 modi:\n\n1) .<nomepg> [argomenti di .me]\n2) .pgmanage <nomepg> [argomenti di .me]")
+pgmanage_description = """.pgmanage <nomepg> <NomeTratto> [<Operazione>]
+
+<nomepg>: Nome breve del pg
+<Nometratto>: Nome del tratto (o somma di tratti)
+<Operazione>: +/-/= n (se assente viene invece visualizzato il valore corrente)
+
+- Funziona esattamente come '.me', ma funziona anche fuori sessione (solo per consultare i valori).
+- Si può usare in 2 modi:
+    1) .<nomepg> [argomenti di .me]
+    2) .pgmanage <nomepg> [argomenti di .me]
+"""
+
+@bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = pgmanage_description)
 async def pgmanage(ctx, *args):
     if len(args)==0:
         raise BotException('Specifica un pg!')
