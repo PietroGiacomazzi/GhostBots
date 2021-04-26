@@ -1,4 +1,7 @@
 import web
+from .utils import *
+
+LogType = enum("CUR_VALUE", "MAX_VALUE", "TEXT_VALUE", "PIMP_MAX", "ADD", "DELETE")
 
 class DBException(Exception): # use this for 'known' error situations
     def __init__(self, msg):
@@ -69,5 +72,8 @@ class DBManager:
     def isValidTraitType(self, traittypeid):
         traittypes = self.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
         return bool(len(traittypes)), (traittypes[0] if (len(traittypes)) else None)
+    def log(self, userid, charid, traitid, modtype, new_val, old_val = "", command = ""):
+        self.db.insert("CharacterModLog", userid = userid, charid = charid, traitid = traitid, val_type = modtype, old_val = old_val, new_val = new_val, command = command)
+        
 
 

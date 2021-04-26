@@ -618,20 +618,6 @@ async def divina(ctx, *, question):
 		]
     await atSend(ctx, f'Domanda: {question}\nRisposta: {random.choice(responses)}')
 
-	
-@bot.command(brief='Testa il database rispondendo con la lista degli amministratori')
-async def dbtest(ctx):
-    admins = []    
-    response = ''
-    try:
-        admins = dbm.db.select('BotAdmin')
-        response = "Database test, listing bot admins..."
-        for admin in admins:
-            user = await bot.fetch_user(admin['userid'])
-            response += f'\n{user}'
-    except Exception as e:
-        response = f'C\'è stato un problema: {e}'
-    await atSend(ctx, response)
 
 @bot.command(name = 'search', brief = "Cerca un tratto", description = "Cerca un tratto:\n\n .search <termine di ricerca> -> elenco dei risultati")
 async def search_trait(ctx, *args):
@@ -857,7 +843,7 @@ def trackerFormatter(trait):
     else:
         return defaultTraitFormatter
 
-async def pc_interact(pc, can_edit, *args):
+async def pc_interact(ctx, pc, can_edit, *args):
     response = ''
     if len(args) == 0:
         return f"Stai interpretando {pc['fullname']}"
@@ -889,8 +875,8 @@ async def pc_interact(pc, can_edit, *args):
         raise BotException(f"Non puoi modificare il valore corrente di {trait['name']}")
     if trait['trackertype'] != 2:
         n = param[1:]
-        if not (n.isdigit() and n != "0"):
-            return f'"{n}" non è un intero positivo'
+        if not (n.isdigit()):
+            return f'"{n}" non è un intero >= 0'
         
         if operazione == "=":
             n = int(param[1:]) - trait['cur_value'] # tricks
@@ -903,12 +889,16 @@ async def pc_interact(pc, can_edit, *args):
         elif new_val > max_val and trait['trackertype'] != 3:
             raise BotException(f"Non puoi avere {new_val} {trait['name'].lower()}. Valore massimo: {max_val}")
         #
-        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), cur_value = trait['cur_value'] + n)
+        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), cur_value = new_val)
+        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], ctx.message.content)
         if u == 1:
             trait = dbm.getTrait(pc['id'], trait_id)
             return prettyFormatter(trait)
+        elif u == 0:
+            trait = dbm.getTrait(pc['id'], trait_id)
+            return prettyFormatter(trait)+'\n(nessuna modifica effettuata)'
         else:
-            return f'Qualcosa è andato storto, righe aggiornate: {u}'
+            return f'Qualcosa è andato storto, righe aggiornate:  {u}'
 
     # salute
     response = ''
@@ -964,6 +954,7 @@ async def pc_interact(pc, can_edit, *args):
             rip = True
         
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
+        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.TEXT_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1 and not rip:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait(pc['id'], trait_id)
@@ -996,6 +987,7 @@ async def pc_interact(pc, can_edit, *args):
                     else:
                         raise BotException("Non hai tutti quei danni contundenti")# non dovrebbe mai succedere
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
+        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.TEXT_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait(pc['id'], trait_id)
@@ -1008,6 +1000,7 @@ async def pc_interact(pc, can_edit, *args):
         new_health = "".join(list(map(lambda x: x[0]*x[1], zip(damage_types, counts)))) # siamo generosi e riordiniamo l'input
         
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = 1)
+        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.TEXT_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait(pc['id'], trait_id)
@@ -1028,7 +1021,7 @@ me_description = """.me <NomeTratto> [<Operazione>]
 @bot.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
 async def me(ctx, *args):
     pc = dbm.getActiveChar(ctx)
-    response = await pc_interact(pc, True, *args)
+    response = await pc_interact(ctx, pc, True, *args)
     await atSend(ctx, response)
 
 pgmanage_description = """.pgmanage <nomepg> <NomeTratto> [<Operazione>]
@@ -1075,7 +1068,7 @@ where gs.channel = $channel and cc.playerchar = $charid
         return # non vogliamo che .rossellini faccia cose
         #raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
 
-    response = await pc_interact(character, ce, *args[1:])
+    response = await pc_interact(ctx, character, ce, *args[1:])
     await atSend(ctx, response)
 
 async def pgmod_create(ctx, args):
@@ -1189,7 +1182,7 @@ where gs.channel = $channel and cc.playerchar = $charid
         if not istrait:
             raise BotException(f"Il tratto {traitid} non esiste!")
         
-        ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']))
+        ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id'])).list()
         if len(ptraits):
             raise BotException(f"{character['fullname']} ha già il tratto {trait['name']} ")
         
@@ -1197,10 +1190,12 @@ where gs.channel = $channel and cc.playerchar = $charid
         if ttype['textbased']:
             textval = " ".join(args[2:])
             dbm.db.insert("CharacterTrait", trait=traitid, playerchar=charid, cur_value = 0, max_value = 0, text_value = textval, pimp_max = 0)
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.TEXT_VALUE, textval, '', ctx.message.content)
             return f"{character['fullname']} ora ha {trait['name']} {textval}"
         else:
             pimp = 6 if trait['traittype'] in ['fisico', 'sociale', 'mentale'] else 0
             dbm.db.insert("CharacterTrait", trait=traitid, playerchar=charid, cur_value = args[2], max_value = args[2], text_value = "", pimp_max = pimp)
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.MAX_VALUE, args[2], '', ctx.message.content)
             return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
 
 async def pgmod_traitMod(ctx, args):
@@ -1238,16 +1233,19 @@ where gs.channel = $channel and cc.playerchar = $charid
         if not istrait:
             raise BotException(f"Il tratto {traitid} non esiste!")
         
-        ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']))
+        ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id'])).list()
         if not len(ptraits):
             raise BotException(f"{character['fullname']} non ha il tratto {trait['name']} ")
         ttype = dbm.db.select('TraitType', where='id=$id', vars=dict(id=trait['traittype']))[0]
         if ttype['textbased']:
             textval = " ".join(args[2:])
             dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']), text_value = textval)
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.TEXT_VALUE, textval, ptraits[0]['text_value'], ctx.message.content)
             return f"{character['fullname']} ora ha {trait['name']} {textval}"
         else:
             dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']), cur_value = args[2], max_value = args[2])
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.MAX_VALUE, args[2], ptraits[0]['max_value'], ctx.message.content)
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.CUR_VALUE, args[2], ptraits[0]['cur_value'], ctx.message.content)
             return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
 
 pgmod_subcommands = {
