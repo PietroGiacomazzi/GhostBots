@@ -1,0 +1,21 @@
+$def with (global_params, items)
+<div id="modlog_modal" class="w3-modal">
+    <div class="w3-modal-content">
+      <div class="w3-container">
+        <span onclick="document.getElementById('modlog_modal').style.display='none'" class="w3-button w3-display-topright">&times;</span>
+		<h2>Registro modifiche:</h2>
+		<table class="w3-table w3-striped">
+		<tr>
+			<th>Utente</th>
+			<th>Data</th>
+			<th>Tratto</th>
+			<th>Vecchio valore</th>
+			<th>Nuovo valore</th>
+			<th>Comando</th>
+		</tr>
+		$for n in items:
+			<tr><td>$n['name']</td><td>$n['logtime']</td><td>$n['traitid']</td><td>$n['old_val']</td><td>$n['new_val']</td><td>$n['command']</td></tr>
+		</table>
+      </div>
+    </div>
+  </div>

@@ -35,6 +35,8 @@ RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES", "SOAK") # macro categoria
 RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE", "PENALITA", "DADI", "PERMANENTE", "STATS") # argomenti del tiro
 RollType = utils.enum("NORMALE", "SOMMA", "DANNI", "PROGRESSI") # sottotipo dell'argomento RollType
 
+reset_aliases = ["reset"]
+
 INFINITY = float("inf")
 
 max_dice = int(config['BotOptions']['max_dice'])
@@ -865,20 +867,33 @@ async def pc_interact(ctx, pc, can_edit, *args):
         return f'A sessione spenta puoi solo consultare le tue statistiche'
 
     param = "".join(args[1:]) # squish
-    operazione = param[0]
-    if not operazione in ["+", "-", "="]:
-        return "Stai usando il comando in modo improprio"
+    operazione = None
+    if param in reset_aliases:
+        operazione = "r"
+    else:
+        operazione = param[0]
+        if not operazione in ["+", "-", "="]:
+            return f'Operazione "{operazione}" non supportata'
  
     trait = dbm.getTrait(pc['id'], trait_id)
     prettyFormatter = trackerFormatter(trait)
     if trait['pimp_max']==0 and trait['trackertype']==0:
         raise BotException(f"Non puoi modificare il valore corrente di {trait['name']}")
     if trait['trackertype'] != 2:
-        n = param[1:]
-        if not (n.isdigit()):
-            return f'"{n}" non è un intero >= 0'
-        
-        if operazione == "=":
+        n = None
+        if operazione != "r":
+            n = param[1:]
+            if not (n.isdigit()):
+                return f'"{n}" non è un intero >= 0'
+            
+        if operazione == "r":
+            if trait['trackertype'] == 1 or trait['trackertype'] == 0:
+                n = trait['max_value'] - trait['cur_value']
+            elif trait['trackertype'] == 3:
+                n = - trait['cur_value']
+            else:
+                raise BotException(f"Tracker {trait['trackertype']} non supportato")
+        elif operazione == "=":
             n = int(param[1:]) - trait['cur_value'] # tricks
         else:
             n = int(param)
@@ -907,15 +922,24 @@ async def pc_interact(ctx, pc, can_edit, *args):
         n = 1
     elif n.isdigit():
         n = int(n)
-    elif operazione == "=":
+    elif operazione == "=" or operazione == "r":
         pass
     else:
         raise BotException(f'"{n}" non è un parametro valido!')
     dmgtype = param[-1].lower()
     new_health = trait['text_value']
-    if not dmgtype in damage_types:
+    if (not dmgtype in damage_types) and operazione != "r":
         raise BotException(f'"{dmgtype}" non è un tipo di danno valido')
-    if operazione == "+":
+    if operazione == "r":
+        new_health = ""
+        
+        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
+        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_health, trait['text_value'], ctx.message.content)
+        if u != 1 and not rip:
+            raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
+        trait = dbm.getTrait(pc['id'], trait_id)
+        response = prettyFormatter(trait)        
+    elif operazione == "+":
         rip = False
         for i in range(n): # applico i danni uno alla volta perchè sono un nabbo
             if dmgtype == "c" and new_health.endswith("c"): # non rischio di cambiare la lunghezza
@@ -954,7 +978,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
             rip = True
         
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
-        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.TEXT_VALUE, new_health, trait['text_value'], ctx.message.content)
+        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1 and not rip:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait(pc['id'], trait_id)
@@ -987,7 +1011,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
                     else:
                         raise BotException("Non hai tutti quei danni contundenti")# non dovrebbe mai succedere
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
-        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.TEXT_VALUE, new_health, trait['text_value'], ctx.message.content)
+        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait(pc['id'], trait_id)
@@ -1000,7 +1024,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
         new_health = "".join(list(map(lambda x: x[0]*x[1], zip(damage_types, counts)))) # siamo generosi e riordiniamo l'input
         
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = 1)
-        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.TEXT_VALUE, new_health, trait['text_value'], ctx.message.content)
+        dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait(pc['id'], trait_id)
@@ -1011,7 +1035,8 @@ async def pc_interact(ctx, pc, can_edit, *args):
 me_description = """.me <NomeTratto> [<Operazione>]
 
 <Nometratto>: Nome del tratto (o somma di tratti)
-<Operazione>: +/-/= n (se assente viene invece visualizzato il valore corrente)
+<Operazione>: +n / -n / =n / reset
+    (se <Operazione> è assente viene invece visualizzato il valore corrente)
 
 - Richiede sessione attiva nel canale per capire di che personaggio si sta parlando
 - Basato sul valore corrente del tratto (potenziamenti temporanei, risorse spendibili...)
@@ -1028,7 +1053,8 @@ pgmanage_description = """.pgmanage <nomepg> <NomeTratto> [<Operazione>]
 
 <nomepg>: Nome breve del pg
 <Nometratto>: Nome del tratto (o somma di tratti)
-<Operazione>: +/-/= n (se assente viene invece visualizzato il valore corrente)
+<Operazione>: +n / -n / =n / reset
+    (se <Operazione> è assente viene invece visualizzato il valore corrente)
 
 - Funziona esattamente come '.me', ma funziona anche fuori sessione (solo per consultare i valori).
 - Si può usare in 2 modi:

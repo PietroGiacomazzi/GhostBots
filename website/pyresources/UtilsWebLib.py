@@ -55,8 +55,10 @@ class WebResponse:
                 if directive[0] != MUST_NOT:
                     try:
                         final_input[key] = directive[1](raw[key]) # if the validator fails, it aborts the entire request into an error
-                    except e:
+                    except WebException as e:
                         raise WebException("Invalid parameter: "+str(key)+" - "+ str(e), 400)
+                    except Exception as e:
+                        raise WebException("Failed validation of: "+str(key)+" - "+ str(e), 400)
                 else:
                     raise WebException("Illegal parameter: "+str(key), 400)
             else:

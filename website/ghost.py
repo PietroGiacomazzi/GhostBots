@@ -28,7 +28,9 @@ urls = (
     '', 'dashboard',
     '/', 'dashboard',
     '/getMyCharacters', 'getMyCharacters',
-    '/getCharacterTraits', 'getCharacterTraits'
+    '/getCharacterTraits', 'getCharacterTraits',
+    '/getClanIcon', 'getClanIcon',
+    '/getCharacterModLog', 'getCharacterModLog'
     )
 
 app = web.application(urls, globals())#, autoreload=False) # the autoreload bit fucks with sessions
@@ -199,6 +201,39 @@ class getCharacterTraits(APIResponse):
                 return []
         except AttributeError as e:  
             return []
+
+class getClanIcon(APIResponse):
+    def __init__(self):
+        super(getClanIcon, self).__init__(config, session, accepted_input = {'clan': (MUST, validator_str_maxlen(50))})
+    def mGET(self):
+        ci = dbm.db.select('ClanInfo', where='clanid = $clanid', vars=dict(clanid = self.input_data['clan']))
+        if len(ci):
+            return {'clan_icon': f'../img_res/clan_icons/{ci[0]["clanimgurl"]}', 'icon_size': config['WebSite']['clanicon_width']}
+        else:
+            return {'clan_icon': ""}
+
+class getCharacterModLog(WebPageResponse):
+    def __init__(self):
+        super(getCharacterModLog, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_str_maxlen(20))})
+    def mGET(self):
+        try:
+            ba, _ = dbm.isBotAdmin(self.session.discord_userid)
+            st, _ = dbm.isStoryteller(self.session.discord_userid)
+            co, _ = dbm.isCharacterOwner(self.session.discord_userid, self.input_data['charid'])
+            if (ba or st or co):
+                log = dbm.db.query("""
+    SELECT *
+    From CharacterModLog cml
+    join People pp on (cml.userid = pp.userid)
+    where cml.charid = $charid
+    order by cml.logtime desc
+    """, vars=dict(charid=self.input_data['charid']))
+                return render.CharacterModLog(global_template_params, log.list())
+            else:
+                return ""
+        except AttributeError as e:  
+            return ""
+
 
 
 

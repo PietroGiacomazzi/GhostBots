@@ -1,4 +1,5 @@
 window.sheet_template = null;
+window.selected_charid = null;
 
 function getCharMenuItem(characters){
 	get_remote_resource('../html_res/charMenuItem.html', 'text',  function(menuItem){populate_charmenu(menuItem, characters)});
@@ -58,7 +59,7 @@ function renderhealth(health_text, max_value)
 		{
 			var cell = document.createElement('td');
 			cell.setAttribute("class", "nopadding");
-			console.log(hs[j]);
+			//console.log(hs[j]);
 			cell.innerHTML = '<img height="20" width="20" class = "w3-border" src="../img_res/'+img_map.get(hs[j])+'" />';
 			line.appendChild(cell);
 		}
@@ -66,7 +67,7 @@ function renderhealth(health_text, max_value)
 		{
 			var cell = document.createElement('td');
 			cell.setAttribute("class", "nopadding");
-			console.log(hs[j]);
+			//console.log(hs[j]);
 			cell.innerHTML = '<img height="20" width="20" class = "w3-border" src="../img_res/'+img_map.get("B")+'" />';
 			line.appendChild(cell);
 		}
@@ -74,6 +75,21 @@ function renderhealth(health_text, max_value)
 		health_render.appendChild(line);
 	}
 	return health_render;
+}
+
+function render_clan_icon(icon_path){
+	//console.log("owo:"+icon_path.clan_icon);
+	if (icon_path.clan_icon)
+	{
+		el = document.getElementById('title_clanicon');
+		el.src = icon_path.clan_icon;
+		el.width=icon_path.icon_size;
+		//el.height="100";
+	}
+}
+
+function populate_clan_img(clan_name){
+	get_remote_resource('./getClanIcon?clan='+clan_name, 'json', render_clan_icon);
 }
 
 function populateSheet(characterTraits, character){
@@ -86,8 +102,9 @@ function populateSheet(characterTraits, character){
 	// do stuff
 	document.getElementById('title_pgname').innerHTML = '<b>'+character.fullname+'</b>';
 	//charsheet.innerHTML = '';
-	var temp_dump = document.getElementById('temp_dump');
-	temp_dump.innerHTML = '';
+	var temp_dump = document.getElementById('altro');
+	temp_dump.style.display = "none";
+	//temp_dump.innerHTML = '';
 	var dot = "&#9899;"; //"⚫"; //9899
 	var emptydot = "&#9898;"; //"⚪"; //9898
 	var red_dot = "&#128308;";
@@ -174,6 +191,10 @@ function populateSheet(characterTraits, character){
 					temp += ": "+ traitdata.text_value;
 				}
 				c.innerHTML = temp;
+				if (traitdata.trait == 'clan')
+				{
+					populate_clan_img(traitdata.text_value);
+				}
 			}
 			sheetspot.appendChild(c);
 			if (traitdata.trait == 'generazione')
@@ -186,6 +207,10 @@ function populateSheet(characterTraits, character){
 			var c = document.createElement('p');
 			//c.innerHTML = menuItem;
 			//c = c.firstChild
+			if (temp_dump.style.display == 'none')
+			{
+				temp_dump.style.display = 'inline';
+			}
 			c.setAttribute("id", traitdata.trait);
 			c.innerHTML = traitdata.name + ": " + traitdata.cur_value + "/" + traitdata.max_value + " " +traitdata.text_value;
 			temp_dump.appendChild(c);
@@ -217,6 +242,9 @@ function populateSheet(characterTraits, character){
 		var temp = document.getElementById('switch_vie');
 		temp.remove();
 	}
+	window.selected_charid = character.id;
+	var modregisterbtn = document.getElementById('modregister');
+	modregisterbtn.style.display = "inline";
 	var central_msg = document.getElementById('central_msg');
 	central_msg.style.display = "none";
 	charsheet.style.display = "inline";
@@ -249,6 +277,21 @@ function populate_charmenu(menuItem, chars){
 	}
 }
 
+function view_modlog(content)
+{
+	if (content)
+	{
+		var logarea = document.getElementById('modlog_area');
+		logarea.innerHTML = content;
+		document.getElementById('modlog_modal').style.display = 'block';
+	}
+}
+
+function load_modlog()
+{
+	get_remote_resource('./getCharacterModLog?charid='+window.selected_charid, 'text',  view_modlog);
+}
+
 function get_remote_resource(url, res_type, callback){
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
@@ -260,7 +303,7 @@ function get_remote_resource(url, res_type, callback){
       } else {
         //callback(status, xhr.response);
         console.log('Error ('+status+') while getting remote resource '+url);
-        post_error(status);
+        post_error(status+": "+xhr.response);
       }
     };
     xhr.send();
@@ -278,6 +321,8 @@ function post_error(text){
 function populate_page(){
 	window.sheet_template = document.getElementById('charsheet_template');
 	window.sheet_template.remove();
+	var modlog = document.getElementById('modregister');
+	modlog.addEventListener('click', load_modlog);
     //var side_menu = document.getElementById('side_menu');
     get_remote_resource('./getMyCharacters', 'json',  getCharMenuItem);
 }

@@ -11,11 +11,15 @@ $def with (global_params, username, btntext, action, msg)
 	<link href="https://fonts.googleapis.com/css2?family=Merienda+One&display=swap" rel="stylesheet"> 
 </head>
 <body onload='populate_page()'>
+    <div>
+        <form id="loginlogoutform" action="$action" method="POST" class=""></form> 
+    </div>
+	<div id = "modlog_area">
+	</div>
 	<div class="w3-bar w3-black w3-top">
-		<form class="w3-bar-item" action="$action" method="POST">
-			<button id="loginlogout" class="w3-btn w3-indigo">$btntext</button>
-		</form> 
-		<span class="w3-bar-item">$username</span>
+        <button id="loginlogout" form="loginlogoutform" class="w3-bar-item w3-btn w3-indigo">$btntext</button>
+        <span class="w3-bar-item">$username</span>
+        <button id = "modregister" style="display:none" class="w3-bar-item w3-right w3-btn w3-indigo">Registro Modifiche</button>
 	</div> 
 	
     <div class="w3-container" id = "main">
@@ -29,12 +33,12 @@ $def with (global_params, username, btntext, action, msg)
 		
 		<div id = "charsheet_template"  style="display:none">
 		
-			<div id ="titolo" class="w3-container" >
+			<div id ="titolo" class="w3-container w3-display-container" >
 				<h1 id = "title_pgname" class="charnamefont" ></h1>
-				<img id = "title_clanicon" class="w3-topright"></img>
+				<img id = "title_clanicon" class="w3-display-topright w3-margin"/>
 			</div>
 			<div id ="testata" class="w3-container">
-			</div>
+			</div>	
 			<div id ="attributi" class="w3-container ">
 				<h3 class = "w3-border-bottom">Attributi</h3>
 				<div class = "w3-cell-row">
@@ -157,7 +161,8 @@ $def with (global_params, username, btntext, action, msg)
 					</div>
 				</div>
 			</div>
-			<div id ="temp_dump" class="w3-container">
+			<div id ="altro" class="w3-container">
+			<h4>Altri tratti</h4>
 			</div>
 		</div>
 		</div>
