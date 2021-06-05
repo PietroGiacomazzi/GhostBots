@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+import os
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(abspath)
+os.chdir(dname)
+
 import discord
 from discord.ext import commands
 import random, sys, configparser

@@ -157,12 +157,48 @@ class dashboard(WebPageResponse):
         super(dashboard, self).__init__(config, session)
     def mGET(self):
         try:
-            return render.dashboard(global_template_params, f'{self.session.discord_username}#{self.session.discord_userdiscriminator}' ,"Logout", "doLogout", "Seleziona un personaggio")
+            return render.dashboard(global_template_params, f'{self.session.discord_username}#{self.session.discord_userdiscriminator}' ,"Logout", "doLogout", "Seleziona una cronaca e un personaggio")
         except AttributeError:
             return render.dashboard(global_template_params, '', "Login", "doLogin", "pls login")
             
 
+my_chars_query_admin = """
+select pc.*, cr.id as chronichleid, cr.name as chroniclename
+from PlayerCharacter pc
+join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
+join Chronicle cr on (ccr.chronicle = cr.id)"""
+
+my_chars_query_st = """
+select pc.*, cr.id as chronichleid, cr.name as chroniclename
+from PlayerCharacter pc
+join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
+join Chronicle cr on (ccr.chronicle = cr.id)
+join StoryTellerChronicleRel stcr on (stcr.chronicle = cr.id)
+where stcr.storyteller = $storyteller_id"""
+my_chars_query_player = """
+select pc.*, cr.id as chronichleid, cr.name as chroniclename
+from PlayerCharacter pc
+join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
+join Chronicle cr on (ccr.chronicle = cr.id)
+where pc.owner = $userid or pc.player = $userid"""
+
 class getMyCharacters(APIResponse):
+    def __init__(self):
+        super(getMyCharacters, self).__init__(config, session)
+    def mGET(self):
+        try:
+            ba, _ = dbm.isBotAdmin(self.session.discord_userid)
+            if ba:
+                return dbm.db.query(my_chars_query_admin).list()
+            st, _ = dbm.isStoryteller(self.session.discord_userid)
+            if st:
+                return dbm.db.query(my_chars_query_st, vars = dict(storyteller_id = self.session.discord_userid)).list()
+            characters = dbm.db.query(my_chars_query_player, vars=dict(userid=self.session.discord_userid))
+            return characters.list()
+        except AttributeError as e:  
+            return []
+
+class old_getMyCharacters(APIResponse):
     def __init__(self):
         super(getMyCharacters, self).__init__(config, session)
     def mGET(self):

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+import os
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(abspath)
+os.chdir(dname)
+
 from discord.ext import commands
 import random, sys, configparser, web, traceback, MySQLdb, discord
 import support.vtm_res as vtm_res
@@ -17,7 +22,7 @@ TOKEN = config['Discord']['token']
 
 
 SOMMA_CMD = ["somma", "s", "lapse"]
-DIFF_CMD = ["diff", "d"]
+DIFF_CMD = ["diff", "diff.", "difficoltà", "difficolta", "d"]
 MULTI_CMD = ["multi", "m"]
 DANNI_CMD = ["danni", "dmg"]
 PROGRESSI_CMD = ["progressi"]
@@ -174,6 +179,8 @@ async def on_ready():
             f'{bot.user} is connected to the following guild:\n'
             f'{guild.name} (id: {guild.id})'
         )
+    debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
+    await debug_user.send(f'Sono di nuovo online!')
     #members = '\n - '.join([member.name for member in guild.members])
     #print(f'Guild Members:\n - {members}')
     #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send("bot is online")
@@ -204,9 +211,12 @@ async def on_command_error(ctx, error):
     elif isinstance(error, ghostDB.DBException):
         await atSend(ctx, f'{error}')
     else:
-        if isinstance(error, MySQLdb.OperationalError) and error.args[0] == 2006:
-            dbm.reconnect()
-            await atSend(ctx, f'Ho dovuto ripristinare al connessione Database, per favore riprova')
+        if isinstance(error, MySQLdb.OperationalError):
+            if error.args[0] == 2006:
+                dbm.reconnect()
+                await atSend(ctx, f'Il database non ha risposto, riprova per favore.')
+            else:
+                await atSend(ctx, f'Errore di database :(')
         else:
             await atSend(ctx, f'Congratulazioni! Hai trovato un modo per rompere il comando!')
         #print("debug user:", int(config['Discord']['debuguser']))
@@ -652,6 +662,26 @@ async def call(ctx, *args):
 @bot.command(brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata")
 async def start(ctx, *args):
     await atSend(ctx, f'{random.randint(1, 100)}')
+
+strat_list = [
+              'sart',
+              'sarta',
+              'sarts',
+              'strt',
+              'strart',
+              'stat',
+              'statr',
+              'srtra',
+              'srtat',
+              'srat',
+              'srats',
+              'sratr',
+              'srart',
+              'srast'
+              ]
+@bot.command(aliases = strat_list, brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata anche se l'invocatore è ubriaco")
+async def strat(ctx, *args):
+    await atSend(ctx, f'{random.randint(1, 100)}, però la prossima volta scrivilo giusto <3')
 
 
 @bot.group(brief='Controlla le sessioni di gioco', description = "Le sessioni sono basate sui canali: un canale può ospitare una sessione alla volta, ma la stessa cronaca può avere sessioni attive in più canali.")

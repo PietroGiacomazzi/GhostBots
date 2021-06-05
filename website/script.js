@@ -264,15 +264,40 @@ function load_charSheet(character){
 
 function populate_charmenu(menuItem, chars){
 	var side_menu = document.getElementById('side_menu');
+	if (chars.length)
+	{
+		var title = document.createElement('h3');
+		title.innerHTML = "<h3>Cronache:</h3>";
+		side_menu.appendChild(title);
+	}
 	var i;
     for (i = 0; i<chars.length; ++i){
 		character = chars[i];
+		container_id = 'chronicle_container_'+character.chronichleid;
+		var chronicle_container =  document.getElementById(container_id);
+		if (chronicle_container == null)
+		{
+			var cc = document.createElement('div');
+			
+			var btn = document.createElement('button');
+			btn.className = "w3-button w3-block w3-left-align";
+			btn.innerHTML = character.chroniclename + '&nbsp;<span class="material-icons md-18">arrow_drop_down</span>';
+			btn.addEventListener('click', function(chid){var c = chid; return function() {accordionSwitch(c);}}(container_id));
+			cc.appendChild(btn);
+			
+			chronicle_container = document.createElement('div');
+			chronicle_container.id = container_id;
+			chronicle_container.className = "w3-container w3-hide";
+			cc.appendChild(chronicle_container);
+			
+			side_menu.appendChild(cc);
+		}
         var c = document.createElement('div');
         c.innerHTML = menuItem;
 		c = c.firstChild
 		c.setAttribute("id", character.id);
 		c.innerHTML = character.fullname
-        side_menu.appendChild(c);
+        chronicle_container.appendChild(c);
 		c.addEventListener('click', function(chardata){var c = chardata; return function() {load_charSheet(c);}}(character))
 	}
 }
@@ -285,6 +310,15 @@ function view_modlog(content)
 		logarea.innerHTML = content;
 		document.getElementById('modlog_modal').style.display = 'block';
 	}
+}
+
+function accordionSwitch(id) {
+  var x = document.getElementById(id);
+  if (x.className.indexOf("w3-show") == -1) {
+    x.className += " w3-show";
+  } else {
+    x.className = x.className.replace(" w3-show", "");
+  }
 }
 
 function load_modlog()
