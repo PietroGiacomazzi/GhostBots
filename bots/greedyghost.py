@@ -213,8 +213,8 @@ async def on_command_error(ctx, error):
     else:
         if isinstance(error, MySQLdb.OperationalError):
             if error.args[0] == 2006:
-                dbm.reconnect()
                 await atSend(ctx, f'Il database non ha risposto, riprova per favore.')
+                dbm.reconnect()
             else:
                 await atSend(ctx, f'Errore di database :(')
         else:
@@ -262,41 +262,12 @@ In <come> bisogna spaziare tutto (multi 6, diff 4).
 A volte il bot prenderà anche 2 argomenti attaccati (diff8, multi3) se è una coppia argomento-parametro, ma non è garantito
 """
 
-# input: l'espressione <what> in .roll <what> [<args>]
-# output: tipo di tiro, numero di dadi, numero di facce
-def parseRollWhat(ctx, what):
-    n = -1
-    faces = -1
-    character = None
-
-    # tiri custom 
-    if what in INIZIATIVA_CMD:
-        return RollCat.INITIATIVE, 1, 1, 10, character
-    if what in RIFLESSI_CMD:
-        return RollCat.REFLEXES, 1, 1, 10, character
-    if what in SOAK_CMD:
-        return RollCat.SOAK, 1, 1, 10, character
-
-    # combinazione di tratti
-    singletrait, _ = dbm.isValidTrait(what)
-    if what.count("+") or singletrait:
-        character = dbm.getActiveChar(ctx)
-        split = what.split("+")
-        faces = 10
-        n = 0
-        n_perm = 0
-        for trait in split:
-            temp = dbm.getTrait(character['id'], trait)
-            n += temp['cur_value']
-            n_perm += temp['max_value']
-        return RollCat.DICE, n, n_perm, faces, character
-
-    # espressione xdy
+def parseDiceExpression_Dice(what):
     split = what.split("d")
     if len(split) > 2:
         raise BotException("Troppe 'd' b0ss")
     if len(split) == 1:
-        raise BotException(f'"{split[0]}" cosa')
+        raise BotException(f'"{split[0]}" non è un\'espressione XdY')
     if split[0] == "":
         split[0] = "1"
     if not split[0].isdigit():
@@ -315,8 +286,43 @@ def parseRollWhat(ctx, what):
         raise BotException(f'{n} dadi sono troppi b0ss')
     if faces > max_faces:
         raise BotException(f'{faces} facce sono un po\' tante')
-    return RollCat.DICE, n, n, faces, character
+    return RollCat.DICE, n, n, faces, None
 
+def parseDiceExpression_Traits(ctx, what):
+    character = dbm.getActiveChar(ctx) # can raise
+    split = what.split("+")
+    faces = 10
+    n = 0
+    n_perm = 0
+    for trait in split:
+        temp = dbm.getTrait(character['id'], trait) # can raise 
+        n += temp['cur_value']
+        n_perm += temp['max_value']
+    return RollCat.DICE, n, n_perm, faces, character
+
+# input: l'espressione <what> in .roll <what> [<args>]
+# output: tipo di tiro, numero di dadi, numero di dadi (permanente), numero di facce, personaggio
+def parseRollWhat(ctx, what):
+    n = -1
+    faces = -1
+    character = None
+
+    # tiri custom 
+    if what in INIZIATIVA_CMD:
+        return RollCat.INITIATIVE, 1, 1, 10, character
+    if what in RIFLESSI_CMD:
+        return RollCat.REFLEXES, 1, 1, 10, character
+    if what in SOAK_CMD:
+        return RollCat.SOAK, 1, 1, 10, character
+
+    try:
+        return parseDiceExpression_Dice(what)    
+    except BotException as e:
+        try:
+            return parseDiceExpression_Traits(ctx, what)
+        except ghostDB.DBException as edb:
+            raise BotException("\n".join(["Non ho capito cosa devo tirare:", f'{e}', f'{edb}']) )
+        
 def validateInteger(args, i, err_msg = 'un intero'):
     try:
         return i, int(args[i])
@@ -677,7 +683,9 @@ strat_list = [
               'srats',
               'sratr',
               'srart',
-              'srast'
+              'srast',
+              'tart',
+              'star'
               ]
 @bot.command(aliases = strat_list, brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata anche se l'invocatore è ubriaco")
 async def strat(ctx, *args):
@@ -1126,6 +1134,46 @@ where gs.channel = $channel and cc.playerchar = $charid
 
     response = await pc_interact(ctx, character, ce, *args[1:])
     await atSend(ctx, response)
+
+@bot.command(brief='bad idea.', help = "no.", hidden=True)
+async def sql(ctx, *args):
+    issuer = str(ctx.message.author.id)
+    ba, _ = dbm.isBotAdmin(issuer)
+    if not ba:
+        raise BotException(f"Devi essere un Bot Admin per poter eseguire questo comando.")
+
+    query = " ".join(args)
+    try:
+        query_result = dbm.db.query(query).list()
+        if len(query_result) == 0:
+            await atSend(ctx, "nessun risultato")
+        else:
+            column_names = list(query_result[0].keys())
+            col_widths = list(map(len, column_names))
+            for r in query_result:
+                for i in range(len(column_names)):
+                    length = len(str(r[column_names[i]]))
+                    if col_widths[i] < length:
+                        col_widths[i] = length
+            table_delim = '+' + '+'.join(map(lambda x: '-'*(x+2), col_widths)) + '+'
+            out = table_delim+"\n|"
+            for i in range(len(column_names)):
+                out += " "+column_names[i]+" "*(col_widths[i]-len(column_names[i]))+" |"
+            out += "\n"+table_delim+"\n"
+            for r in query_result:
+                out += "|"
+                for i in range(len(column_names)):
+                    data = str(r[column_names[i]])
+                    out += " "+data+" "*(col_widths[i]-len(data))+" |"
+                out += "\n"
+            out += table_delim
+            await atSend(ctx, "```\n"+out+"```")        
+    except MySQLdb.OperationalError as e:
+        await atSend(ctx, f"```Errore {e.args[0]}\n{e.args[1]}```")
+    except MySQLdb.ProgrammingError as e:
+        await atSend(ctx, f"```Errore {e.args[0]}\n{e.args[1]}```")
+
+    
 
 async def pgmod_create(ctx, args):
     helptext = "Argomenti: nome breve (senza spazi), menzione al proprietario, nome completo del personaggio"

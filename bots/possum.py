@@ -60,7 +60,7 @@ async def help(context, *args):
             await context.send("Sto mangiando. Ti risponde quell'altro")
         elif args[0] == 'rossellini':
             epiteti = [
-                "quel maledetto",                
+                "quel maledetto"     
                 ]
             await context.send(f"Ti dirò quello che penso di {random.choice(epiteti)} di un Rossellini")
 
@@ -88,9 +88,9 @@ async def rossellini(ctx):
             'Rossellini fa rima con "ti scortico la faccia"' ,
             'Evocami di nuovo e ti cavo gli occhi' ,
             '+1 ad Iniziativa' ,
-            'è stato subito odio a prima vista'  ,
+            'È stato subito odio a prima vista'  ,
             'Io mi fingo morto, tu lo sarai davvero' ,
-            'è meglio se inizi a correre' ,
+            'È meglio se inizi a correre' ,
             'Quando sarà buio ti troverò e ti riempirò di botte' ,
             'Kkkrrkkkekkkkekkkkkrkekkkkekkekkkkkkkrekkkkkekkekkkekkrkekk' ,
             'Ho mangiato mele marce molto più dignitose di te' ,
@@ -109,7 +109,7 @@ async def rossellini(ctx):
             'Oggi mi sento buono, +1 iniziativa ma non a Rossellini' ,
             '+1 ad iniziativa solo a Rossellini, così crepa prima' ,
             'Resuscita la vastità del cazzo che me ne frega di te' ,
-            "Lorenzo sai che ora è? E' ora che ti levi dal cazzo" ,
+            "Lorenzo sai che ora è? È ora che ti levi dal cazzo" ,
             'Entra nel tuo ambiente naturale: muori' ,
             'Ho trovato una cosa che ti farebbe bene: un sacco pieno di ceffoni' ,
             'Hai il carisma di una fetta merdosa di una torta al guano' ,
@@ -121,7 +121,7 @@ async def rossellini(ctx):
 	    'Usa quei rituali, razza di topo de fogna' ,
 	    'Fammi indovinare, quel coso si è mosso, meglio sparagli, vero?' ,
 	    '+1 Iniziativa fino a quando Rossellini non usa un rituale' ,
-	    'Tra un pò sono più utile io di te, e ti ricordo che sono morto, e mi vedi solo tu'  
+	    "Tra un po' sono più utile io di te, e ti ricordo che sono morto, e mi vedi solo tu"
              ]
     await ctx.send(f'{random.choice(insulti)}')
 

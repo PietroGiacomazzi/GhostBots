@@ -169,12 +169,14 @@ join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
 join Chronicle cr on (ccr.chronicle = cr.id)"""
 
 my_chars_query_st = """
-select pc.*, cr.id as chronichleid, cr.name as chroniclename
+select distinct pc.*, cr.id as chronichleid, cr.name as chroniclename
 from PlayerCharacter pc
 join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
 join Chronicle cr on (ccr.chronicle = cr.id)
 join StoryTellerChronicleRel stcr on (stcr.chronicle = cr.id)
-where stcr.storyteller = $storyteller_id"""
+where stcr.storyteller = $storyteller_id
+or pc.owner = $userid or pc.player = $userid"""
+
 my_chars_query_player = """
 select pc.*, cr.id as chronichleid, cr.name as chroniclename
 from PlayerCharacter pc
@@ -192,7 +194,7 @@ class getMyCharacters(APIResponse):
                 return dbm.db.query(my_chars_query_admin).list()
             st, _ = dbm.isStoryteller(self.session.discord_userid)
             if st:
-                return dbm.db.query(my_chars_query_st, vars = dict(storyteller_id = self.session.discord_userid)).list()
+                return dbm.db.query(my_chars_query_st, vars = dict(storyteller_id = self.session.discord_userid, userid=self.session.discord_userid)).list()
             characters = dbm.db.query(my_chars_query_player, vars=dict(userid=self.session.discord_userid))
             return characters.list()
         except AttributeError as e:  

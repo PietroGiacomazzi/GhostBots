@@ -13,7 +13,10 @@ class DBManager:
         self.db = None
         self.reconnect()
     def reconnect(self):
-        self.db = web.database(dbn=self.cfg['type'], user=self.cfg['user'], pw=self.cfg['pw'], db=self.cfg['database']) # wait_timeout = 3153600# seconds
+        self.db = web.database(dbn=self.cfg['type'], user=self.cfg['user'], pw=self.cfg['pw'], db=self.cfg['database'])
+        # fallback
+        self.db.query("SET SESSION interactive_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])));
+        self.db.query("SET SESSION wait_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])));
     def isValidCharacter(self, charid):
         characters = self.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
         return bool(len(characters)), (characters[0] if (len(characters)) else None)
