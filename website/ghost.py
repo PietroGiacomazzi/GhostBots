@@ -25,13 +25,17 @@ urls = (
     '/doLogout', 'doLogout',
     '/discordCallback', 'discordCallback',
     '/session_info', 'session_info',
-    '', 'dashboard',
+    '', 'redirectDash',
     '/', 'dashboard',
     '/getMyCharacters', 'getMyCharacters',
     '/getCharacterTraits', 'getCharacterTraits',
     '/getClanIcon', 'getClanIcon',
     '/getCharacterModLog', 'getCharacterModLog'
     )
+
+
+web.config.session_parameters['samesite'] = 'Lax'
+web.config.session_parameters['secure'] = True
 
 app = web.application(urls, globals())#, autoreload=False) # the autoreload bit fucks with sessions
 session = web.session.Session(app, web.session.DiskStore(config['WebApp']['sessions_path']), initializer={'access_level': 0})
@@ -152,9 +156,16 @@ class session_info(WebPageResponse):
                                  map(lambda k: {'header': k, 'data': self.session[k]}, self.session.keys())
                                  )
 
+class redirectDash(WebPageResponse):
+    def __init__(self):
+        super(redirectDash, self).__init__(config, session)
+    def mGET(self):
+        web.seeother("/")
+
 class dashboard(WebPageResponse):
     def __init__(self):
-        super(dashboard, self).__init__(config, session)
+        super(dashboard, self).__init__(config, session, accepted_input = {'character': (MAY, validator_str_maxlen(20))
+                                                                           })
     def mGET(self):
         try:
             return render.dashboard(global_template_params, f'{self.session.discord_username}#{self.session.discord_userdiscriminator}' ,"Logout", "doLogout", "Seleziona una cronaca e un personaggio")
@@ -163,25 +174,28 @@ class dashboard(WebPageResponse):
             
 
 my_chars_query_admin = """
-select pc.*, cr.id as chronichleid, cr.name as chroniclename
+select pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername
 from PlayerCharacter pc
-join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
-join Chronicle cr on (ccr.chronicle = cr.id)"""
+join People po on (pc.owner = po.userid)
+left join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
+left join Chronicle cr on (ccr.chronicle = cr.id)"""
 
 my_chars_query_st = """
-select distinct pc.*, cr.id as chronichleid, cr.name as chroniclename
+select distinct pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername
 from PlayerCharacter pc
-join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
-join Chronicle cr on (ccr.chronicle = cr.id)
-join StoryTellerChronicleRel stcr on (stcr.chronicle = cr.id)
+join People po on (pc.owner = po.userid)
+left join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
+left join Chronicle cr on (ccr.chronicle = cr.id)
+left join StoryTellerChronicleRel stcr on (stcr.chronicle = cr.id)
 where stcr.storyteller = $storyteller_id
 or pc.owner = $userid or pc.player = $userid"""
 
 my_chars_query_player = """
-select pc.*, cr.id as chronichleid, cr.name as chroniclename
+select pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername
 from PlayerCharacter pc
-join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
-join Chronicle cr on (ccr.chronicle = cr.id)
+join People po on (pc.owner = po.userid)
+left join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
+left join Chronicle cr on (ccr.chronicle = cr.id)
 where pc.owner = $userid or pc.player = $userid"""
 
 class getMyCharacters(APIResponse):
@@ -196,22 +210,6 @@ class getMyCharacters(APIResponse):
             if st:
                 return dbm.db.query(my_chars_query_st, vars = dict(storyteller_id = self.session.discord_userid, userid=self.session.discord_userid)).list()
             characters = dbm.db.query(my_chars_query_player, vars=dict(userid=self.session.discord_userid))
-            return characters.list()
-        except AttributeError as e:  
-            return []
-
-class old_getMyCharacters(APIResponse):
-    def __init__(self):
-        super(getMyCharacters, self).__init__(config, session)
-    def mGET(self):
-        try:
-            ba, _ = dbm.isBotAdmin(self.session.discord_userid)
-            if ba:
-                return dbm.db.select('PlayerCharacter').list()
-            st, _ = dbm.isStoryteller(self.session.discord_userid)
-            if st:
-                return dbm.db.select('PlayerCharacter').list() # todo solo i suoi
-            characters = dbm.db.select('PlayerCharacter',  where='owner = $userid or player = $userid', vars=dict(userid=self.session.discord_userid))
             return characters.list()
         except AttributeError as e:  
             return []

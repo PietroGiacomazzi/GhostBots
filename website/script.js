@@ -1,5 +1,7 @@
 window.sheet_template = null;
 window.selected_charid = null;
+var urlParams = new URLSearchParams(window.location.search);
+
 
 function getCharMenuItem(characters){
 	get_remote_resource('../html_res/charMenuItem.html', 'text',  function(menuItem){populate_charmenu(menuItem, characters)});
@@ -101,6 +103,14 @@ function populateSheet(characterTraits, character){
 	main.appendChild(charsheet);
 	// do stuff
 	document.getElementById('title_pgname').innerHTML = '<b>'+character.fullname+'</b>';
+	
+	// nome del giocatore
+	sheetspot = document.getElementById("testata");
+	var c = document.createElement('tr'); 
+	c.setAttribute("id", 'nome_giocatore');
+	c.innerHTML = "Giocatore: "+character.ownername
+	sheetspot.appendChild(c);
+	
 	//charsheet.innerHTML = '';
 	var temp_dump = document.getElementById('altro');
 	temp_dump.style.display = "none";
@@ -125,6 +135,7 @@ function populateSheet(characterTraits, character){
 	   ['brujerizmo', true]
 	]);
 	var global_switches_vie = true;
+	
 	
 	var generation = -1;
 	
@@ -151,10 +162,14 @@ function populateSheet(characterTraits, character){
 			{
 				c.innerHTML = '<h4>Punti Sangue</h4><p>'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>'; // todo elemento a parte?
 			}
+			else if (traitdata.traittype == 'uvp'){
+				c.innerHTML = '<h4>'+traitdata.name+'</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>';
+			}
+			/*
 			else if (traitdata.trait == 'umanita')
 			{
 				c.innerHTML = '<h4>Umanità</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>'; // todo elemento a parte?
-			}
+			}*/
 			else if (traitdata.trait == 'exp')
 			{
 				c.innerHTML = '<p>'+traitdata.name+': '+traitdata.cur_value+'</p>'; // todo elemento a parte?
@@ -263,6 +278,7 @@ function load_charSheet(character){
 }
 
 function populate_charmenu(menuItem, chars){
+	var loaded = urlParams.get('character') == null;
 	var side_menu = document.getElementById('side_menu');
 	if (chars.length)
 	{
@@ -281,7 +297,12 @@ function populate_charmenu(menuItem, chars){
 			
 			var btn = document.createElement('button');
 			btn.className = "w3-button w3-block w3-left-align";
-			btn.innerHTML = character.chroniclename + '&nbsp;<span class="material-icons md-18">arrow_drop_down</span>';
+			var chronicleName = character.chroniclename;
+			if (chronicleName == null)
+			{
+				chronicleName = "Personaggi senza cronaca";
+			}
+			btn.innerHTML = chronicleName + '&nbsp;<span class="material-icons md-18">arrow_drop_down</span>';
 			btn.addEventListener('click', function(chid){var c = chid; return function() {accordionSwitch(c);}}(container_id));
 			cc.appendChild(btn);
 			
@@ -299,6 +320,16 @@ function populate_charmenu(menuItem, chars){
 		c.innerHTML = character.fullname
         chronicle_container.appendChild(c);
 		c.addEventListener('click', function(chardata){var c = chardata; return function() {load_charSheet(c);}}(character))
+		// load the character if needed:
+		if (character.id === urlParams.get('character'))
+		{
+			load_charSheet(character);
+			loaded = true;
+		}
+	}
+	if (!loaded)
+	{
+		post_error('Il personaggio "'+urlParams.get('character')+'" non è tra i personaggi a cui hai accesso!');
 	}
 }
 

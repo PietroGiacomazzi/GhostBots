@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os
+import os, urllib
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
@@ -13,6 +13,11 @@ import support.utils as utils
 
 if len(sys.argv) == 1:
     print("Specifica un file di configurazione!")
+    sys.exit()
+
+print(f"Cartella di lavoro: {dname}")
+if not os.path.exists(sys.argv[1]):
+    print(f"Il file di configurazione {sys.argv[1]} non esiste!")
     sys.exit()
 
 config = configparser.ConfigParser()
@@ -252,14 +257,14 @@ A sessione attiva:
 .roll riflessi          -> equivale a .roll volontà diff (10-prontezza)
 .roll assorbi           -> equivale a .roll costituzione+robustezza diff 6 danni
 .roll <cose> penalita   -> applica la penalità corrente derivata dalla salute
-.roll <cose> dadi N     -> modifica il numero di dadi del tiro (N puù essere positivo o negativo), utile per modificare un tiro basato sui tratti
+.roll <cose> dadi N     -> modifica il numero di dadi del tiro (N può essere positivo o negativo), utile per modificare un tiro basato sui tratti
 .roll <cose> permanente -> usa i valori di scheda e non quelli potenziati/spesi (esempio: ".roll volontà permanente diff 7")
 
 Note sugli spazi in ".roll <cosa> <argomento1> <argomento2>..."
 
 In <cosa> non ci vanno mai spazi (XdY, o tratto1+tratto2)
 In <come> bisogna spaziare tutto (multi 6, diff 4).
-A volte il bot prenderà anche 2 argomenti attaccati (diff8, multi3) se è una coppia argomento-parametro, ma non è garantito
+    Il bot è in grado di leggere anche 2 argomenti attaccati (diff8, multi3) se è una coppia argomento-parametro
 """
 
 def parseDiceExpression_Dice(what):
@@ -482,9 +487,9 @@ async def roll(ctx, *args):
         ndice += parsed[RollArg.DADI]
 
     if ndice > max_dice:
-        raise BotException("Hai superato il massimo numero di dadi!")
+        raise BotException("Non puoi tirare più di {max_dice} dadi!")
     if ndice <= 0:
-        raise BotException("Hai ridotto il tuo pool di dadi sotto 0!")
+        raise BotException("Devi avere almeno un dado nel tuo pool (pool richiesto: {ndice} dadi)")
 
     # check n° di mosse per le multiple
     if RollArg.MULTI in parsed:
@@ -537,7 +542,7 @@ async def roll(ctx, *args):
         volonta = dbm.getTrait(character['id'], 'volonta')['cur_value']
         prontezza = dbm.getTrait(character['id'], 'prontezza')['cur_value']
         diff = 10 - prontezza
-        response = f'Volontà corrente: {volonta}, Prontezza: {prontezza} -> {volonta}d{nfaces} diff ({nfaces}-{prontezza})\n'
+        response = f'Volontà corrente: {volonta}, Prontezza: {prontezza} -> {volonta}d{nfaces} diff ({diff} = {nfaces}-{prontezza})\n'
         response += rollAndFormatVTM(volonta, nfaces, diff, rollStatusReflexes, add, statistics = stats)
     elif action == RollCat.SOAK:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or RollArg.ADD in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE:
@@ -608,7 +613,7 @@ async def salut(ctx):
 
 @bot.command(brief='Pay respect.')
 async def respect(ctx):
-	await atSend(ctx, ':regional_indicator_f:')
+    await atSend(ctx, ':regional_indicator_f:')
 
 @bot.command(brief='Fa sapere il ping del Bot')
 async def ping(ctx):
@@ -727,7 +732,7 @@ async def start(ctx, *args):
 @session.command(name = 'list', brief = 'Elenca le sessioni aperte', description = 'Elenca le sessioni aperte. richiede di essere admin o storyteller')
 async def session_list(ctx):
     issuer = ctx.message.author.id
-    st, _ = dbm.isStoryteller(issuer)
+    st, _ = dbm.isStoryteller(issuer) # todo: elenca solo le sue
     ba, _ = dbm.isBotAdmin(issuer)
     if not (st or ba):
         raise BotException("no.")
@@ -741,7 +746,7 @@ async def session_list(ctx):
     #pvt = 0
     for session, channel in zip(sessions, channels):
         if isinstance(channel, discord.abc.GuildChannel):
-            lines.append(f"{channel.category}/{channel.name}: {session['chronicle']}")
+            lines.append(f"**{session['chronicle']}** in: {channel.category}/{channel.name}")
         #elif isinstance(channel, discord.abc.PrivateChannel):
         #    pvt += 1
     if not len(lines):
@@ -886,7 +891,10 @@ def trackerFormatter(trait):
 async def pc_interact(ctx, pc, can_edit, *args):
     response = ''
     if len(args) == 0:
-        return f"Stai interpretando {pc['fullname']}"
+        parsed = list(urllib.parse.urlparse(config['Website']['website_url'])) # load website url
+        parsed[4] = urllib.parse.urlencode({'character': pc['id']}) # fill query
+        unparsed = urllib.parse.urlunparse(tuple(parsed)) # recreate url
+        return f"Personaggio: {pc['fullname']}\nScheda: {unparsed}"
 
     trait_id = args[0].lower()
     if len(args) == 1:
@@ -1144,7 +1152,9 @@ async def sql(ctx, *args):
 
     query = " ".join(args)
     try:
-        query_result = dbm.db.query(query).list()
+        query_result_raw = dbm.db.query(query)
+        # check for integer -> delete statements return an int (and update statements aswell?)
+        query_result = query_result_raw.list()
         if len(query_result) == 0:
             await atSend(ctx, "nessun risultato")
         else:
@@ -1176,7 +1186,7 @@ async def sql(ctx, *args):
     
 
 async def pgmod_create(ctx, args):
-    helptext = "Argomenti: nome breve (senza spazi), menzione al proprietario, nome completo del personaggio"
+    helptext = "Argomenti: nome breve (senza spazi), @menzione al proprietario, nome completo del personaggio (spazi ammessi)"
     if len(args) < 3:
         return helptext
     else:
@@ -1250,6 +1260,28 @@ async def pgmod_chronicleAdd(ctx, args):
         dbm.db.insert("ChronicleCharacterRel", chronicle=chronid, playerchar=charid)
         return f"{character['fullname']} ora gioca a {chronicle['name']}"
 
+def pgmodPermissionCheck(issuer_id, character, channel_id):
+    owner_id = character['owner']
+    char_id = character['id']
+    
+    st, _ =  dbm.isStorytellerForCharacter(issuer_id, char_id)
+    ba, _ = dbm.isBotAdmin(issuer_id)
+    co = False
+    if owner_id == issuer_id and not (st or ba):
+        #1: unlinked
+        cl, _ = dbm.isCharacterLinked(char_id)
+        #2 active session
+        sa, _ = dbm.isSessionActiveForCharacter(char_id, channel_id)
+        co = co or (not cl) or sa            
+
+    return (st or ba or co)
+    
+def pgmodPermissionCheck_Exc(issuer_id, character, channel_id):
+    pc = pgmodPermissionCheck(issuer_id, character, channel_id)
+    if not pc:
+        raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
+    else:
+        return pc
 
 async def pgmod_traitAdd(ctx, args):
     helptext = "Argomenti: nome breve del pg, nome breve del tratto, valore"
@@ -1264,23 +1296,8 @@ async def pgmod_traitAdd(ctx, args):
 
         # permission checks
         issuer = str(ctx.message.author.id)
-        ownerid = character['owner']
-        
-        st, _ = dbm.isStoryteller(issuer) # della cronaca?
-        ba, _ = dbm.isBotAdmin(issuer)
-        co = False
-        if ownerid == issuer and not (st or ba):
-            #1: unlinked
-            co = co or not len(dbm.db.select('ChronicleCharacterRel', where='playerchar=$id', vars=dict(id=charid)))
-            #2 active session
-            co = co or len(dbm.db.query("""
-SELECT cc.playerchar
-FROM GameSession gs
-join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
-where gs.channel = $channel and cc.playerchar = $charid
-""", vars=dict(channel=ctx.channel.id, charid=charid)))
-        if not (st or ba or co):
-            raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
+
+        pgmodPermissionCheck_Exc(issuer, character, ctx.channel.id)
 
         istrait, trait = dbm.isValidTrait(traitid)
         if not istrait:
@@ -1308,31 +1325,16 @@ async def pgmod_traitMod(ctx, args):
         return helptext
     else:
         charid = args[0].lower()
+        traitid = args[1].lower()
         isChar, character = dbm.isValidCharacter(charid)
         if not isChar:
             raise BotException(f"Il personaggio {charid} non esiste!")
 
         # permission checks
         issuer = str(ctx.message.author.id)
-        ownerid = character['owner']
         
-        st, _ = dbm.isStoryteller(issuer) # della cronaca?
-        ba, _ = dbm.isBotAdmin(issuer)
-        co = False
-        if ownerid == issuer and not (st or ba):
-            #1: unlinked
-            co = co or not len(dbm.db.select('ChronicleCharacterRel', where='playerchar=$id', vars=dict(id=charid)))
-            #2 active session
-            co = co or len(dbm.db.query("""
-SELECT cc.playerchar
-FROM GameSession gs
-join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
-where gs.channel = $channel and cc.playerchar = $charid
-""", vars=dict(channel=ctx.channel.id, charid=charid)))
-        if not (st or ba or co):
-            raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
+        pgmodPermissionCheck_Exc(issuer, character, ctx.channel.id)
 
-        traitid = args[1].lower()
         istrait, trait = dbm.isValidTrait(traitid)
         if not istrait:
             raise BotException(f"Il tratto {traitid} non esiste!")
@@ -1340,6 +1342,7 @@ where gs.channel = $channel and cc.playerchar = $charid
         ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id'])).list()
         if not len(ptraits):
             raise BotException(f"{character['fullname']} non ha il tratto {trait['name']} ")
+        
         ttype = dbm.db.select('TraitType', where='id=$id', vars=dict(id=trait['traittype']))[0]
         if ttype['textbased']:
             textval = " ".join(args[2:])
@@ -1352,16 +1355,81 @@ where gs.channel = $channel and cc.playerchar = $charid
             dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.CUR_VALUE, args[2], ptraits[0]['cur_value'], ctx.message.content)
             return f"{character['fullname']} ora ha {trait['name']} {args[2]}"
 
+async def pgmod_traitRM(ctx, args):
+    helptext = "Argomenti: nome breve del pg, nome breve del tratto"
+    if len(args) < 2:
+        return helptext
+    else:
+        charid = args[0].lower()
+        traitid = args[1].lower()
+        isChar, character = dbm.isValidCharacter(charid)
+        if not isChar:
+            raise BotException(f"Il personaggio {charid} non esiste!")
+
+        # permission checks
+        issuer = str(ctx.message.author.id)
+        
+        pgmodPermissionCheck_Exc(issuer, character, ctx.channel.id)
+
+        istrait, trait = dbm.isValidTrait(traitid)
+        if not istrait:
+            raise BotException(f"Il tratto {traitid} non esiste!")
+        
+        ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id'])).list()
+        if not len(ptraits):
+            raise BotException(f"{character['fullname']} non ha il tratto {trait['name']} ")
+        ttype = dbm.db.select('TraitType', where='id=$id', vars=dict(id=trait['traittype']))[0]
+        
+        updated_rows = dbm.db.delete("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']))
+        if ttype['textbased']:
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.DELETE, "", ptraits[0]['text_value'], ctx.message.content)
+        else:
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.DELETE, "", f"{ptraits[0]['cur_value']}/{ptraits[0]['max_value']}", ctx.message.content)
+            
+        if updated_rows > 0:
+            return f"Rimosso {trait['name']} da {character['fullname']} ({updated_rows})"
+        else:
+            return f"Nessun tratto rimosso"
+
 pgmod_subcommands = {
     "create": [pgmod_create, "Crea un personaggio"],
     "link": [pgmod_chronicleAdd, "Aggiunge un personaggio ad una cronaca"],
     "addt": [pgmod_traitAdd, "Aggiunge tratto ad un personaggio"],
-    "modt": [pgmod_traitMod, "Modifica un tratto di un personaggio"]
+    "modt": [pgmod_traitMod, "Modifica un tratto di un personaggio"],
+    "rmt": [pgmod_traitRM, "Rimuovi un tratto ad un personaggio"]
     }
 
 async def gmadm_listChronicles(ctx, args):
-    # voglio anche gli ST collegati
-    return "non implementato"
+    helptext = "Nessun argomento richiesto"
+    if len(args) != 0:
+        return helptext
+    else:
+        # permission checks
+        issuer = str(ctx.message.author.id)
+        #st, _ = dbm.isStoryteller(issuer)
+        #ba, _ = dbm.isBotAdmin(issuer)
+        #if not (st or ba):
+        #    raise BotException("Per creare una cronaca è necessario essere Storyteller")
+
+        query = """
+    SELECT cr.id as cid, cr.name as cname, p.name as pname
+    FROM Chronicle cr
+    JOIN StoryTellerChronicleRel stcr on (cr.id = stcr.chronicle)
+    JOIN People p on (stcr.storyteller = p.userid)
+"""
+        results = dbm.db.query(query)
+        if len(results) == 0:
+            return "Nessuna cronaca trovata!"
+
+        chronicles = {}
+        crst = {}
+        for c in results:
+            chronicles[c['cid']] = c['cname']
+            if not c['cid'] in crst:
+                crst[c['cid']] = []
+            crst[c['cid']].append(c['pname'])
+
+        return "Cronache:\n" + "\n".join(list(map(lambda x: f"**{chronicles[x]}** ({x}) (storyteller: {', '.join(crst[x])})", chronicles)))
 
 
 async def gmadm_newChronicle(ctx, args):
@@ -1374,8 +1442,8 @@ async def gmadm_newChronicle(ctx, args):
 
         # permission checks
         issuer = str(ctx.message.author.id)
-        st, _ = dbm.isStoryteller(issuer) # della cronaca?
-        # no botadmin perchè non è necessariente anche uno storyteller e dovrei faren check in più e non ho voglia
+        st, _ = dbm.isStoryteller(issuer)
+        # no botadmin perchè non è necessariente anche uno storyteller e dovrei fare n check in più e non ho voglia
         if not (st):
             raise BotException("Per creare una cronaca è necessario essere Storyteller")
 
@@ -1590,7 +1658,7 @@ gameAdmin_subcommands = {
     "newChronicle": [gmadm_newChronicle, "Crea una nuova cronaca associata allo ST che invoca il comando"],
     "newTrait": [gmadm_newTrait, "Crea nuovo tratto"],
     "updt": [gmadm_updateTrait, "Modifica un tratto"],
-    "delet": [gmadm_deleteTrait, "Cancella un tratto"]
+    "delet": [gmadm_deleteTrait, "Cancella un tratto"] #non implemmentato
     # todo: nomina storyteller, associa storyteller a cronaca
     # todo: dissociazioni varie
     }
