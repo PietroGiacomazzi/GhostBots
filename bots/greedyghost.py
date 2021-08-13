@@ -633,7 +633,7 @@ async def roll(ctx, *args):
                 diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
                 response = rollAndFormatVTM(lid, ndice, nfaces, diff, rollStatusProgress, add, False, True, statistics = stats)
             else:
-                raise BotException(f'Tipo di tiro sconosciuto: {rolltype}')
+                raise BotException(f'Tipo di tiro sconosciuto: {RollArg.ROLLTYPE}')
     await atSend(ctx, response)
        
 @bot.command(brief='Lascia che il Greedy Ghost ti saluti.')
@@ -739,7 +739,7 @@ async def lang(ctx, *args):
             lid = args[0]
             await atSend(ctx, lp.get(lid, "string_lang_updated_to", lid))
         except ghostDB.DBException:
-            user = await bot.fetch_user(owner)
+            user = await bot.fetch_user(issuer)
             dbm.db.insert('People', userid=issuer, name=user.name, langId = args[0])
             lid = args[0]
             await atSend(ctx, lp.get(lid, "string_lang_updated_to", lid))
@@ -1034,7 +1034,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
         
         u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
         dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_health, trait['text_value'], ctx.message.content)
-        if u != 1 and not rip:
+        if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
         response = prettyFormatter(trait)        
