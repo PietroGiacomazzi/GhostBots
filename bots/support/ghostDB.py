@@ -4,8 +4,8 @@ from .utils import *
 LogType = enum("CUR_VALUE", "MAX_VALUE", "TEXT_VALUE", "PIMP_MAX", "ADD", "DELETE")
 
 class DBException(Exception): # use this for 'known' error situations
-    def __init__(self, msg):
-        super(DBException, self).__init__(msg)
+    def __init__(self, code: int, msg: str, formats: tuple = ()):
+        super(DBException, self).__init__(code, msg, formats)
 
 class DBManager:
     def __init__(self, config):
@@ -29,9 +29,9 @@ class DBManager:
     where gs.channel = $channel and pc.player = $player
     """, vars=dict(channel=ctx.channel.id, player=ctx.message.author.id))
         if len(playercharacters) == 0:
-            raise DBException("Non stai interpretando nessun personaggio!")
+            raise DBException(0, "Non stai interpretando nessun personaggio!")
         if len(playercharacters) > 1:
-            raise DBException("Stai interpretando più di un personaggio in questa cronaca, non so a chi ti riferisci!")
+            raise DBException(0, "Stai interpretando più di un personaggio in questa cronaca, non so a chi ti riferisci!")
         return playercharacters[0]
     def getTrait(self, pc_id, trait_id):
         """Get a character's trait"""
@@ -39,17 +39,45 @@ class DBManager:
     SELECT
         ct.*,
         t.*,
-        tt.textbased as textbased
+        tt.textbased as textbased,
+        t.name as traitName
     FROM CharacterTrait ct
     join Trait t on (t.id = ct.trait)
     join TraitType tt on (t.traittype = tt.id)
     where ct.trait = $trait and ct.playerchar = $pc
     """, vars=dict(trait=trait_id, pc=pc_id))
         if len(traits) == 0:
-            raise DBException(f'{pc_id} non ha il tratto {trait_id}')
+            raise DBException(0, 'string_PC_does_not_have_TRAIT', (pc_id, trait_id))
+            #raise DBException(0, '{} non ha il tratto {}', (pc_id, trait_id))
         return traits[0]
+    def getTrait_Lang(self, pc_id, trait_id, lang_id):
+        """Get a character's trait (version based of user language)"""
+        traits = self.db.query("""
+    SELECT
+        ct.*,
+        t.*,
+        tt.textbased as textbased,
+        lt.traitName as traitName
+    FROM CharacterTrait ct
+    join Trait t on (t.id = ct.trait)
+    join TraitType tt on (t.traittype = tt.id)
+    join LangTrait lt on(t.id = lt.traitId)
+    where lt.traitShort = $trait
+    and ct.playerchar = $pc
+    and lt.langId = $lid
+    """, vars=dict(trait=trait_id, pc=pc_id, lid = lang_id))
+        if len(traits) == 0:
+            raise DBException(0, 'string_PC_does_not_have_TRAIT', (pc_id, trait_id))
+        if len(traits) != 1:
+            raise DBException(0, 'string_TRAIT_is_ambiguous_N_found', (trait_id, len(traits)))
+        return traits[0]
+    def getTrait_LangSafe(self, pc_id, trait_id, lang_id):
+        try:
+            return self.getTrait_Lang(pc_id, trait_id, lang_id) # can raise
+        except DBException as e: # fallback to regular trait id
+            return self.getTrait(pc_id, trait_id) # can raise
     def getChannelStoryTellers(self, channelid):
-        """Get Storytellers for trhe active chronicle in this channel"""
+        """Get Storytellers for the active chronicle in this channel"""
         sts = self.db.query("""
     SELECT  *
     FROM GameSession gs
@@ -57,8 +85,22 @@ class DBManager:
     where gs.channel = $channel
     """, vars=dict(channel=channelid))
         if len(sts) == 0:
-            raise DBException(f'Non ci sono sessioni attive in questo canale, oppure questa cronoca non ha un storyteller')
+            raise DBException(0, f'Non ci sono sessioni attive in questo canale, oppure questa cronoca non ha un storyteller')
         return sts.list()
+    def getUser(self, userid):
+        """ Gets user info """
+        results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))
+        if len(results):
+            return results[0]
+        else:
+            raise DBException(0, "Utente non trovato")
+    def getUserLanguage(self, userid):
+        """Returns the language id of the selected user"""
+        results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))
+        if len(results):
+            return results[0]['langId']
+        else:
+            raise DBException(0, "Utente non trovato per la ricerca della lingua")
     def isBotAdmin(self, userid):
         """Is this user an admin?"""
         admins = self.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=userid))

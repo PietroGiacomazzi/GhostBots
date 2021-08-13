@@ -10,14 +10,15 @@ import random, sys, configparser, web, traceback, MySQLdb, discord
 import support.vtm_res as vtm_res
 import support.ghostDB as ghostDB
 import support.utils as utils
+import lang.lang as lng
 
 if len(sys.argv) == 1:
-    print("Specifica un file di configurazione!")
+    print("Specify a configuration file!")
     sys.exit()
 
-print(f"Cartella di lavoro: {dname}")
+print(f"Working directory: {dname}")
 if not os.path.exists(sys.argv[1]):
-    print(f"Il file di configurazione {sys.argv[1]} non esiste!")
+    print(f"The configuration file {sys.argv[1]}does not exist!")
     sys.exit()
 
 config = configparser.ConfigParser()
@@ -26,19 +27,19 @@ config.read(sys.argv[1])
 TOKEN = config['Discord']['token']
 
 
-SOMMA_CMD = ["somma", "s", "lapse"]
-DIFF_CMD = ["diff", "diff.", "difficoltà", "difficolta", "d"]
+SOMMA_CMD = ["somma", "s", "lapse", "sum"]
+DIFF_CMD = ["diff", "diff.", "difficoltà", "difficolta", "d", "difficulty"]
 MULTI_CMD = ["multi", "m"]
-DANNI_CMD = ["danni", "dmg"]
-PROGRESSI_CMD = ["progressi"]
+DANNI_CMD = ["danni", "dmg", "damage"]
+PROGRESSI_CMD = ["progressi", "progress"]
 SPLIT_CMD = ["split"]
-PENALITA_CMD = ["penalita", "penalità", "p"]
-DADI_CMD = ["dadi"]
+PENALITA_CMD = ["penalita", "penalità", "p", "penalty"]
+DADI_CMD = ["dadi", "dice"]
 
-PERMANENTE_CMD = ["permanente", "perm"]
+PERMANENTE_CMD = ["permanente", "perm", "permanent"]
 SOAK_CMD = ["soak", "assorbi"]
-INIZIATIVA_CMD = ["iniziativa", "iniz"]
-RIFLESSI_CMD = ["riflessi", "r"]
+INIZIATIVA_CMD = ["iniziativa", "iniz", "initiative"]
+RIFLESSI_CMD = ["riflessi", "r", "reflexes"]
 STATISTICS_CMD = ["statistica", "stats", "stat"]
 
 RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES", "SOAK") # macro categoria che divide le azioni di tiro
@@ -52,6 +53,16 @@ INFINITY = float("inf")
 max_dice = int(config['BotOptions']['max_dice'])
 max_faces = int(config['BotOptions']['max_faces'])
 statistics_samples = int(config['BotOptions']['stat_samples'])
+
+default_language = config['BotOptions']['default_language']
+lp = lng.LanguageStringProvider("lang")
+
+def getLanguage(userid, dbm):
+    try:
+        return dbm.getUserLanguage(userid)
+    except ghostDB.DBException:
+        return default_language
+
 
 
 die_emoji = {
@@ -80,49 +91,49 @@ def prettyRoll(roll, diff, cancel):
     random.shuffle(roll)
     return "["+", ".join(roll)+"]"
 
-def rollStatusDMG(n):
+def rollStatusDMG(lid, n):
     if n == 1:
-        return f':green_square: **{1} Danno**'
+        return lp.get(lid, 'roll_status_dmg_1dmg')
     elif n > 1:
-        return f':green_square: **{n} Danni**'
+        return lp.get(lid, "roll_status_dmg_ndmg", n) 
     else:
-        return f':red_square: **Nessun danno**'
+        return lp.get(lid, 'roll_status_dmg_0dmg')
 
-def rollStatusProgress(n):
+def rollStatusProgress(lid, n):
     if n == 1:
-        return f':green_square: **{1} Ora**'
+        return lp.get(lid, 'roll_status_prg_1hr')
     elif n > 1:
-        return f':green_square: **{n} Ore**'
+        return lp.get(lid, 'roll_status_prg_nhr', n) 
     else:
-        return f':red_square: **Il soffitto è estremamente interessante**'
+        return lp.get(lid, 'roll_status_prg_0hr')
 
-def rollStatusNormal(n):
+def rollStatusNormal(lid, n):
     if n == 1:
-        return f':green_square: **{1} Successo**'
+        return lp.get(lid, 'roll_status_normal_1succ')
     elif n > 1:
-        return f':green_square: **{n} Successi**'
+        return lp.get(lid, 'roll_status_normal_nsucc', n)
     elif n == 0:
-        return f':yellow_square: **Fallimento**'
+        return lp.get(lid, 'roll_status_normal_fail')
     elif n == -2:
-        return f':orange_square: **Fallimento drammatico**'
+        return lp.get(lid, 'roll_status_normal_dramafail')
     else:
-        return f':sos: **Fallimento critico**'
+        return lp.get(lid, 'roll_status_normal_critfail')
 
-def rollStatusReflexes(n):
+def rollStatusReflexes(lid, n):
     if n >= 1:
-        return f':green_square: ** Successo!**'
+        return lp.get(lid, 'roll_status_hitormiss_success') 
     else:
-        return f':yellow_square: **Fallimento!**'
+        return lp.get(lid, 'roll_status_hitormiss_fail')
 
-def rollStatusSoak(n):
+def rollStatusSoak(lid, n):
     if n == 1:
-        return f':green_square: **{1} Danno assorbito**'
+        return lp.get(lid, 'roll_status_soak_1dmg') 
     elif n > 1:
-        return f':green_square: **{n} Danni assorbiti**'
+        return lp.get(lid, 'roll_status_soak_ndmg', n) 
     else:
-        return f':red_square: **Nessun danno assorbito**'
+        return lp.get(lid, 'roll_status_soak_0dmg') 
 
-def rollAndFormatVTM(ndice, nfaces, diff, statusFunc = rollStatusNormal, extra_succ = 0, canceling = True, spec = False, statistics = False):
+def rollAndFormatVTM(lid, ndice, nfaces, diff, statusFunc = rollStatusNormal, extra_succ = 0, canceling = True, spec = False, statistics = False):
     if statistics:
         total_successes = 0
         passes = 0
@@ -137,18 +148,27 @@ def rollAndFormatVTM(ndice, nfaces, diff, statusFunc = rollStatusNormal, extra_s
                 fails += 1
             else:
                 critfails += 1
-        response =  f"""\n--- Simulazione con {statistics_samples} tiri di {ndice}d{nfaces} diff {diff} +{extra_succ}, {"con" if canceling else "senza"} canceling, {"con" if spec else "senza"} esplosione dei 10 ---
-Frequenza di successo: {round(100*passes/statistics_samples, 2)}%
-Frequenza di fallimento:  {round(100*(fails+critfails)/statistics_samples, 2)}%
-    ({round(100*fails/statistics_samples, 2)}% fallimenti regolari/drammatici e {round(100*critfails/statistics_samples, 2)}% fallimenti critici)
-Successi medi: {round(total_successes/statistics_samples, 2)}
----"""
+        response =  lp.get(lid,
+            'roll_status_statistics_info',
+            statistics_samples,
+            ndice,
+            nfaces,
+            diff,
+            extra_succ,
+            lp.get(lid, 'roll_status_with') if canceling else lp.get(lid, 'roll_status_without'),
+            lp.get(lid, 'roll_status_with') if spec else lp.get(lid, 'roll_status_without'),
+            round(100*passes/statistics_samples, 2),
+            round(100*(fails+critfails)/statistics_samples, 2),
+            round(100*fails/statistics_samples, 2),
+            round(100*critfails/statistics_samples, 2),
+            round(total_successes/statistics_samples, 2)
+        )
         return response
     else:        
         successi, tiro, cancels = vtm_res.roller(ndice, nfaces, diff, canceling, spec)
         pretty = prettyRoll(tiro, diff, cancels)
         successi += extra_succ # posso fare sta roba solo perchè i successi extra vengono usati solo in casi in cui il canceling è spento
-        status = statusFunc(successi)
+        status = statusFunc(lid, successi)
         response = status + f' (diff {diff}): {pretty}'
         if extra_succ:
             response += f' **+{extra_succ}**'
@@ -181,18 +201,21 @@ bot = commands.Bot(botcmd_prefixes)
 async def on_ready():
     for guild in bot.guilds:
         print(
-            f'{bot.user} is connected to the following guild:\n'
+            f'{bot.user} is connected to the following guilds:\n'
             f'{guild.name} (id: {guild.id})'
         )
     debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
-    await debug_user.send(f'Sono di nuovo online!')
+    await debug_user.send(f'Online!')
     #members = '\n - '.join([member.name for member in guild.members])
     #print(f'Guild Members:\n - {members}')
     #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send("bot is online")
 
 @bot.event
 async def on_command_error(ctx, error):
-    ftb = traceback.format_exc()
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
+    ftb = traceback.format_exception(*sys.exc_info()) # broken, because the exception has already been handled
+    #print(ftb)
     #logging.warning(traceback.format_exc()) #logs the error
     #ignored = (commands.CommandNotFound, )
     error = getattr(error, 'original', error)
@@ -214,14 +237,18 @@ async def on_command_error(ctx, error):
     if isinstance(error, BotException):
         await atSend(ctx, f'{error}')
     elif isinstance(error, ghostDB.DBException):
+        await atSend(ctx, lp.formatException(lid, error))
+    elif isinstance(error, lng.LangException):
         await atSend(ctx, f'{error}')
     else:
         if isinstance(error, MySQLdb.OperationalError):
             if error.args[0] == 2006:
-                await atSend(ctx, f'Il database non ha risposto, riprova per favore.')
+                await atSend(ctx, f'Il database non ha risposto, riprova per favore')
                 dbm.reconnect()
             else:
                 await atSend(ctx, f'Errore di database :(')
+        elif isinstance(error, MySQLdb.IntegrityError):
+            await atSend(ctx, f"L'operazione viola dei vincoli sui dati, non posso farlo")
         else:
             await atSend(ctx, f'Congratulazioni! Hai trovato un modo per rompere il comando!')
         #print("debug user:", int(config['Discord']['debuguser']))
@@ -293,21 +320,21 @@ def parseDiceExpression_Dice(what):
         raise BotException(f'{faces} facce sono un po\' tante')
     return RollCat.DICE, n, n, faces, None
 
-def parseDiceExpression_Traits(ctx, what):
+def parseDiceExpression_Traits(ctx, lid, what):
     character = dbm.getActiveChar(ctx) # can raise
     split = what.split("+")
     faces = 10
     n = 0
     n_perm = 0
     for trait in split:
-        temp = dbm.getTrait(character['id'], trait) # can raise 
+        temp = dbm.getTrait_LangSafe(character['id'], trait, lid) 
         n += temp['cur_value']
         n_perm += temp['max_value']
     return RollCat.DICE, n, n_perm, faces, character
 
 # input: l'espressione <what> in .roll <what> [<args>]
 # output: tipo di tiro, numero di dadi, numero di dadi (permanente), numero di facce, personaggio
-def parseRollWhat(ctx, what):
+def parseRollWhat(ctx, lid, what):
     n = -1
     faces = -1
     character = None
@@ -324,9 +351,9 @@ def parseRollWhat(ctx, what):
         return parseDiceExpression_Dice(what)    
     except BotException as e:
         try:
-            return parseDiceExpression_Traits(ctx, what)
+            return parseDiceExpression_Traits(ctx, lid, what)
         except ghostDB.DBException as edb:
-            raise BotException("\n".join(["Non ho capito cosa devo tirare:", f'{e}', f'{edb}']) )
+            raise BotException("\n".join(["Non ho capito cosa devo tirare:", f'{e}', f'{lp.formatException(lid, edb)}']) )
         
 def validateInteger(args, i, err_msg = 'un intero'):
     try:
@@ -458,11 +485,13 @@ def parseRollArgs(args_raw):
 
 @bot.command(name='roll', aliases=['r', 'tira', 'lancia'], brief = 'Tira dadi', description = roll_longdescription) 
 async def roll(ctx, *args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
     if len(args) == 0:
         raise BotException("roll cosa diomadonna")
     # capisco quanti dadi tirare
     what = args[0].lower()
-    action, ndice, ndice_perm, nfaces, character = parseRollWhat(ctx, what)
+    action, ndice, ndice_perm, nfaces, character = parseRollWhat(ctx, lid, what)
     
     # leggo e imposto le varie opzioni
     parsed = None
@@ -479,7 +508,7 @@ async def roll(ctx, *args):
     if RollArg.PENALITA in parsed:
         if not character:
             character = dbm.getActiveChar(ctx)
-        health = dbm.getTrait(character['id'], 'salute')
+        health = dbm.getTrait_LangSafe(character['id'], 'salute', lid)
         penalty, _ = parseHealth(health)
         ndice += penalty[0]
 
@@ -524,7 +553,7 @@ async def roll(ctx, *args):
             character = dbm.getActiveChar(ctx)
             for traitid in ['prontezza', 'destrezza', 'velocità']:
                 try:
-                    val = dbm.getTrait(character['id'], traitid)['cur_value']
+                    val = dbm.getTrait_LangSafe(character['id'], traitid, lid)['cur_value']
                     bonus += val
                     bonuses_log.append( f'{traitid}: {val}' )
                 except ghostDB.DBException:
@@ -539,22 +568,22 @@ async def roll(ctx, *args):
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
             raise BotException("Combinazione di parametri non valida!")
         character = dbm.getActiveChar(ctx)
-        volonta = dbm.getTrait(character['id'], 'volonta')['cur_value']
-        prontezza = dbm.getTrait(character['id'], 'prontezza')['cur_value']
+        volonta = dbm.getTrait_LangSafe(character['id'], 'volonta', lid)['cur_value']
+        prontezza = dbm.getTrait_LangSafe(character['id'], 'prontezza', lid)['cur_value']
         diff = 10 - prontezza
         response = f'Volontà corrente: {volonta}, Prontezza: {prontezza} -> {volonta}d{nfaces} diff ({diff} = {nfaces}-{prontezza})\n'
-        response += rollAndFormatVTM(volonta, nfaces, diff, rollStatusReflexes, add, statistics = stats)
+        response += rollAndFormatVTM(lid, volonta, nfaces, diff, rollStatusReflexes, add, statistics = stats)
     elif action == RollCat.SOAK:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or RollArg.ADD in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE:
             raise BotException("Combinazione di parametri non valida!")
         diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
         character = dbm.getActiveChar(ctx)
-        pool = dbm.getTrait(character['id'], 'costituzione')['cur_value']
+        pool = dbm.getTrait_LangSafe(character['id'], 'costituzione', lid)['cur_value']
         try:
-            pool += dbm.getTrait(character['id'], 'robustezza')['cur_value']
+            pool += dbm.getTrait_LangSafe(character['id'], 'robustezza', lid)['cur_value']
         except ghostDB.DBException:
             pass
-        response = rollAndFormatVTM(pool, nfaces, diff, rollStatusSoak, 0, False, statistics = stats)
+        response = rollAndFormatVTM(lid, pool, nfaces, diff, rollStatusSoak, 0, False, statistics = stats)
     elif RollArg.MULTI in parsed:
         multi = parsed[RollArg.MULTI]
         split = []
@@ -571,9 +600,9 @@ async def roll(ctx, *args):
                 if len(split_diffs):
                     pools = [(ndadi-ndadi//2), ndadi//2]
                     for j in range(len(pools)):
-                        parziale += f'\nTiro {j+1}: '+ rollAndFormatVTM(pools[j], nfaces, split_diffs[j], statistics = stats)
+                        parziale += f'\nTiro {j+1}: '+ rollAndFormatVTM(lid, pools[j], nfaces, split_diffs[j], statistics = stats)
                 else:
-                    parziale = rollAndFormatVTM(ndadi, nfaces, parsed[RollArg.DIFF], statistics = stats)
+                    parziale = rollAndFormatVTM(lid, ndadi, nfaces, parsed[RollArg.DIFF], statistics = stats)
                 response += f'\nAzione {i+1}: '+parziale # line break all'inizio tanto c'è il @mention
         else:
             raise BotException(f'Combinazione di parametri non supportata')
@@ -584,7 +613,7 @@ async def roll(ctx, *args):
                 pools = [(ndice-ndice//2), ndice//2]
                 response = ''
                 for i in range(len(pools)):
-                    parziale = rollAndFormatVTM(pools[i], nfaces, split[0][i+1], statistics = stats)
+                    parziale = rollAndFormatVTM(lid, pools[i], nfaces, split[0][i+1], statistics = stats)
                     response += f'\nTiro {i+1}: '+parziale
             else:
                 raise BotException(f'Combinazione di parametri non supportata')
@@ -592,17 +621,17 @@ async def roll(ctx, *args):
             if parsed[RollArg.ROLLTYPE] == RollType.NORMALE: # tiro normale
                 if not RollArg.DIFF in parsed:
                     raise BotException(f'Si ma mi devi dare una difficoltà')
-                response = rollAndFormatVTM(ndice, nfaces, parsed[RollArg.DIFF], rollStatusNormal, add, statistics = stats)
+                response = rollAndFormatVTM(lid, ndice, nfaces, parsed[RollArg.DIFF], rollStatusNormal, add, statistics = stats)
             elif parsed[RollArg.ROLLTYPE] == RollType.SOMMA:
                 raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
                 somma = sum(raw_roll)+add
                 response = f'somma: **{somma}**, tiro: {raw_roll}' + (f'+{add}' if add else '')
             elif parsed[RollArg.ROLLTYPE] == RollType.DANNI:
                 diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
-                response = rollAndFormatVTM(ndice, nfaces, diff, rollStatusDMG, add, False, statistics = stats)
+                response = rollAndFormatVTM(lid, ndice, nfaces, diff, rollStatusDMG, add, False, statistics = stats)
             elif parsed[RollArg.ROLLTYPE] == RollType.PROGRESSI:
                 diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
-                response = rollAndFormatVTM(ndice, nfaces, diff, rollStatusProgress, add, False, True, statistics = stats)
+                response = rollAndFormatVTM(lid, ndice, nfaces, diff, rollStatusProgress, add, False, True, statistics = stats)
             else:
                 raise BotException(f'Tipo di tiro sconosciuto: {rolltype}')
     await atSend(ctx, response)
@@ -697,6 +726,26 @@ async def strat(ctx, *args):
     await atSend(ctx, f'{random.randint(1, 100)}, però la prossima volta scrivilo giusto <3')
 
 
+@bot.command(brief='Impostazioni di lingua', description = "Permette di cambiare impostazioni di lingua del bot")
+async def lang(ctx, *args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
+    if len(args) == 0:
+        await atSend(ctx, lp.get(lid, "string_your_lang_is", lid))
+    elif len(args) == 1:
+        try:
+            person = dbm.getUser(issuer)
+            dbm.db.update("People", where='userid  = $userid', vars=dict(userid =issuer), langId = args[0])
+            lid = args[0]
+            await atSend(ctx, lp.get(lid, "string_lang_updated_to", lid))
+        except ghostDB.DBException:
+            user = await bot.fetch_user(owner)
+            dbm.db.insert('People', userid=issuer, name=user.name, langId = args[0])
+            lid = args[0]
+            await atSend(ctx, lp.get(lid, "string_lang_updated_to", lid))
+    else:
+        raise BotException(lp.get(lid, "string_invalid_number_of_parameters"))
+
 @bot.group(brief='Controlla le sessioni di gioco', description = "Le sessioni sono basate sui canali: un canale può ospitare una sessione alla volta, ma la stessa cronaca può avere sessioni attive in più canali.")
 async def session(ctx):
     if ctx.invoked_subcommand is None:
@@ -779,10 +828,10 @@ async def end(ctx):
 damage_types = ["a", "l", "c"]
 
 def defaultTraitFormatter(trait):
-    return f"Oh no! devo usare il formatter di default!\n{trait['name']}: {trait['cur_value']}/{trait['max_value']}/{trait['pimp_max']}, text: {trait['text_value']}"
+    return f"Oh no! devo usare il formatter di default!\n{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}/{trait['pimp_max']}, text: {trait['text_value']}"
 
 def prettyDotTrait(trait):
-    pretty = f"{trait['name']}: {trait['cur_value']}/{trait['max_value']}\n"
+    pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
     pretty += ":red_circle:"*min(trait['cur_value'], trait['max_value'])
     if trait['cur_value']<trait['max_value']:
         pretty += ":orange_circle:"*(trait['max_value']-trait['cur_value'])
@@ -840,7 +889,7 @@ def parseHealth(trait, levels_list = hurt_levels_vampire):
 
 def prettyHealth(trait, levels_list = hurt_levels_vampire):
     penalty, parsed = parseHealth(trait, levels_list)
-    prettytext = 'Salute:'
+    prettytext = f'{trait["traitName"]}:'
     for line in parsed:
         prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], line)))
     return f'{penalty[1]} ({penalty[0]})' +"\n"+ prettytext
@@ -852,17 +901,17 @@ blood_emojis = [":drop_of_blood:", ":droplet:"]
 will_emojis = [":white_square_button:", ":white_large_square:"]
 
 def prettyMaxPointTracker(trait, emojis, separator = ""):
-    pretty = f"{trait['name']}: {trait['cur_value']}/{trait['max_value']}\n"
+    pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
     pretty += separator.join([emojis[0]]*trait['cur_value'])
     pretty += separator
     pretty += separator.join([emojis[1]]*(trait['max_value']-trait['cur_value']))
     return pretty
 
 def prettyPointAccumulator(trait):
-    return f"{trait['name']}: {trait['cur_value']}"
+    return f"{trait['traitName']}: {trait['cur_value']}"
 
 def prettyTextTrait(trait):
-    return f"{trait['name']}: {trait['text_value']}"
+    return f"{trait['traitName']}: {trait['text_value']}"
 
 def prettyGeneration(trait):
     return f"{13 - trait['cur_value']}a generazione\n{prettyDotTrait(trait)}"
@@ -889,6 +938,8 @@ def trackerFormatter(trait):
         return defaultTraitFormatter
 
 async def pc_interact(ctx, pc, can_edit, *args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
     response = ''
     if len(args) == 0:
         parsed = list(urllib.parse.urlparse(config['Website']['website_url'])) # load website url
@@ -899,12 +950,13 @@ async def pc_interact(ctx, pc, can_edit, *args):
     trait_id = args[0].lower()
     if len(args) == 1:
         if trait_id.count("+"):
-            count = 0
-            for tid in trait_id.split("+"):
-                count += dbm.getTrait(pc['id'], tid)['cur_value']
+            _, count, _, _, _ = parseDiceExpression_Traits(ctx, lid, trait_id)
+            #count = 0
+            #for tid in trait_id.split("+"):
+            #    count += dbm.getTrait(pc['id'], tid)['cur_value']
             return f"{args[0]}: {count}"
         else:
-            trait = dbm.getTrait(pc['id'], trait_id)
+            trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
             prettyFormatter = trackerFormatter(trait)
             return prettyFormatter(trait)
 
@@ -920,11 +972,12 @@ async def pc_interact(ctx, pc, can_edit, *args):
         operazione = param[0]
         if not operazione in ["+", "-", "="]:
             return f'Operazione "{operazione}" non supportata'
- 
-    trait = dbm.getTrait(pc['id'], trait_id)
+
+    trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
+    #trait = dbm.getTrait(pc['id'], trait_id)
     prettyFormatter = trackerFormatter(trait)
     if trait['pimp_max']==0 and trait['trackertype']==0:
-        raise BotException(f"Non puoi modificare il valore corrente di {trait['name']}")
+        raise BotException(f"Non puoi modificare il valore corrente di {trait['traitName']}")
     if trait['trackertype'] != 2:
         n = None
         if operazione != "r":
@@ -946,17 +999,17 @@ async def pc_interact(ctx, pc, can_edit, *args):
         new_val = trait['cur_value'] + n
         max_val = max(trait['max_value'], trait['pimp_max']) 
         if new_val<0:
-            raise BotException(f'Non hai abbastanza {trait_id}!')
+            raise BotException(f'Non hai abbastanza {trait["traitName"].lower()}!')
         elif new_val > max_val and trait['trackertype'] != 3:
-            raise BotException(f"Non puoi avere {new_val} {trait['name'].lower()}. Valore massimo: {max_val}")
+            raise BotException(f"Non puoi avere {new_val} {trait['traitName'].lower()}. Valore massimo: {max_val}")
         #
-        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), cur_value = new_val)
+        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=pc['id']), cur_value = new_val)
         dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], ctx.message.content)
         if u == 1:
-            trait = dbm.getTrait(pc['id'], trait_id)
+            trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
             return prettyFormatter(trait)
         elif u == 0:
-            trait = dbm.getTrait(pc['id'], trait_id)
+            trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
             return prettyFormatter(trait)+'\n(nessuna modifica effettuata)'
         else:
             return f'Qualcosa è andato storto, righe aggiornate:  {u}'
@@ -979,11 +1032,11 @@ async def pc_interact(ctx, pc, can_edit, *args):
     if operazione == "r":
         new_health = ""
         
-        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
+        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
         dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1 and not rip:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
-        trait = dbm.getTrait(pc['id'], trait_id)
+        trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
         response = prettyFormatter(trait)        
     elif operazione == "+":
         rip = False
@@ -1023,11 +1076,11 @@ async def pc_interact(ctx, pc, can_edit, *args):
         if new_health.count("a") == trait['max_value']:
             rip = True
         
-        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
+        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
         dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1 and not rip:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
-        trait = dbm.getTrait(pc['id'], trait_id)
+        trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
         response = prettyFormatter(trait)
         if rip:
             response += "\n\n RIP"
@@ -1056,11 +1109,11 @@ async def pc_interact(ctx, pc, can_edit, *args):
                         new_health = new_health[:-1]+'c'
                     else:
                         raise BotException("Non hai tutti quei danni contundenti")# non dovrebbe mai succedere
-        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
+        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
         dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
-        trait = dbm.getTrait(pc['id'], trait_id)
+        trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
         response = prettyFormatter(trait)
     else: # =
         full = param[1:]
@@ -1069,11 +1122,11 @@ async def pc_interact(ctx, pc, can_edit, *args):
             raise BotException(f'"{full}" non è un parametro valido!')
         new_health = "".join(list(map(lambda x: x[0]*x[1], zip(damage_types, counts)))) # siamo generosi e riordiniamo l'input
         
-        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=pc['id']), text_value = new_health, cur_value = 1)
+        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=pc['id']), text_value = new_health, cur_value = 1)
         dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
-        trait = dbm.getTrait(pc['id'], trait_id)
+        trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
         response = prettyFormatter(trait)
 
     return response
@@ -1143,7 +1196,7 @@ where gs.channel = $channel and cc.playerchar = $charid
     response = await pc_interact(ctx, character, ce, *args[1:])
     await atSend(ctx, response)
 
-@bot.command(brief='bad idea.', help = "no.", hidden=True)
+@bot.command(brief='a bad idea.', help = "no.", hidden=True)
 async def sql(ctx, *args):
     issuer = str(ctx.message.author.id)
     ba, _ = dbm.isBotAdmin(issuer)
@@ -1154,30 +1207,35 @@ async def sql(ctx, *args):
     try:
         query_result_raw = dbm.db.query(query)
         # check for integer -> delete statements return an int (and update statements aswell?)
+        if isinstance(query_result_raw, int):
+            await atSend(ctx, f"righe interessate: {query_result_raw}")
+            return
+        
         query_result = query_result_raw.list()
         if len(query_result) == 0:
             await atSend(ctx, "nessun risultato")
-        else:
-            column_names = list(query_result[0].keys())
-            col_widths = list(map(len, column_names))
-            for r in query_result:
-                for i in range(len(column_names)):
-                    length = len(str(r[column_names[i]]))
-                    if col_widths[i] < length:
-                        col_widths[i] = length
-            table_delim = '+' + '+'.join(map(lambda x: '-'*(x+2), col_widths)) + '+'
-            out = table_delim+"\n|"
+            return
+        
+        column_names = list(query_result[0].keys())
+        col_widths = list(map(len, column_names))
+        for r in query_result:
             for i in range(len(column_names)):
-                out += " "+column_names[i]+" "*(col_widths[i]-len(column_names[i]))+" |"
-            out += "\n"+table_delim+"\n"
-            for r in query_result:
-                out += "|"
-                for i in range(len(column_names)):
-                    data = str(r[column_names[i]])
-                    out += " "+data+" "*(col_widths[i]-len(data))+" |"
-                out += "\n"
-            out += table_delim
-            await atSend(ctx, "```\n"+out+"```")        
+                length = len(str(r[column_names[i]]))
+                if col_widths[i] < length:
+                    col_widths[i] = length
+        table_delim = '+' + '+'.join(map(lambda x: '-'*(x+2), col_widths)) + '+'
+        out = table_delim+"\n|"
+        for i in range(len(column_names)):
+            out += " "+column_names[i]+" "*(col_widths[i]-len(column_names[i]))+" |"
+        out += "\n"+table_delim+"\n"
+        for r in query_result:
+            out += "|"
+            for i in range(len(column_names)):
+                data = str(r[column_names[i]])
+                out += " "+data+" "*(col_widths[i]-len(data))+" |"
+            out += "\n"
+        out += table_delim
+        await atSend(ctx, "```\n"+out+"```")        
     except MySQLdb.OperationalError as e:
         await atSend(ctx, f"```Errore {e.args[0]}\n{e.args[1]}```")
     except MySQLdb.ProgrammingError as e:
@@ -1209,7 +1267,7 @@ async def pgmod_create(ctx, args):
         try:
             if not len(dbm.db.select('People', where='userid=$userid', vars=dict(userid=owner))):
                 user = await bot.fetch_user(owner)
-                dbm.db.insert('People', userid=owner, name=user.name)
+                dbm.db.insert('People', userid=owner, name=user.name, langId = default_language)
             dbm.db.insert('PlayerCharacter', id=chid, owner=owner, player=owner, fullname=fullname)
             dbm.db.query("""
 insert into CharacterTrait
@@ -1499,6 +1557,10 @@ query_addTraitToPCs_safe = """
         );
     """
 
+query_addTraitLangs = """
+    insert into LangTrait select l.langId as langId, t.id as traitId, $traitid as traitShort, $traitname as traitName from Trait t join Languages l where t.id = $traitid;
+    """
+
 async def gmadm_newTrait(ctx, args):
     if len(args) < 5:
         helptext = "Argomenti: <id> <tipo> <tracker> <standard> <nome completo>\n\n"
@@ -1549,23 +1611,29 @@ async def gmadm_newTrait(ctx, args):
             raise BotException(f"{stdarg} non è un'opzione valida")
         
         traitname = " ".join(args[4:])
-        dbm.db.insert("Trait", id = traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0)
 
-        response = f'Il tratto {traitname} è stato inserito'
-        if std:
-            t = dbm.db.transaction()
-            try:
+        response = ""
+        t = dbm.db.transaction()
+        try:
+            dbm.db.insert("Trait", id = traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0)
+            # we insert it in all available languages and we assume that it will be translated later:
+            # better have it in the wrong language than not having it at all
+            dbm.db.query(query_addTraitLangs, vars = dict(traitid=traitid, traitname=traitname))
+            response = f'Il tratto {traitname} è stato inserito'
+            if std:
                 dbm.db.query(query_addTraitToPCs, vars = dict(traitid=traitid))
-            except:
-                t.rollback()
-                raise
-            else:
-                t.commit()
                 response +=  f'\nIl nuovo talento standard {traitname} è stato assegnato ai personaggi!'
+        except:
+            t.rollback()
+            raise
+        else:
+            t.commit()
 
         return response
 
-async def gmadm_updateTrait(ctx, args):
+async def gmadm_updateTrait(ctx, args):    
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
     if len(args) < 6:
         helptext = "Argomenti: <vecchio_id> <nuovo_id> <tipo> <tracker> <standard> <nome completo>\n\n"
         helptext += "Gli id non ammettono spazi.\n\n"
@@ -1584,7 +1652,6 @@ async def gmadm_updateTrait(ctx, args):
         return helptext
     else:
         # permission checks
-        issuer = ctx.message.author.id
         st, _ = dbm.isStoryteller(issuer)
         ba, _ = dbm.isBotAdmin(issuer)
         if not (st or ba):
@@ -1620,33 +1687,29 @@ async def gmadm_updateTrait(ctx, args):
             raise BotException(f"{stdarg} non è un'opzione valida")
 
         traitname = " ".join(args[5:])
-        dbm.db.update("Trait", where= 'id = $oldid' , vars=dict(oldid = old_traitid), id = new_traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0)
+        
 
-        response = f'Il tratto {traitname} è stato inserito'
-        # todo: se std, aggiungilo a tutti i pg
-        if std and not old_trait['standard']:
-            t = dbm.db.transaction()
-            try:
+        response = f'Il tratto {traitname} è stato aggiornato'
+        t = dbm.db.transaction()
+        try:
+            dbm.db.update("Trait", where= 'id = $oldid' , vars=dict(oldid = old_traitid), id = new_traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0)
+            # now we update the language description, but only of the current language
+            dbm.db.update("LangTrait", where= 'traitId = $traitid and langId = $lid' , vars=dict(traitid=new_traitid, lid = lid), traitName = traitname)
+            if std and not old_trait['standard']:
                 dbm.db.query(query_addTraitToPCs_safe, vars = dict(traitid=new_traitid))
-            except:
-                t.rollback()
-                raise
-            else:
-                t.commit()
                 response +=  f'\nIl nuovo talento standard {traitname} è stato assegnato ai personaggi!'
-        elif not std and old_trait['standard']:
-            t = dbm.db.transaction()
-            try:
+            elif not std and old_trait['standard']:
                 dbm.db.query("""
     delete from CharacterTrait
     where trait = $traitid and max_value = 0 and cur_value = 0 and text_value = '';
     """, vars = dict(traitid=new_traitid))
-            except:
-                t.rollback()
-                raise
-            else:
-                t.commit()
-                response +=  f'\nIl talento {traitname} è stato rimosso dai personaggi che non avevano pallini'
+                response += f'\nIl talento {traitname} è stato rimosso dai personaggi che non avevano pallini'
+        except:
+            t.rollback()
+            raise
+        else:
+            t.commit()
+
 
         return response
 

@@ -38,13 +38,27 @@ function renderhealth(health_text, max_value)
     var cursor = 0;
     var health_lines = [];
 	var i;
+	
+	/*
+	//extra line for "healthy"
+	var line = document.createElement('tr');
+	var level = document.createElement('td');
+	level.setAttribute("class", "nopadding");
+	level.innerHTML = hurt_levels_vampire[0];
+	line.appendChild(level);
+	var cell = document.createElement('td');
+	cell.innerHTML = '<span/>';
+	line.appendChild(cell);
+	health_render.appendChild(line);
+	*/
+	
     for (i = 0; i < levels; ++i)
 	{
 		var line = document.createElement('tr');
 		
 		var level = document.createElement('td');
 		level.setAttribute("class", "nopadding");
-		level.innerHTML = hurt_levels_vampire[i];
+		level.innerHTML = hurt_levels_vampire[i+1];
 		line.appendChild(level);
         
 		var j;
@@ -162,21 +176,40 @@ function populateSheet(characterTraits, character){
 			{
 				c.innerHTML = '<h4>Punti Sangue</h4><p>'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>'; // todo elemento a parte?
 			}
-			else if (traitdata.traittype == 'uvp'){
-				c.innerHTML = '<h4>'+traitdata.name+'</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>';
-			}
 			/*
 			else if (traitdata.trait == 'umanita')
 			{
 				c.innerHTML = '<h4>Umanità</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>'; // todo elemento a parte?
 			}*/
+			else if (traitdata.trait == 'salute')
+			{
+				c.appendChild(renderhealth(traitdata['text_value'], traitdata['max_value']));
+			}
 			else if (traitdata.trait == 'exp')
 			{
 				c.innerHTML = '<p>'+traitdata.name+': '+traitdata.cur_value+'</p>'; // todo elemento a parte?
 			}
-			else if (traitdata.trait == 'salute')
-			{
-				c.appendChild(renderhealth(traitdata['text_value'], traitdata['max_value']));
+			else if (traitdata.traittype == 'uvp'){
+				if (traitdata.trackertype == 0) // normale
+				{
+					c.innerHTML = '<h4>'+traitdata.name+'</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>';
+				}
+				else if (traitdata.trackertype == 1) // punti con massimo
+				{
+					c.innerHTML = '<h4>'+traitdata.name+'</h4><p>'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>';
+				}
+				else if (traitdata.trackertype == 2) // danni
+				{
+					c.innerHTML = '<h4>'+traitdata.name+'</h4><p>'+traitdata.text_value+' (non implementato)</p>'; // TODO
+				}
+				else if (traitdata.trackertype == 3) // punti senza massimo
+				{
+					c.innerHTML = '<h4>'+traitdata.name+': '+traitdata.cur_value+'</h4>';
+				}
+				else //fallback
+				{
+					c.innerHTML = '<h4>'+traitdata.name+'</h4><p>'+ traitdata.cur_value + "/" + traitdata.max_value + " " +traitdata.text_value+'</p>'; 
+				}
 			}
 			// tratti std
 			else if (!traitdata.textbased)
@@ -186,18 +219,38 @@ function populateSheet(characterTraits, character){
 				{
 					tname = '<b>'+tname+'</b>';
 				}
-				//c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.cur_value))+emptydot.repeat(Math.max(0, 5-traitdata.cur_value))+"</td>";
-				//c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 5-traitdata.max_value))+"</td>";
-				var temp = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding" style="float:right">'+dot.repeat(Math.min(traitdata.cur_value,traitdata.max_value));
-				if (traitdata.cur_value < traitdata.max_value)
-					temp += red_dot.repeat(traitdata.max_value-traitdata.cur_value)
-				if (traitdata.cur_value>traitdata.max_value)
-					temp += blue_dot.repeat(traitdata.cur_value-traitdata.max_value)
-				max_dots = Math.max(traitdata.pimp_max, 5)
-				if (traitdata.cur_value < max_dots)
-					temp += emptydot.repeat(max_dots-Math.max(traitdata.max_value, traitdata.cur_value));
-				temp += "</td>"
-				c.innerHTML = temp;
+				
+				if (traitdata.trackertype == 0) // normale
+				{
+					//c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.cur_value))+emptydot.repeat(Math.max(0, 5-traitdata.cur_value))+"</td>";
+					//c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 5-traitdata.max_value))+"</td>";
+					var temp = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding" style="float:right">'+dot.repeat(Math.min(traitdata.cur_value,traitdata.max_value));
+					if (traitdata.cur_value < traitdata.max_value)
+						temp += red_dot.repeat(traitdata.max_value-traitdata.cur_value)
+					if (traitdata.cur_value>traitdata.max_value)
+						temp += blue_dot.repeat(traitdata.cur_value-traitdata.max_value)
+					max_dots = Math.max(traitdata.pimp_max, 5)
+					if (traitdata.cur_value < max_dots)
+						temp += emptydot.repeat(max_dots-Math.max(traitdata.max_value, traitdata.cur_value));
+					temp += "</td>"
+					c.innerHTML = temp;
+				}
+				else if (traitdata.trackertype == 1) // punti con massimo
+				{
+					c.innerHTML = '<td class="nopadding">'+tname+ "</td>" +'<td class="nopadding" style="float:right">'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</td>';
+				}
+				else if (traitdata.trackertype == 2) // danni
+				{
+					c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+traitdata.text_value+' (non implementato)'+'</td>';// TODO
+				}
+				else if (traitdata.trackertype == 3) // punti senza massimo
+				{
+					c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+traitdata.cur_value+'</td>';
+				}
+				else //fallback
+				{
+					c.innerHTML = '<td class="nopadding">'+tname+"</td>" +'<td class="nopadding" style="float:right">'+ traitdata.cur_value + "/" + traitdata.max_value + " " +traitdata.text_value+'</td>';
+				}
 			}
 			else
 			{
