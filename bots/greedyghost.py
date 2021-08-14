@@ -385,7 +385,7 @@ def validateNumber(lid, args, i, err_msg = None):
 def validateBoundedNumber(lid, args, i, min_bound, max_bound, err_msg = None):
     if err_msg == None:
         err_msg = lp.get(lid, "string_errorpiece_number_in_range", min_bound, max_bound) 
-    _, num = validateNumber(args, i, )
+    _, num = validateNumber(lid, args, i)
     if num > max_bound or num < min_bound:
         raise ValueError(lp.get(lid, "string_error_x_isnot_y", num, err_msg) )
     return i, num
@@ -480,7 +480,7 @@ def parseRollArgs(lid, args_raw):
             # provo a staccare parametri attaccati
             did_split = False
             idx = 0
-            tests = DIFF_CMD+MULTI_CMD+DADI_CMD
+            tests = DIFF_CMD+MULTI_CMD+DADI_CMD+ADDSUCC_CMD
             while not did_split and idx < len(tests):
                 cmd = tests[idx]
                 if args[i].startswith(cmd):
@@ -544,7 +544,7 @@ async def roll(ctx, *args):
         if max_moves == 1:
             raise BotException(lp.get(lid, "string_error_not_enough_dice_multi") )
         elif multi > max_moves:
-            raise BotException(lp.get(lid, "string_error_not_enough_dice_multi_MAX_REQUESTED") )
+            raise BotException(lp.get(lid, "string_error_not_enough_dice_multi_MAX_REQUESTED", max_moves, ndice) )
 
     # decido cosa fare
     if len(args) == 1 and action == RollCat.DICE : #simple roll
@@ -572,7 +572,7 @@ async def roll(ctx, *args):
                 try:
                     val = dbm.getTrait_LangSafe(character['id'], traitid, lid)['cur_value']
                     bonus += val
-                    bonuses_log.append( f'{traitid}: {val}' )
+                    bonuses_log.append( f'{val["traitName"]}: {val}' )
                 except ghostDB.DBException:
                     pass
         except ghostDB.DBException:
@@ -586,11 +586,11 @@ async def roll(ctx, *args):
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
             raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination"))
         character = dbm.getActiveChar(ctx)
-        volonta = dbm.getTrait_LangSafe(character['id'], 'volonta', lid)['cur_value']
-        prontezza = dbm.getTrait_LangSafe(character['id'], 'prontezza', lid)['cur_value']
-        diff = 10 - prontezza
-        response = f'{lp.get(lid, "string_current_willpower")}: {volonta}, {lp.get(lid, "string_wits")}: {prontezza} -> {volonta}d{nfaces} {lp.get(lid, "string_diff")} ({diff} = {nfaces}-{prontezza})\n'
-        response += rollAndFormatVTM(lid, volonta, nfaces, diff, rollStatusReflexes, add, statistics = stats)
+        volonta = dbm.getTrait_LangSafe(character['id'], 'volonta', lid)#['cur_value']
+        prontezza = dbm.getTrait_LangSafe(character['id'], 'prontezza', lid)#['cur_value']
+        diff = 10 - prontezza['cur_value']
+        response = f'{volonta["traitName"]}: {volonta["cur_value"]}, {prontezza["traitName"]}: {prontezza["cur_value"]} -> {volonta["cur_value"]}d{nfaces} {lp.get(lid, "string_diff")} ({diff} = {nfaces}-{prontezza["cur_value"]})\n'
+        response += rollAndFormatVTM(lid, volonta['cur_value'], nfaces, diff, rollStatusReflexes, add, statistics = stats)
     elif action == RollCat.SOAK:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or RollArg.ADD in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE:
             raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination"))
