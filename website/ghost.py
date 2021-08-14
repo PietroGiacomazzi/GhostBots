@@ -98,7 +98,7 @@ class Log(WsgiLog): # this shit needs the config to be loaded so it can't be off
             backups = config['WebApp']['log_backups']
             )
 
-class WebPageResponseLang(WebResponse):
+class WebPageResponseLang(WebPageResponse):
     def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
         super(WebPageResponseLang, self).__init__(config, session, properties, accepted_input, min_access_level)
     def getLangId(self):
@@ -110,8 +110,6 @@ class WebPageResponseLang(WebResponse):
         return lp.get(self.getLangId(), string_id, *args)
     def getLanguageDict(self):
         return lp.languages[self.getLangId()]
-    def postHook(self, result):
-        return super(WebPageResponseLang, self).postHook(result) # why do I have to do this?
         
 class main_page:
     def GET(self):
