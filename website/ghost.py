@@ -181,8 +181,8 @@ class session_info(WebPageResponseLang):
         super(session_info, self).__init__(config, session)
     def mGET(self):
         return render.simpleList(global_template_params,
-                                 {"web_sessioninfo_page_title": self.getString(),
-                                  "web_sessionInfo_page_container_title": self.getString(),
+                                 {"page_title": self.getString("web_sessioninfo_page_title"),
+                                  "page_container_title": self.getString("web_sessionInfo_page_container_title"),
                                   },
                                  map(lambda k: {'header': k, 'data': self.session[k]}, self.session.keys())
                                  )
@@ -256,13 +256,15 @@ class getCharacterTraits(APIResponse):
             co, _ = dbm.isCharacterOwner(self.session.discord_userid, self.input_data['charid'])
             if (ba or st or co):
                 traits = dbm.db.query("""
-    SELECT  ct.*, tr.*, tt.textbased
+    SELECT  ct.*, tr.*, tt.textbased, lt.traitName as TNLang
     From CharacterTrait ct
     join Trait tr on (ct.trait = tr.id)
     join TraitType tt on (tr.traittype = tt.id)
+    left join LangTrait lt on (tr.id = lt.traitid)
     where ct.playerchar = $charid
+    and lt.langId = $langid
     order by tr.ordering asc, tr.standard desc, ct.trait asc
-    """, vars=dict(charid=self.input_data['charid']))
+    """, vars=dict(charid=self.input_data['charid'], langid = getLanguage(self.session, dbm)))
                 return traits.list()
             else:
                 return []
@@ -295,14 +297,17 @@ class getCharacterModLog(WebPageResponse):
     where cml.charid = $charid
     order by cml.logtime desc
     """, vars=dict(charid=self.input_data['charid']))
-                return render.CharacterModLog(global_template_params, log.list())
+                return render.CharacterModLog(global_template_params, self.getLanguageDict(), log.list())
             else:
                 return ""
         except AttributeError as e:  
             return ""
 
-
-
+class getLanguageDictionary(APIResponse):
+    def __init__(self):
+        super(getLanguageDictionary, self).__init__(config, session)
+    def mGET(self):
+        return lng.language[getLanguage(self.session, dbm)]
 
 if __name__ == "__main__":
     app.run(Log)

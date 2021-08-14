@@ -1,10 +1,37 @@
 window.sheet_template = null;
 window.selected_charid = null;
+windows.language_dictionary = null;
 var urlParams = new URLSearchParams(window.location.search);
 
+if (!String.format) {
+	String.format = function(format) {
+	  var args = Array.prototype.slice.call(arguments, 1);
+	  return format.replace(/{(\d+)}/g, function(match, number) { 
+		return typeof args[number] != 'undefined'
+		  ? args[number] 
+		  : match
+		;
+	  });
+	};
+  }
+
+function getLangString(string_id){
+	if (windows.language_dictionary){
+		return windows.language_dictionary[string_id]
+	}
+	else
+	{
+		return string_id;
+	}
+}
 
 function getCharMenuItem(characters){
 	get_remote_resource('../html_res/charMenuItem.html', 'text',  function(menuItem){populate_charmenu(menuItem, characters)});
+}
+
+function getMyCharacters(dictionary){
+	windows.language_dictionary = dictionary;
+    get_remote_resource('./getMyCharacters', 'json',  getCharMenuItem);
 }
 
 function renderhealth(health_text, max_value)
@@ -122,7 +149,7 @@ function populateSheet(characterTraits, character){
 	sheetspot = document.getElementById("testata");
 	var c = document.createElement('tr'); 
 	c.setAttribute("id", 'nome_giocatore');
-	c.innerHTML = "Giocatore: "+character.ownername
+	c.innerHTML = String.format(getLangString("web_string_charplayer"), character.ownername); 
 	sheetspot.appendChild(c);
 	
 	//charsheet.innerHTML = '';
@@ -170,11 +197,11 @@ function populateSheet(characterTraits, character){
 			// tratti con visualizzazioni specifiche
 			if (traitdata.trait == 'volonta')
 			{
-				c.innerHTML = '<h4>Forza di Volontà</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p><p>'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, 10-traitdata.cur_value))+'</p>'; // todo elemento a parte?
+				c.innerHTML = '<h4>'+getLangString("web_label_willpower")+'</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p><p>'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, 10-traitdata.cur_value))+'</p>'; // todo elemento a parte?
 			}
 			else if (traitdata.trait == 'sangue')
 			{
-				c.innerHTML = '<h4>Punti Sangue</h4><p>'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>'; // todo elemento a parte?
+				c.innerHTML = '<h4>'+getLangString("web_label_bloodpoints")+'</h4><p>'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>'; // todo elemento a parte?
 			}
 			/*
 			else if (traitdata.trait == 'umanita')
@@ -289,7 +316,7 @@ function populateSheet(characterTraits, character){
 	var sheetspot = document.getElementById("testata");
 	var c = document.createElement('tr'); 
 	c.setAttribute("id", "generazione_calcolata");
-	c.innerHTML = generation+"a Generazione"
+	c.innerHTML = String.format(getLangString("web_string_calc_generation"), generation); 
 	sheetspot.appendChild(c);
 	// spegni blocchi ventaggi vuoti
 	for (var key of switchesFree.keys()) {
@@ -336,7 +363,7 @@ function populate_charmenu(menuItem, chars){
 	if (chars.length)
 	{
 		var title = document.createElement('h3');
-		title.innerHTML = "<h3>Cronache:</h3>";
+		title.innerHTML = "<h3>"+getLangString("web_label_chronicles")+":</h3>";
 		side_menu.appendChild(title);
 	}
 	var i;
@@ -353,7 +380,7 @@ function populate_charmenu(menuItem, chars){
 			var chronicleName = character.chroniclename;
 			if (chronicleName == null)
 			{
-				chronicleName = "Personaggi senza cronaca";
+				chronicleName = getLangString("web_label_no_chronicle_pcs");
 			}
 			btn.innerHTML = chronicleName + '&nbsp;<span class="material-icons md-18">arrow_drop_down</span>';
 			btn.addEventListener('click', function(chid){var c = chid; return function() {accordionSwitch(c);}}(container_id));
@@ -382,7 +409,7 @@ function populate_charmenu(menuItem, chars){
 	}
 	if (!loaded)
 	{
-		post_error('Il personaggio "'+urlParams.get('character')+'" non è tra i personaggi a cui hai accesso!');
+		post_error( String.format(getLangString("web_string_no_access_to_pc"), urlParams.get('character')) );
 	}
 }
 
@@ -442,5 +469,5 @@ function populate_page(){
 	var modlog = document.getElementById('modregister');
 	modlog.addEventListener('click', load_modlog);
     //var side_menu = document.getElementById('side_menu');
-    get_remote_resource('./getMyCharacters', 'json',  getCharMenuItem);
+	get_remote_resouorce('./getLanguageDictionary', 'json', getMyCharacters)
 }
