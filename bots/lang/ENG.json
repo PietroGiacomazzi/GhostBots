@@ -20,7 +20,18 @@
 	"roll_status_soak_1dmg": ":green_square: **1 Damage soaked**",
 	"roll_status_soak_ndmg": ":green_square: **{} Damage soaked**",
 	"roll_status_soak_0dmg": ":red_square: **No damage soaked**",
-	"roll_status_statistics_info": "\n --- Simulation with {} rolls of {}d{} diff {} +{}, {} canceling, {} explosion of 10s ---\nSuccess frequency: {}%\nFail frequengy: {}%\n    ({}% regular/dramatic fails and {}% critical fails)\nAverage successes: {}\n---",
+	"roll_status_statistics_info": "\n --- Simulation with {} rolls of {}d{} diff {} +{}, {} canceling, {} explosion of 10s ---\nSuccess frequency: {}%\nFail frequency: {}%\n    ({}% regular/dramatic fails and {}% critical fails)\nAverage successes: {}\n---",
 	"roll_status_with": "with",
-	"roll_status_without": "without"
+	"roll_status_without": "without",
+
+	"web_already_logged_as": "Already logged in as {}#{}",
+	"web_index_page_title": "Index Page",
+	"web_index_page_container_title": "Available pages:",
+	"web_message": "Message",
+	"web_sessioninfo_page_title": "Session Information",
+	"web_sessionInfo_page_container_title": "Session Parameters:",
+	"web_default_dashboard_msg_loggedin": "Select a chronicle and a character",
+	"web_default_dashboard_msg_notlogged": "pls login",
+	"web_login": "Login",
+	"web_logout": "Logout"
 }

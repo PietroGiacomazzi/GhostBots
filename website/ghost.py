@@ -10,9 +10,12 @@ from requests_oauthlib import OAuth2Session
 
 from pyresources.UtilsWebLib import *
 import pyresources.ghostDB as ghostDB
+import pyresources.lang as lng
 
 config = configparser.ConfigParser()
 config.read("/var/www/greedy_ghost_web.ini")
+
+# --- CONFIG ---
 
 # stuff that gets passed to all templates
 global_template_params = {
@@ -51,6 +54,18 @@ API_BASE_URL = 'https://discordapp.com/api'
 AUTHORIZATION_BASE_URL = API_BASE_URL + '/oauth2/authorize'
 TOKEN_URL = API_BASE_URL + '/oauth2/token'
 
+default_language = config['WebApp']['default_language']
+lp = lng.LanguageStringProvider("pyresources")
+
+# --- STUFF ---
+
+def getLanguage(session, dbm):
+    try:
+        return dbm.getUserLanguage(session.discord_userid)
+    except ghostDB.DBException:
+        return default_language
+    except AttributeError:
+        return default_language
 
 def token_updater(token):
     session.oauth2_token = token
@@ -83,17 +98,32 @@ class Log(WsgiLog): # this shit needs the config to be loaded so it can't be off
             backups = config['WebApp']['log_backups']
             )
 
+class WebPageResponseLang(WebResponse):
+    def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
+        super(WebPageResponseLang, self).__init__(config, session, properties, accepted_input, min_access_level)
+    def getLangId(self):
+        try:
+            return session.language
+        except AttributeError:
+            return getLanguage(self.session, dbm)
+    def getString(self, string_id, *args):
+        return lp.get(self.getLangId(), string_id, *args)
+    def getLanguageDict(self):
+        return lp.languages[self.getLangId()]
+        
 class main_page:
     def GET(self):
         web.header('Content-Type', 'text/html')
         return "\n<br/>".join(map(lambda x: "<a href="+web.ctx.home+x+" >"+x+"</a>",urls[::2]))
 
-class doLogin(WebPageResponse):
+class doLogin(WebPageResponseLang):
     def __init__(self):
         super(doLogin, self).__init__(config, session)
     def mPOST(self):
         try:
-            return render.simplemessage(f'already logged in as: {self.session.discord_username}#{self.session.discord_userdiscriminator}')
+            return render.simplemessage( self.getLanguageDict(),
+                                         self.getString("web_already_logged_as", self.session.discord_username, self.session.discord_userdiscriminator)
+                                        )
         except AttributeError as e:
             discord = make_session(scope=['identify'])
             authorization_url, state = discord.authorization_url(AUTHORIZATION_BASE_URL)
@@ -131,27 +161,29 @@ class discordCallback(APIResponse):
             self.session.discord_userid = user['id']
             self.session.discord_username = user['username']
             self.session.discord_userdiscriminator = user['discriminator']
+            self.session.language = getLanguage(self.session, dbm)
             raise web.seeother('/')
 
 
-class listIndex(WebPageResponse):
+class listIndex(WebPageResponseLang):
     def __init__(self):
         super(listIndex, self).__init__(config, session)
     def mGET(self):
+        lid = getLanguage(self.session, dbm)
         return render.simpleListLinks(global_template_params,
-                                      {"page_title": "Index Page",
-                                       "page_container_title": "Available pages:"
+                                      {"page_title": self.getString("web_index_page_title"),
+                                       "page_container_title": self.getString("web_index_page_container_title"),
                                        },
                                       map(lambda x: {'url': web.ctx.home+urls[x*2], 'text': urls[x*2+1]}, range(len(urls)//2))
                                       )
 
-class session_info(WebPageResponse):
+class session_info(WebPageResponseLang):
     def __init__(self):
         super(session_info, self).__init__(config, session)
     def mGET(self):
         return render.simpleList(global_template_params,
-                                 {"page_title": "Session Information",
-                                  "page_container_title": "Session Parameters:"
+                                 {"web_sessioninfo_page_title": self.getString(),
+                                  "web_sessionInfo_page_container_title": self.getString(),
                                   },
                                  map(lambda k: {'header': k, 'data': self.session[k]}, self.session.keys())
                                  )
@@ -162,15 +194,15 @@ class redirectDash(WebPageResponse):
     def mGET(self):
         web.seeother("/")
 
-class dashboard(WebPageResponse):
+class dashboard(WebPageResponseLang):
     def __init__(self):
         super(dashboard, self).__init__(config, session, accepted_input = {'character': (MAY, validator_str_maxlen(20))
                                                                            })
     def mGET(self):
         try:
-            return render.dashboard(global_template_params, f'{self.session.discord_username}#{self.session.discord_userdiscriminator}' ,"Logout", "doLogout", "Seleziona una cronaca e un personaggio")
+            return render.dashboard(global_template_params, self.getLanguageDict(), f'{self.session.discord_username}#{self.session.discord_userdiscriminator}', self.getString("web_label_logout"), "doLogout", self.getString("web_default_dashboard_msg_loggedin"))
         except AttributeError:
-            return render.dashboard(global_template_params, '', "Login", "doLogin", "pls login")
+            return render.dashboard(global_template_params, self.getLanguageDict(), '', self.getString("web_label_login"), "doLogin",  self.getString("web_default_dashboard_msg_notlogged"))
             
 
 my_chars_query_admin = """

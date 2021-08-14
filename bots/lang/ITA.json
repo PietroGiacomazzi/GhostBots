@@ -22,5 +22,22 @@
 	"roll_status_soak_0dmg": ":red_square: **Nessun danno assorbito**",
 	"roll_status_statistics_info": "\n --- Simulazione con {} tiri di {}d{} diff {} +{}, {} canceling, {} esplosione dei 10 ---\nFrequenza di successo: {}%\nFrequenza di fallimento:  {}%\n    ({}% fallimenti regolari/drammatici e {}% fallimenti critici)\nSuccessi medi: {}\n---",
 	"roll_status_with": "con",
-	"roll_status_without": "senza"
+	"roll_status_without": "senza",
+
+	"web_already_logged_as": "Hai già eseguito il login come {}#{}",
+	"web_index_page_title": "Indice",
+	"web_index_page_container_title": "Pagine disponibili:",
+	"web_label_message": "Messaggio",
+	"web_sessioninfo_page_title": "Informazioni di sessione",
+	"web_sessionInfo_page_container_title": "Parametri di sessione:",
+	"web_default_dashboard_msg_loggedin": "Seleziona una cronaca e un personaggio",
+	"web_default_dashboard_msg_notlogged": "Esegui il login",
+	"web_label_login": "Accedi",
+	"web_label_logout": "Esci",
+	"web_label_dashboard": "Dashboard",
+	"web_label_mod_register": "Registro Modifiche",
+	"web_label_attributes": "Attributi",
+	"web_label_physical_attributes": "Fisici",
+	"web_label_social_attributes": "Sociali",
+	"web_label_mental_attributes": "Mentali"
 }

@@ -1,9 +1,9 @@
-$def with (msg)
+$def with (language_strings, msg)
 <!doctype html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Message</title>
+    <title>$language_strings['web_label_message']</title>
     <link rel="stylesheet" href="/res/W3CSS/w3.css">
     <link rel="stylesheet" href="/res/custom/CSS/custom.css">
     <link rel="shortcut icon" type="image/x-icon" href="/res/custom/img/favicon.ico" />
@@ -12,7 +12,7 @@ $def with (msg)
     <div class="w3-container">
         <div class="w3-display-middle w3-card-4">
                 <div class="w3-container w3-center w3-indigo">
-                    <h2>Message</h2>
+                    <h2>$language_strings['web_label_message']</h2>
                 </div>
                 <div>
 					<p>$msg</p>

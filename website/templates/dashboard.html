@@ -1,9 +1,9 @@
-$def with (global_params, username, btntext, action, msg)
+$def with (global_params, language_strings, username, btntext, action, msg)
 <!doctype html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard</title>
+    <title>$language_strings['web_label_dashboard']</title>
     <!--<link rel="stylesheet" href="/res/W3CSS/w3.css">-->
 	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css"> 
 	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
@@ -21,7 +21,7 @@ $def with (global_params, username, btntext, action, msg)
 	<div class="w3-bar w3-black w3-top">
         <button id="loginlogout" form="loginlogoutform" class="w3-bar-item w3-btn w3-indigo">$btntext</button>
         <span class="w3-bar-item">$username</span>
-        <button id = "modregister" style="display:none" class="w3-bar-item w3-right w3-btn w3-indigo">Registro Modifiche</button>
+        <button id = "modregister" style="display:none" class="w3-bar-item w3-right w3-btn w3-indigo">$language_strings['web_label_mod_register']</button>
 	</div> 
 	
     <div class="w3-container" id = "main">
@@ -44,20 +44,20 @@ $def with (global_params, username, btntext, action, msg)
 				</table>
 			</div>	
 			<div id ="attributi" class="w3-container ">
-				<h3 class = "w3-border-bottom">Attributi</h3>
+				<h3 class = "w3-border-bottom">$language_strings['web_label_attributes']</h3>
 				<div class = "w3-cell-row">
 					<div class = "w3-container w3-cell">
-						<h4>Fisici</h4>
+						<h4>$language_strings['web_label_physical_attributes']</h4>
 						<table id ="fisico" class = "w3-table">
 						</table>
 					</div>
 					<div class = "w3-container w3-cell w3-border-left">
-						<h4>Sociali</h4>
+						<h4>$language_strings['web_label_social_attributes']</h4>
 						<table id ="sociale" class = "w3-table">
 						</table>
 					</div>
 					<div class = "w3-container w3-cell w3-border-left">
-						<h4>Mentali</h4>
+						<h4>$language_strings['web_label_mental_attributes']</h4>
 						<table id ="mentale" class = "w3-table">
 						</table>
 					</div>
