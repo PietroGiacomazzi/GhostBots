@@ -214,34 +214,34 @@ function populateSheet(characterTraits, character){
 			}
 			else if (traitdata.trait == 'exp')
 			{
-				c.innerHTML = '<p>'+traitdata.name+': '+traitdata.cur_value+'</p>'; // todo elemento a parte?
+				c.innerHTML = '<p>'+traitdata.tnameLang+': '+traitdata.cur_value+'</p>'; // todo elemento a parte?
 			}
 			else if (traitdata.traittype == 'uvp'){
 				if (traitdata.trackertype == 0) // normale
 				{
-					c.innerHTML = '<h4>'+traitdata.name+'</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>';
+					c.innerHTML = '<h4>'+traitdata.tnameLang+'</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>';
 				}
 				else if (traitdata.trackertype == 1) // punti con massimo
 				{
-					c.innerHTML = '<h4>'+traitdata.name+'</h4><p>'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>';
+					c.innerHTML = '<h4>'+traitdata.tnameLang+'</h4><p>'+(square_full.repeat(traitdata.cur_value))+square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>';
 				}
 				else if (traitdata.trackertype == 2) // danni
 				{
-					c.innerHTML = '<h4>'+traitdata.name+'</h4><p>'+traitdata.text_value+' (non implementato)</p>'; // TODO
+					c.innerHTML = '<h4>'+traitdata.tnameLang+'</h4><p>'+traitdata.text_value+' (non implementato)</p>'; // TODO
 				}
 				else if (traitdata.trackertype == 3) // punti senza massimo
 				{
-					c.innerHTML = '<h4>'+traitdata.name+': '+traitdata.cur_value+'</h4>';
+					c.innerHTML = '<h4>'+traitdata.tnameLang+': '+traitdata.cur_value+'</h4>';
 				}
 				else //fallback
 				{
-					c.innerHTML = '<h4>'+traitdata.name+'</h4><p>'+ traitdata.cur_value + "/" + traitdata.max_value + " " +traitdata.text_value+'</p>'; 
+					c.innerHTML = '<h4>'+traitdata.tnameLang+'</h4><p>'+ traitdata.cur_value + "/" + traitdata.max_value + " " +traitdata.text_value+'</p>'; 
 				}
 			}
 			// tratti std
 			else if (!traitdata.textbased)
 			{
-				var tname = traitdata.name;
+				var tname = traitdata.tnameLang;
 				if (!traitdata.standard && (['attitudine', 'capacita', 'conoscenza'].indexOf(traitdata.traittype) >= 0 ))
 				{
 					tname = '<b>'+tname+'</b>';
@@ -281,7 +281,7 @@ function populateSheet(characterTraits, character){
 			}
 			else
 			{
-				var temp = traitdata.name
+				var temp = traitdata.tnameLang
 				if (traitdata.text_value != "-"){
 					temp += ": "+ traitdata.text_value;
 				}
@@ -307,7 +307,7 @@ function populateSheet(characterTraits, character){
 				temp_dump.style.display = 'inline';
 			}
 			c.setAttribute("id", traitdata.trait);
-			c.innerHTML = traitdata.name + ": " + traitdata.cur_value + "/" + traitdata.max_value + " " +traitdata.text_value;
+			c.innerHTML = traitdata.tnameLang + ": " + traitdata.cur_value + "/" + traitdata.max_value + " " +traitdata.text_value;
 			temp_dump.appendChild(c);
 			//c.addEventListener('click', function(id){var cid = id; return function() {load_charSheet(cid);}}(character.id))
 		}

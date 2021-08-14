@@ -257,7 +257,7 @@ class getCharacterTraits(APIResponse):
             co, _ = dbm.isCharacterOwner(self.session.discord_userid, self.input_data['charid'])
             if (ba or st or co):
                 traits = dbm.db.query("""
-    SELECT  ct.*, tr.*, tt.textbased, lt.traitName as TNLang
+    SELECT  ct.*, tr.*, tt.textbased, lt.traitName as tnameLang
     From CharacterTrait ct
     join Trait tr on (ct.trait = tr.id)
     join TraitType tt on (tr.traittype = tt.id)
@@ -308,7 +308,7 @@ class getLanguageDictionary(APIResponse):
     def __init__(self):
         super(getLanguageDictionary, self).__init__(config, session)
     def mGET(self):
-        return lng.language[getLanguage(self.session, dbm)]
+        return lp.languages[getLanguage(self.session, dbm)]
 
 if __name__ == "__main__":
     app.run(Log)
