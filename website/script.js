@@ -1,6 +1,6 @@
 window.sheet_template = null;
 window.selected_charid = null;
-windows.language_dictionary = null;
+window.language_dictionary = null;
 var urlParams = new URLSearchParams(window.location.search);
 
 if (!String.format) {
@@ -16,8 +16,8 @@ if (!String.format) {
   }
 
 function getLangString(string_id){
-	if (windows.language_dictionary){
-		return windows.language_dictionary[string_id]
+	if (window.language_dictionary){
+		return window.language_dictionary[string_id]
 	}
 	else
 	{
@@ -30,7 +30,7 @@ function getCharMenuItem(characters){
 }
 
 function getMyCharacters(dictionary){
-	windows.language_dictionary = dictionary;
+	window.language_dictionary = dictionary;
     get_remote_resource('./getMyCharacters', 'json',  getCharMenuItem);
 }
 
@@ -469,5 +469,5 @@ function populate_page(){
 	var modlog = document.getElementById('modregister');
 	modlog.addEventListener('click', load_modlog);
     //var side_menu = document.getElementById('side_menu');
-	get_remote_resouorce('./getLanguageDictionary', 'json', getMyCharacters)
+	get_remote_resource('./getLanguageDictionary', 'json', getMyCharacters)
 }

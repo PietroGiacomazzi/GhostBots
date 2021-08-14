@@ -33,7 +33,8 @@ urls = (
     '/getMyCharacters', 'getMyCharacters',
     '/getCharacterTraits', 'getCharacterTraits',
     '/getClanIcon', 'getClanIcon',
-    '/getCharacterModLog', 'getCharacterModLog'
+    '/getCharacterModLog', 'getCharacterModLog',
+    '/getLanguageDictionary', 'getLanguageDictionary'
     )
 
 
