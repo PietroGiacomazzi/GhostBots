@@ -55,7 +55,7 @@ AUTHORIZATION_BASE_URL = API_BASE_URL + '/oauth2/authorize'
 TOKEN_URL = API_BASE_URL + '/oauth2/token'
 
 default_language = config['WebApp']['default_language']
-lp = lng.LanguageStringProvider("pyresources")
+lp = lng.LanguageStringProvider(abspath+"pyresources")
 
 # --- STUFF ---
 
@@ -110,6 +110,8 @@ class WebPageResponseLang(WebResponse):
         return lp.get(self.getLangId(), string_id, *args)
     def getLanguageDict(self):
         return lp.languages[self.getLangId()]
+    def postHook(self, result):
+        return super(WebPageResponseLang, self).postHook(result) # why do I have to do this?
         
 class main_page:
     def GET(self):
@@ -169,7 +171,6 @@ class listIndex(WebPageResponseLang):
     def __init__(self):
         super(listIndex, self).__init__(config, session)
     def mGET(self):
-        lid = getLanguage(self.session, dbm)
         return render.simpleListLinks(global_template_params,
                                       {"page_title": self.getString("web_index_page_title"),
                                        "page_container_title": self.getString("web_index_page_container_title"),

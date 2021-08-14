@@ -32,6 +32,12 @@
 	"web_sessionInfo_page_container_title": "Session Parameters:",
 	"web_default_dashboard_msg_loggedin": "Select a chronicle and a character",
 	"web_default_dashboard_msg_notlogged": "pls login",
-	"web_login": "Login",
-	"web_logout": "Logout"
+	"web_label_login": "Login",
+	"web_label_logout": "Logout",
+	"web_label_dashboard": "Dashboard",
+	"web_label_mod_register": "Modification log",
+	"web_label_attributes": "Attributes",
+	"web_label_physical_attributes": "Physical",
+	"web_label_social_attributes": "Social",
+	"web_label_mental_attributes": "Mental"
 }
