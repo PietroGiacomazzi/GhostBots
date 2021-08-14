@@ -243,7 +243,8 @@ class getMyCharacters(APIResponse):
                 return dbm.db.query(my_chars_query_st, vars = dict(storyteller_id = self.session.discord_userid, userid=self.session.discord_userid)).list()
             characters = dbm.db.query(my_chars_query_player, vars=dict(userid=self.session.discord_userid))
             return characters.list()
-        except AttributeError as e:  
+        except AttributeError as e:
+            self.logger.error(f"getMyCharacters error: {e}")
             return []
 
 
@@ -269,7 +270,8 @@ class getCharacterTraits(APIResponse):
                 return traits.list()
             else:
                 return []
-        except AttributeError as e:  
+        except AttributeError as e:
+            self.logger.error(f"getCharacterTraits error: {e}")
             return []
 
 class getClanIcon(APIResponse):
@@ -282,7 +284,7 @@ class getClanIcon(APIResponse):
         else:
             return {'clan_icon': ""}
 
-class getCharacterModLog(WebPageResponse):
+class getCharacterModLog(WebPageResponseLang):
     def __init__(self):
         super(getCharacterModLog, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_str_maxlen(20))})
     def mGET(self):
@@ -300,8 +302,10 @@ class getCharacterModLog(WebPageResponse):
     """, vars=dict(charid=self.input_data['charid']))
                 return render.CharacterModLog(global_template_params, self.getLanguageDict(), log.list())
             else:
+                self.logger.warning(f"Modlog was asked for {self.input_data['charid']} by {self.session.discord_userid}, who does not have access to it")
                 return ""
-        except AttributeError as e:  
+        except AttributeError as e:
+            self.logger.error(f"getCharacterModLog error: {e}")
             return ""
 
 class getLanguageDictionary(APIResponse):

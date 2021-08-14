@@ -35,6 +35,7 @@ PROGRESSI_CMD = ["progressi", "progress"]
 SPLIT_CMD = ["split"]
 PENALITA_CMD = ["penalita", "penalità", "p", "penalty"]
 DADI_CMD = ["dadi", "dice"]
+ADDSUCC_CMD = ["+", "succ", "successi", "successes"]
 
 PERMANENTE_CMD = ["permanente", "perm", "permanent"]
 SOAK_CMD = ["soak", "assorbi"]
@@ -230,7 +231,7 @@ async def on_command_error(ctx, error):
             if ic:
                 await pgmanage(ctx, *msgsplit)
             else:
-                await atSend(ctx, f'coes')
+                await atSend(ctx, lp.get(lid, "string_error_wat"))
             return
         except Exception as e:
             error = e
@@ -243,22 +244,25 @@ async def on_command_error(ctx, error):
     else:
         if isinstance(error, MySQLdb.OperationalError):
             if error.args[0] == 2006:
-                await atSend(ctx, f'Il database non ha risposto, riprova per favore')
+                await atSend(ctx, lp.get(lid, "string_error_database_noanswer") )
                 dbm.reconnect()
             else:
-                await atSend(ctx, f'Errore di database :(')
+                await atSend(ctx, lp.get(lid, "string_error_database_generic") )
         elif isinstance(error, MySQLdb.IntegrityError):
-            await atSend(ctx, f"L'operazione viola dei vincoli sui dati, non posso farlo")
+            await atSend(ctx, lp.get(lid, "string_error_database_dataviolation") )
         else:
-            await atSend(ctx, f'Congratulazioni! Hai trovato un modo per rompere il comando!')
+            await atSend(ctx, lp.get(lid, "string_error_unhandled_exception") )
         #print("debug user:", int(config['Discord']['debuguser']))
         debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
-        await debug_user.send(f'Il messaggio:\n\n{ctx.message.content}\n\n ha causato l\'errore di tipo {type(error)}:\n\n{error}\n\n{ftb}')
+        await debug_user.send( lp.get(lid, "string_error_details", ctx.message.content, type(error), error, ftb) )
 
 
 @bot.command(name='coin', help = 'Testa o Croce.')
 async def coin(ctx):
-    moneta=['Testa' , 'Croce']
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
+
+    moneta=[ lp.get(lid, "string_heads"),  lp.get(lid, "string_tails") ]
     await atSend(ctx, f'{random.choice(moneta)}')
 
 roll_longdescription = """
@@ -294,30 +298,30 @@ In <come> bisogna spaziare tutto (multi 6, diff 4).
     Il bot è in grado di leggere anche 2 argomenti attaccati (diff8, multi3) se è una coppia argomento-parametro
 """
 
-def parseDiceExpression_Dice(what):
+def parseDiceExpression_Dice(lid, what):
     split = what.split("d")
     if len(split) > 2:
-        raise BotException("Troppe 'd' b0ss")
+        raise BotException(lp.get(lid, "string_error_toomany_d"))
     if len(split) == 1:
-        raise BotException(f'"{split[0]}" non è un\'espressione XdY')
+        raise BotException(lp.get(lid, "string_error_not_XdY", split[0] ) )
     if split[0] == "":
         split[0] = "1"
     if not split[0].isdigit():
-        raise BotException(f'"{split[0]}" non è un numero intero positivo')
+        raise BotException(lp.get(lid, "string_error_not_positive_integer", split[0]))
     if split[1] == "":
         split[1] = "10"
     if not split[1].isdigit():
-        raise BotException(f'"{split[1]}" non è un numero intero positivo')
+        raise BotException( lp.get(lid, "string_error_not_positive_integer", split[1]))
     n = int(split[0])
     faces = int(split[1])
     if n == 0:
-        raise BotException(f'{n} non è > 0')
+        raise BotException(lp.get(lid, "string_error_not_gt0", n) )
     if  faces == 0:
-        raise BotException(f'{faces} non è > 0')
+        raise BotException(lp.get(lid, "string_error_not_gt0", faces))
     if n > max_dice:
-        raise BotException(f'{n} dadi sono troppi b0ss')
+        raise BotException(lp.get(lid, "string_error_toomany_dice", n) )
     if faces > max_faces:
-        raise BotException(f'{faces} facce sono un po\' tante')
+        raise BotException(lp.get(lid, "string_error_toomany_faces", faces))
     return RollCat.DICE, n, n, faces, None
 
 def parseDiceExpression_Traits(ctx, lid, what):
@@ -348,45 +352,53 @@ def parseRollWhat(ctx, lid, what):
         return RollCat.SOAK, 1, 1, 10, character
 
     try:
-        return parseDiceExpression_Dice(what)    
+        return parseDiceExpression_Dice(lid, what)    
     except BotException as e:
         try:
             return parseDiceExpression_Traits(ctx, lid, what)
         except ghostDB.DBException as edb:
-            raise BotException("\n".join(["Non ho capito cosa devo tirare:", f'{e}', f'{lp.formatException(lid, edb)}']) )
+            raise BotException("\n".join([ lp.get(lid, "string_error_notsure_whatroll"), f'{e}', f'{lp.formatException(lid, edb)}']) )
         
-def validateInteger(args, i, err_msg = 'un intero'):
+def validateInteger(lid, args, i, err_msg = None):
+    if err_msg == None:
+        err_msg = lp.get(lid, "string_errorpiece_integer") 
     try:
         return i, int(args[i])
     except ValueError:
-        raise ValueError(f'"{args[i]}" non è {err_msg}')
+        raise ValueError(lp.get(lid, "string_error_x_isnot_y", args[i], err_msg))
 
-def validateBoundedInteger(args, i, min_val, max_val, err_msg = "non è nell'intervallo specificato"):
-    j, val = validateInteger(args, i)
+def validateBoundedInteger(lid, args, i, min_val, max_val, err_msg = None):
+    if err_msg == None:
+        err_msg = lp.get(lid, "string_errorpiece_number_in_range", min_val, max_val) 
+    j, val = validateInteger(lid, args, i)
     if val < min_val or val > max_val:
-        raise ValueError(f'{args[i]} {err_msg}')
+        raise ValueError(lp.get(lid, "string_error_x_isnot_y", args[i], err_msg))
     return j, val
 
-def validateNumber(args, i, err_msg = 'un intero positivo'):
+def validateNumber(lid, args, i, err_msg = None):
+    if err_msg == None:
+        err_msg = lp.get(lid, "string_errorpiece_positive_integer") 
     if not args[i].isdigit():
-        raise ValueError(f'"{args[i]}" non è {err_msg}')
+        raise ValueError(lp.get(lid, "string_error_x_isnot_y", args[i], err_msg))
     return i, int(args[i])
 
-def validateBoundedNumber(args, i, min_bound, max_bound = INFINITY, err_msg = "un numero nell'intervallo accettato"):
-    _, num = validateNumber(args, i)
+def validateBoundedNumber(lid, args, i, min_bound, max_bound, err_msg = None):
+    if err_msg == None:
+        err_msg = lp.get(lid, "string_errorpiece_number_in_range", min_bound, max_bound) 
+    _, num = validateNumber(args, i, )
     if num > max_bound or num < min_bound:
-        raise ValueError(f'{num} non è {err_msg}')
+        raise ValueError(lp.get(lid, "string_error_x_isnot_y", num, err_msg) )
     return i, num
 
-def validateIntegerGreatZero(args, i):
-    return validateBoundedNumber(args, i, 1, err_msg = "un intero maggiore di zero")
+def validateIntegerGreatZero(lid, args, i):
+    return validateBoundedNumber(lid, args, i, 1, INFINITY, lp.get(lid, "string_errorpiece_integer_gt0") )
 
-def validateDifficulty(args, i):
-    return validateBoundedNumber(args, i, 2, 10, "una difficoltà valida")
+def validateDifficulty(lid, args, i):
+    return validateBoundedNumber(lid, args, i, 2, 10, lp.get(lid, "string_errorpiece_valid_diff") )
 
 # input: sequenza di argomenti per .roll
 # output: dizionario popolato con gli argomenti validati
-def parseRollArgs(args_raw):
+def parseRollArgs(lid, args_raw):
     parsed = {
         RollArg.ROLLTYPE: RollType.NORMALE # default
         }
@@ -398,19 +410,19 @@ def parseRollArgs(args_raw):
             parsed[RollArg.ROLLTYPE] = RollType.SOMMA
         elif args[i] in DIFF_CMD:
             if RollArg.DIFF in parsed:
-                raise ValueError(f'mi hai già dato una difficoltà')
+                raise ValueError(lp.get(lid, "string_error_multiple_diff"))
             if len(args) == i+1:
-                raise ValueError(f'diff cosa')
-            i, diff = validateDifficulty(args, i+1)
+                raise ValueError(lp.get(lid, "string_error_x_what", args[i]))
+            i, diff = validateDifficulty(lid, args, i+1)
             parsed[RollArg.DIFF] = diff
         elif args[i] in MULTI_CMD:
             if RollArg.SPLIT in parsed:
-                raise ValueError(f'multi va specificato prima di split')
+                raise ValueError(lp.get(lid, "string_error_split_before_multi"))
             if RollArg.MULTI in parsed:
-                raise ValueError(f'Stai tentando di innestare 2 multiple?')
+                raise ValueError(lp.get(lid, "string_error_multiple_multi"))
             if len(args) == i+1:
-                raise ValueError(f'multi cosa')
-            i, multi = validateBoundedNumber(args, i+1, 2, INFINITY, f"multi prende come paramento un numero >= 2")# controlliamo il numero di mosse sotto, dopo aver applicato bonus o penalità al numero di dadi
+                raise ValueError(lp.get(lid, "string_error_x_what", args[i]))
+            i, multi = validateBoundedNumber(lid, args, i+1, 2, INFINITY, lp.get(lid, "string_errorpiece_validarg_multi", args[i]) )# controlliamo il numero di mosse sotto, dopo aver applicato bonus o penalità al numero di dadi
             parsed[RollArg.MULTI] = multi            
         elif args[i] in DANNI_CMD:
             parsed[RollArg.ROLLTYPE] = RollType.DANNI
@@ -423,37 +435,42 @@ def parseRollArgs(args_raw):
                 split = parsed[RollArg.SPLIT]
             if RollArg.MULTI in parsed:
                 if len(args) < i+4:
-                    raise ValueError(f'split prende almeno 3 parametri con multi!')
-                i, temp = validateIntegerGreatZero(args, i+1)
+                    raise ValueError(lp.get(lid, "string_error_X_takes_atleast_Y_params", args[i], 3) +" "+ lp.get(lid, "string_errorpiece_with_multi") )
+                i, temp = validateIntegerGreatZero(lid, args, i+1)
                 roll_index = temp-1
                 if roll_index >= parsed[RollArg.MULTI]:
-                    raise ValueError(f'"Non puoi splittare il tiro {args[i+1]} con multi {multi}')
+                    raise ValueError(lp.get(lid, "string_error_split_X_higherthan_multi_Y", args[i+1], multi) )
                 if sum(filter(lambda x: x[0] == roll_index, split)): # cerco se ho giò splittato questo tiro
-                    raise ValueError(f'Stai già splittando il tiro {roll_index+1}')
+                    raise ValueError(lp.get(lid, "string_error_already_splitting_X", roll_index+1) )
             else: # not an elif because reasons
                 if len(args) < i+3:
-                    raise ValueError(f'split prende almeno 2 parametri!')
-            i, d1 = validateIntegerGreatZero(args, i+1)
-            i, d2 = validateIntegerGreatZero(args, i+1)
+                    raise ValueError(lp.get(lid, "string_error_X_takes_atleast_Y_params", args[i], 2))
+            i, d1 = validateIntegerGreatZero(lid, args, i+1)
+            i, d2 = validateIntegerGreatZero(lid, args, i+1)
             split.append( [roll_index] + list(map(int, [d1, d2])))
             parsed[RollArg.SPLIT] = split # save the new split
-        elif args[i].startswith("+"):
+            """elif args[i].startswith("+"): # this goes into the trash as we now have auto-splitting
             raw = args[i][1:]
             if raw == "":
                 if len(args) == i+1:
-                    raise ValueError(f'+ cosa')
+                    raise ValueError(lp.get(lid, "string_error_x_what", "+"))
                 raw = args[i+1] # support for space
                 i += 1
             if not raw.isdigit() or raw == "0":
                 raise ValueError(f'"{raw}" non è un intero positivo')
             add = int(raw)
-            parsed[RollArg.ADD] = add
+            parsed[RollArg.ADD] = add"""
+        elif args[i] in ADDSUCC_CMD:
+            if len(args) == i+1:
+                raise ValueError(lp.get(lid, "string_error_x_what", args[i]))
+            i, add = validateIntegerGreatZero(lid, args, i+1)
+            parsed[RollArg.ADD] = add    
         elif args[i] in PENALITA_CMD:
             parsed[RollArg.PENALITA] = True
         elif args[i] in DADI_CMD:
             if len(args) == i+1:
-                raise ValueError(f'dadi cosa')
-            i, val = validateBoundedInteger(args, i+1, -100, +100) # lel 
+                raise ValueError(lp.get(lid, "string_error_x_what", args[i]))
+            i, val = validateBoundedInteger(lid, args, i+1, -100, +100) # lel 
             parsed[RollArg.DADI] = val
         elif args[i] in PERMANENTE_CMD:
             parsed[RollArg.PERMANENTE] = True
@@ -477,7 +494,7 @@ def parseRollArgs(args_raw):
             if not did_split: # F
                 width = 3
                 ht = " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
-                raise ValueError(f"L'argomento '{args[i]}' in '{ht}' non mi è particolarmente chiaro")
+                raise ValueError(lp.get(lid, "string_arg_X_in_Y_notclear", args[i], ht) )
             else:
                 i -= 1 # forzo rilettura
         i += 1
@@ -488,7 +505,7 @@ async def roll(ctx, *args):
     issuer = ctx.message.author.id
     lid = getLanguage(issuer, dbm)
     if len(args) == 0:
-        raise BotException("roll cosa diomadonna")
+        raise BotException(lp.get(lid, "string_error_x_what", "roll")+" diomadonna") #xd
     # capisco quanti dadi tirare
     what = args[0].lower()
     action, ndice, ndice_perm, nfaces, character = parseRollWhat(ctx, lid, what)
@@ -496,7 +513,7 @@ async def roll(ctx, *args):
     # leggo e imposto le varie opzioni
     parsed = None
     try:
-        parsed = parseRollArgs(args[1:])
+        parsed = parseRollArgs(lid, args[1:])
     except ValueError as e:
         await atSend(ctx, str(e))
         return
@@ -516,18 +533,18 @@ async def roll(ctx, *args):
         ndice += parsed[RollArg.DADI]
 
     if ndice > max_dice:
-        raise BotException("Non puoi tirare più di {max_dice} dadi!")
+        raise BotException(lp.get(lid, "string_error_toomany_dice", max_dice))
     if ndice <= 0:
-        raise BotException("Devi avere almeno un dado nel tuo pool (pool richiesto: {ndice} dadi)")
+        raise BotException(lp.get(lid, "string_error_toofew_dice", ndice) )
 
     # check n° di mosse per le multiple
     if RollArg.MULTI in parsed:
         multi = parsed[RollArg.MULTI]
         max_moves = int( ((ndice+1)/2) -0.1) # (ndice+1)/2 è il numero di mosse in cui si rompe, non il massimo. togliendo 0.1 e arrotondando per difetto copro sia il caso intero che il caso con .5
         if max_moves == 1:
-            raise BotException("Non hai abbastanza dadi per una multipla!")
+            raise BotException(lp.get(lid, "string_error_not_enough_dice_multi") )
         elif multi > max_moves:
-            raise BotException(f"Non hai abbastanza dadi, puoi arrivare al massimo a {max_moves} azioni con {ndice} dadi!")
+            raise BotException(lp.get(lid, "string_error_not_enough_dice_multi_MAX_REQUESTED") )
 
     # decido cosa fare
     if len(args) == 1 and action == RollCat.DICE : #simple roll
@@ -538,17 +555,17 @@ async def roll(ctx, *args):
     stats = RollArg.STATS in parsed
 
     response = ''
-    if parsed[RollArg.ROLLTYPE] == RollType.NORMALE and not RollArg.DIFF in parsed and RollArg.ADD in parsed: #se non c'è difficoltà tramuta un tiro in un tiro somma instile dnd
+    if action == RollCat.DICE and parsed[RollArg.ROLLTYPE] == RollType.NORMALE and not RollArg.DIFF in parsed and RollArg.ADD in parsed: #se non c'è difficoltà tramuta un tiro in un tiro somma in stile dnd
         parsed[RollArg.ROLLTYPE] = RollType.SOMMA
     add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
     if action == RollCat.INITIATIVE:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
-            raise BotException("Combinazione di parametri non valida!")
+            raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination") )
         raw_roll = random.randint(1, nfaces)
         bonuses_log = []
         bonus = add
         if add:
-            bonuses_log.append( f'bonus: {add}' )
+            bonuses_log.append(lp.get(lid, "string_bonus_X", add))
         try:
             character = dbm.getActiveChar(ctx)
             for traitid in ['prontezza', 'destrezza', 'velocità']:
@@ -559,23 +576,24 @@ async def roll(ctx, *args):
                 except ghostDB.DBException:
                     pass
         except ghostDB.DBException:
-            response += 'Nessun personaggio !\n'
+            bonuses_log.append(lp.get(lid, "string_comment_no_pc"))
+        details = ""
         if len(bonuses_log):
-            response += (", ".join(bonuses_log)) + "\n"
+            details = ", ".join(bonuses_log)
         final_val = raw_roll+bonus
-        response += f'Iniziativa: **{final_val}**, tiro: [{raw_roll}]' + (f'+{bonus}' if bonus else '')
+        response += f'{lp.get(lid, "string_initiative")}: **{final_val}**\n{lp.get(lid, "string_roll")}: [{raw_roll}] + {bonus if bonus else 0} ({details})'
     elif action == RollCat.REFLEXES:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
-            raise BotException("Combinazione di parametri non valida!")
+            raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination"))
         character = dbm.getActiveChar(ctx)
         volonta = dbm.getTrait_LangSafe(character['id'], 'volonta', lid)['cur_value']
         prontezza = dbm.getTrait_LangSafe(character['id'], 'prontezza', lid)['cur_value']
         diff = 10 - prontezza
-        response = f'Volontà corrente: {volonta}, Prontezza: {prontezza} -> {volonta}d{nfaces} diff ({diff} = {nfaces}-{prontezza})\n'
+        response = f'{lp.get(lid, "string_current_willpower")}: {volonta}, {lp.get(lid, "string_wits")}: {prontezza} -> {volonta}d{nfaces} {lp.get(lid, "string_diff")} ({diff} = {nfaces}-{prontezza})\n'
         response += rollAndFormatVTM(lid, volonta, nfaces, diff, rollStatusReflexes, add, statistics = stats)
     elif action == RollCat.SOAK:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or RollArg.ADD in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE:
-            raise BotException("Combinazione di parametri non valida!")
+            raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination"))
         diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
         character = dbm.getActiveChar(ctx)
         pool = dbm.getTrait_LangSafe(character['id'], 'costituzione', lid)['cur_value']
@@ -592,7 +610,7 @@ async def roll(ctx, *args):
         if parsed[RollArg.ROLLTYPE] == RollType.NORMALE:
             response = ""
             if not RollArg.DIFF in parsed:
-                raise BotException(f'Si ma mi devi dare una difficoltà')
+                raise BotException(lp.get(lid, "string_error_missing_diff"))
             for i in range(multi):
                 parziale = ''
                 ndadi = ndice-i-multi
@@ -600,12 +618,12 @@ async def roll(ctx, *args):
                 if len(split_diffs):
                     pools = [(ndadi-ndadi//2), ndadi//2]
                     for j in range(len(pools)):
-                        parziale += f'\nTiro {j+1}: '+ rollAndFormatVTM(lid, pools[j], nfaces, split_diffs[j], statistics = stats)
+                        parziale += f'\n{lp.get(lid, "string_roll")} {j+1}: '+ rollAndFormatVTM(lid, pools[j], nfaces, split_diffs[j], statistics = stats)
                 else:
                     parziale = rollAndFormatVTM(lid, ndadi, nfaces, parsed[RollArg.DIFF], statistics = stats)
-                response += f'\nAzione {i+1}: '+parziale # line break all'inizio tanto c'è il @mention
+                response += f'\n{lp.get(lid, "string_action")} {i+1}: '+parziale # line break all'inizio tanto c'è il @mention
         else:
-            raise BotException(f'Combinazione di parametri non supportata')
+            raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination"))
     else: # 1 tiro solo 
         if RollArg.SPLIT in parsed:
             split = parsed[RollArg.SPLIT]
@@ -614,18 +632,18 @@ async def roll(ctx, *args):
                 response = ''
                 for i in range(len(pools)):
                     parziale = rollAndFormatVTM(lid, pools[i], nfaces, split[0][i+1], statistics = stats)
-                    response += f'\nTiro {i+1}: '+parziale
+                    response += f'\n{lp.get(lid, "string_roll")} {i+1}: '+parziale
             else:
-                raise BotException(f'Combinazione di parametri non supportata')
+                raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination"))
         else:
             if parsed[RollArg.ROLLTYPE] == RollType.NORMALE: # tiro normale
                 if not RollArg.DIFF in parsed:
-                    raise BotException(f'Si ma mi devi dare una difficoltà')
+                    raise BotException(lp.get(lid, "string_error_missing_diff"))
                 response = rollAndFormatVTM(lid, ndice, nfaces, parsed[RollArg.DIFF], rollStatusNormal, add, statistics = stats)
             elif parsed[RollArg.ROLLTYPE] == RollType.SOMMA:
                 raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
                 somma = sum(raw_roll)+add
-                response = f'somma: **{somma}**, tiro: {raw_roll}' + (f'+{add}' if add else '')
+                response = f'{lp.get(lid, "string_sum")}: **{somma}**, {lp.get(lid, "string_roll")}: {raw_roll}' + (f'+{add}' if add else '')
             elif parsed[RollArg.ROLLTYPE] == RollType.DANNI:
                 diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
                 response = rollAndFormatVTM(lid, ndice, nfaces, diff, rollStatusDMG, add, False, statistics = stats)
@@ -633,7 +651,7 @@ async def roll(ctx, *args):
                 diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
                 response = rollAndFormatVTM(lid, ndice, nfaces, diff, rollStatusProgress, add, False, True, statistics = stats)
             else:
-                raise BotException(f'Tipo di tiro sconosciuto: {RollArg.ROLLTYPE}')
+                raise BotException(lp.get(lid, "string_error_unknown_rolltype", RollArg.ROLLTYPE))
     await atSend(ctx, response)
        
 @bot.command(brief='Lascia che il Greedy Ghost ti saluti.')
@@ -1721,7 +1739,7 @@ gameAdmin_subcommands = {
     "newChronicle": [gmadm_newChronicle, "Crea una nuova cronaca associata allo ST che invoca il comando"],
     "newTrait": [gmadm_newTrait, "Crea nuovo tratto"],
     "updt": [gmadm_updateTrait, "Modifica un tratto"],
-    "delet": [gmadm_deleteTrait, "Cancella un tratto"] #non implemmentato
+    "delet": [gmadm_deleteTrait, "Cancella un tratto"] #non implementato
     # todo: nomina storyteller, associa storyteller a cronaca
     # todo: dissociazioni varie
     }

@@ -43,7 +43,16 @@ function renderhealth(health_text, max_value)
 		return health_render;
 	}
 	
-	hurt_levels_vampire = ["Illeso (0)", "Contuso (0)", "Graffiato (-1)",	"Leso (-1)", "Ferito (-2)", "Straziato (-2)", "Menomato (-5)",	"Incapacitato"];
+	hurt_levels_vampire = [
+		getLangString("hurt_levels_vampire_unharmed"),
+		getLangString("hurt_levels_vampire_bruised"),
+		getLangString("hurt_levels_vampire_hurt"),
+		getLangString("hurt_levels_vampire_injured"),
+		getLangString("hurt_levels_vampire_wounded"),
+		getLangString("hurt_levels_vampire_mauled"),
+		getLangString("hurt_levels_vampire_crippled"),
+		getLangString("hurt_levels_vampire_incapacitated")
+	]
 	
 	var img_map = new Map([
 	   ['a', 'hl_aggravated.png'],
