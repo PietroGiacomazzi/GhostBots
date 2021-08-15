@@ -69,6 +69,13 @@
 	"string_current_willpower": "Current willpower",
 	"string_wits": "Wits",
 	"string_diff": "diff",
+	"string_error_no_searchterm": "Specify a search term!",
+	"string_msg_no_match":  "No match!",
+	"string_msg_found_traits": "Traits found",
+	"string_help_translate": "Arguments: <language Id> <trait Id> [<short name in target language> <full name in target language>]",
+	"string_error_invalid_language_X": "'{}' is not a valid language",
+	"string_error_invalid_trait_X": "'{}' is not a valid trait",
+	"string_error_update_wrong_X_rows_affected": "Something went wrong, rows affected: {}",
 
 	"web_already_logged_as": "Already logged in as {}#{}",
 	"web_index_page_title": "Index Page",

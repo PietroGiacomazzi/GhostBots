@@ -69,7 +69,13 @@
 	"string_current_willpower": "Volontà corrente",
 	"string_wits": "Prontezza",
 	"string_diff": "diff",
-
+	"string_error_no_searchterm": "Specifica un termine di ricerca!",
+	"string_msg_no_match":  "Nessun match!",
+	"string_msg_found_traits": "Tratti trovati",
+	"string_help_translate": "Argomenti: <id lingua> <id tratto> [<nome corto in lingua> <nome completo in lingua>]",
+	"string_error_invalid_language_X": "'{}' non è una lingua valida",
+	"string_error_invalid_trait_X": "'{}' non è un tratto valido",
+	"string_error_update_wrong_X_rows_affected": "Qualcosa è andato storto, righe aggiornate: {}",
 
 	"web_already_logged_as": "Hai già eseguito il login come {}#{}",
 	"web_index_page_title": "Indice",

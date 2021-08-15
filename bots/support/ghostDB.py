@@ -148,6 +148,10 @@ where gs.channel = $channel and cc.playerchar = $charid
         """Does this trait type exist?"""
         traittypes = self.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
         return bool(len(traittypes)), (traittypes[0] if (len(traittypes)) else None)
+    def isValidLanguage(self, langId):
+        """ does this language exist? """
+        langs = self.db.select('Languages', where='langId=$id', vars=dict(id=langId))
+        return bool(len(langs)), (langs[0] if (len(langs)) else None)
     def log(self, userid, charid, traitid, modtype, new_val, old_val = "", command = ""):
         self.db.insert("CharacterModLog", userid = userid, charid = charid, traitid = traitid, val_type = modtype, old_val = old_val, new_val = new_val, command = command)
         

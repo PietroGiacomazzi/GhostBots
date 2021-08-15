@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 import os, urllib
+from re import A
+
+from web.application import auto_application
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
@@ -178,6 +181,12 @@ def rollAndFormatVTM(lid, ndice, nfaces, diff, statusFunc = rollStatusNormal, ex
 def atSend(ctx, msg):
     return ctx.send(f'{ctx.message.author.mention} {msg}')
 
+def atSendLang(ctx, msg, *args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
+    translated = lp.get(lid, msg, *args)
+    return ctx.send(f'{ctx.message.author.mention} {translated}')
+
 def findSplit(idx, splits):
     for si in range(len(splits)):
         if idx == splits[si][0]:
@@ -262,8 +271,8 @@ async def coin(ctx):
     issuer = ctx.message.author.id
     lid = getLanguage(issuer, dbm)
 
-    moneta=[ lp.get(lid, "string_heads"),  lp.get(lid, "string_tails") ]
-    await atSend(ctx, f'{random.choice(moneta)}')
+    moneta=[ "string_heads", "string_tails" ]
+    await atSend(ctx, lp.get(lid, random.choice(moneta)))
 
 roll_longdescription = """
 Comando base
@@ -449,17 +458,6 @@ def parseRollArgs(lid, args_raw):
             i, d2 = validateIntegerGreatZero(lid, args, i+1)
             split.append( [roll_index] + list(map(int, [d1, d2])))
             parsed[RollArg.SPLIT] = split # save the new split
-            """elif args[i].startswith("+"): # this goes into the trash as we now have auto-splitting
-            raw = args[i][1:]
-            if raw == "":
-                if len(args) == i+1:
-                    raise ValueError(lp.get(lid, "string_error_x_what", "+"))
-                raw = args[i+1] # support for space
-                i += 1
-            if not raw.isdigit() or raw == "0":
-                raise ValueError(f'"{raw}" non è un intero positivo')
-            add = int(raw)
-            parsed[RollArg.ADD] = add"""
         elif args[i] in ADDSUCC_CMD:
             if len(args) == i+1:
                 raise ValueError(lp.get(lid, "string_error_x_what", args[i]))
@@ -570,9 +568,9 @@ async def roll(ctx, *args):
             character = dbm.getActiveChar(ctx)
             for traitid in ['prontezza', 'destrezza', 'velocità']:
                 try:
-                    val = dbm.getTrait_LangSafe(character['id'], traitid, lid)['cur_value']
-                    bonus += val
-                    bonuses_log.append( f'{val["traitName"]}: {val}' )
+                    val = dbm.getTrait_LangSafe(character['id'], traitid, lid)
+                    bonus += val["cur_value"]
+                    bonuses_log.append( f'{val["traitName"]}: {val["cur_value"]}' )
                 except ghostDB.DBException:
                     pass
         except ghostDB.DBException:
@@ -691,19 +689,21 @@ async def divina(ctx, *, question):
 
 @bot.command(name = 'search', brief = "Cerca un tratto", description = "Cerca un tratto:\n\n .search <termine di ricerca> -> elenco dei risultati")
 async def search_trait(ctx, *args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
     response = ''
     if len(args) == 0:
-        response = "Specifica un termine di ricerca!"
+        response = lp.get(lid, "string_error_no_searchterm") 
     else:
         searchstring = "%" + (" ".join(args)) + "%"
         lower_version = searchstring.lower()
-        traits = dbm.db.select("Trait", where="id like $search_lower or name like $search_string", vars=dict(search_lower=lower_version, search_string = searchstring))
+        traits = dbm.db.select("LangTrait", where="traitId like $search_lower or traitShort like $search_lower or traitName like $search_string", vars=dict(search_lower=lower_version, search_string = searchstring))
         if not len(traits):
-            response =  'Nessun match!'
+            response =  lp.get(lid, "string_msg_no_match") 
         else:
-            response = 'Tratti trovati:\n'
+            response = lp.get(lid, "string_msg_found_traits") +":\n"
             for trait in traits:
-                response += f"\n{trait['id']}: {trait['name']}"
+                response += f"\n {trait['traitShort']} ({trait['traitId']}): {trait['traitName']}"
     await atSend(ctx, response)
 
 @bot.command(brief = "Richiama l'attenzione dello storyteller", description = "Richiama l'attenzione dello storyteller della cronaca attiva nel canale in cui viene invocato")
@@ -843,6 +843,43 @@ async def end(ctx):
         response = "Nessuna sessione attiva in questo canale!"
     await atSend(ctx, response)
 
+
+@bot.command(name = 'translate', brief='Permette di aggiornare la traduzione di un tratto un unn lingua' , help = "")
+async def transalte(ctx, *args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
+    language = None
+    if len(args):
+        vl, language = dbm.isValidLanguage(args[0]) 
+        if not vl:
+            raise BotException(lp.get(lid, "string_error_invalid_language_X", args[0]))
+    if len(args)>=2:
+        vt, _ = dbm.isValidTrait(args[1]) 
+        if not vt:
+            raise BotException(lp.get(lid, "string_error_invalid_trait_X", args[1]))
+
+    if len(args) == 2: # consulto
+        traits = dbm.db.select("TraitLang", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]))
+        if len(traits):
+            trait = traits[0]
+            await atSendLang(ctx, "string_msg_trait_X_in_Y_has_translation_Z1_Z2", args[1], language['langName'], trait['traitShort'], trait['traitName'])
+        else:
+            await atSendLang(ctx, "string_msg_trait_X_not_translated_Y", args[1], language['langName'])
+    elif len(args) >= 4: # update/inserimento
+        traits = dbm.db.select("TraitLang", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]))
+        if len(traits): # update
+            trait = traits[0]
+            u = dbm.db.update("TraitLang", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]), traitShort = args[2], traitName = args[3])
+            if u == 1:
+                await atSendLang(ctx, "string_msg_trait_X_in_Y_has_translation_Z1_Z2", args[1], language['langName'], trait['traitShort'], trait['traitName'])
+            else:
+                await atSendLang(ctx, "string_error_update_wrong_X_rows_affected", u)
+        else:
+            dbm.db.insert("TraitLang", langId = args[0], traitId=args[1], traitShort = args[2], traitName = args[3])
+            await atSendLang(ctx, "string_msg_trait_X_in_Y_has_translation_Z1_Z2", args[1], language['langName'], args[2], args[3])
+    else:
+        await atSendLang(ctx, "string_help_translate")
+
 damage_types = ["a", "l", "c"]
 
 def defaultTraitFormatter(trait):
@@ -934,7 +971,7 @@ def prettyTextTrait(trait):
 def prettyGeneration(trait):
     return f"{13 - trait['cur_value']}a generazione\n{prettyDotTrait(trait)}"
 
-def trackerFormatter(trait):
+def getTraitFormatter(trait):
     # formattatori specifici
     if trait['id'] == 'generazione':
         return prettyGeneration
@@ -975,7 +1012,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
             return f"{args[0]}: {count}"
         else:
             trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-            prettyFormatter = trackerFormatter(trait)
+            prettyFormatter = getTraitFormatter(trait)
             return prettyFormatter(trait)
 
     # qui siamo sicuri che c'è un'operazione (o spazzatura)
@@ -993,7 +1030,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
 
     trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
     #trait = dbm.getTrait(pc['id'], trait_id)
-    prettyFormatter = trackerFormatter(trait)
+    prettyFormatter = getTraitFormatter(trait)
     if trait['pimp_max']==0 and trait['trackertype']==0:
         raise BotException(f"Non puoi modificare il valore corrente di {trait['traitName']}")
     if trait['trackertype'] != 2:
