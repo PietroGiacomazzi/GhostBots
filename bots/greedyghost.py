@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 import os, urllib
-from re import A
 
-from web.application import auto_application
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
@@ -871,7 +869,7 @@ async def transalte(ctx, *args):
             trait = traits[0]
             u = dbm.db.update("LangTrait", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]), traitShort = args[2], traitName = args[3])
             if u == 1:
-                await atSendLang(ctx, "string_msg_trait_X_in_Y_has_translation_Z1_Z2", args[1], language['langName'], trait['traitName'], trait['traitShort'])
+                await atSendLang(ctx, "string_msg_trait_X_in_Y_has_translation_Z1_Z2", args[1], language['langName'], args[3], args[2])
             else:
                 await atSendLang(ctx, "string_error_update_wrong_X_rows_affected", u)
         else:
