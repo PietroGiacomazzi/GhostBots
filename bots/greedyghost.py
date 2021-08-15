@@ -859,23 +859,23 @@ async def transalte(ctx, *args):
             raise BotException(lp.get(lid, "string_error_invalid_trait_X", args[1]))
 
     if len(args) == 2: # consulto
-        traits = dbm.db.select("TraitLang", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]))
+        traits = dbm.db.select("LangTrait", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]))
         if len(traits):
             trait = traits[0]
             await atSendLang(ctx, "string_msg_trait_X_in_Y_has_translation_Z1_Z2", args[1], language['langName'], trait['traitShort'], trait['traitName'])
         else:
             await atSendLang(ctx, "string_msg_trait_X_not_translated_Y", args[1], language['langName'])
     elif len(args) >= 4: # update/inserimento
-        traits = dbm.db.select("TraitLang", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]))
+        traits = dbm.db.select("LangTrait", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]))
         if len(traits): # update
             trait = traits[0]
-            u = dbm.db.update("TraitLang", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]), traitShort = args[2], traitName = args[3])
+            u = dbm.db.update("LangTrait", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]), traitShort = args[2], traitName = args[3])
             if u == 1:
                 await atSendLang(ctx, "string_msg_trait_X_in_Y_has_translation_Z1_Z2", args[1], language['langName'], trait['traitShort'], trait['traitName'])
             else:
                 await atSendLang(ctx, "string_error_update_wrong_X_rows_affected", u)
         else:
-            dbm.db.insert("TraitLang", langId = args[0], traitId=args[1], traitShort = args[2], traitName = args[3])
+            dbm.db.insert("LangTrait", langId = args[0], traitId=args[1], traitShort = args[2], traitName = args[3])
             await atSendLang(ctx, "string_msg_trait_X_in_Y_has_translation_Z1_Z2", args[1], language['langName'], args[2], args[3])
     else:
         await atSendLang(ctx, "string_help_translate")
