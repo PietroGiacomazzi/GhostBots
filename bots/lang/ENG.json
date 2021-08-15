@@ -76,6 +76,9 @@
 	"string_error_invalid_language_X": "'{}' is not a valid language",
 	"string_error_invalid_trait_X": "'{}' is not a valid trait",
 	"string_error_update_wrong_X_rows_affected": "Something went wrong, rows affected: {}",
+	"string_msg_trait_X_in_Y_has_translation_Z1_Z2": "The trait {} has the following {} translation: {} (shortname: {}) ",
+	"string_msg_trait_X_not_translated_Y": "The trait {} does not have a translation in {}",
+
 
 	"web_already_logged_as": "Already logged in as {}#{}",
 	"web_index_page_title": "Index Page",
