@@ -1,4 +1,4 @@
-$def with (global_params, language_strings, username, btntext, traitData)
+$def with (global_params, language_strings, username, btntext, action, traitData)
 <!doctype html>
 <html>
 <head>
@@ -12,7 +12,7 @@ $def with (global_params, language_strings, username, btntext, traitData)
 	<link rel="preconnect" href="https://fonts.gstatic.com">
 	<link href="https://fonts.googleapis.com/css2?family=Merienda+One&display=swap" rel="stylesheet"> 
 </head>
-<body onload='populate_page()'>
+<body onload='translationEdit_page()'>
     <div>
         <form id="loginlogoutform" action="$action" method="POST" class=""></form> 
     </div>
@@ -23,7 +23,7 @@ $def with (global_params, language_strings, username, btntext, traitData)
         <span class="w3-bar-item">$username</span>
 	</div> 
 	
-    <div class="w3-container" id = "main">
+    <div class="w3-container main-content" id = "main">
         
 		<h2>$language_strings['web_label_trait_translation']:</h2>
 		<table class="w3-table w3-striped">
@@ -34,7 +34,12 @@ $def with (global_params, language_strings, username, btntext, traitData)
 			<th>$language_strings['web_label_trait_name_translated']</th>
 		</tr>
 		$for n in traitData:
-			<tr><td>$n['id']</td><td>$n['langId']</td><td>$n['traitShort']</td><td>$n['traitName']</td></tr>
+			<tr>
+                <td>$n['id']</td>
+                <td>$n['langId']</td>
+                <td id='$n["id"]-short' data-langId="$n['langId']" data-traitid = "$n['id']" data-editable='1' data-type='short'>$n['traitShort']</td>
+                <td id='$n["id"]-name' data-langId="$n['langId']" data-traitid = "$n['id']" data-editable='1' data-type='name'>$n['traitName']</td>
+            </tr>
 		</table>
 
 		

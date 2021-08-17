@@ -480,3 +480,51 @@ function populate_page(){
     //var side_menu = document.getElementById('side_menu');
 	get_remote_resource('./getLanguageDictionary', 'json', getMyCharacters)
 }
+
+// ---
+
+function translationSaved(data){
+	alert("saved!");
+	console.log(data);
+
+	//todo: use data to reset
+}
+
+function saveTranslation(id){
+	var td = document.getElementById(id);
+	input_id = td.id+'-input'
+	var input_tag = document.getElementById(input_id);
+
+	get_remote_resource('./editTranslation?traitId='+td.dataset.traitid+'&type='+td.dataset.type+'&langId'+td.dataset.langid+'&value='+input_tag.value, 'json', translationSaved)
+}
+
+function cancelTranslation(id){
+
+}
+
+
+function editBox(event) {
+    var td = event.target;
+	if (td.dataset.editable)
+	{
+		text = td.innerHTML
+		td.dataset.backup = text;
+		var input_id = td.id+'-input'
+		td.innerHTML = '<input id="'+input_id+'" type="text" value'+text+'> <div class="w3-bar"> <button class="w3-btn w3-green" onclick="saveTranslation('+td.id+');">V</button> <button class="w3-btn w3-red" onclick="cancelTranslation('+td.id+');">X</button> </div> </form>'
+	}
+}
+
+function translationEdit_page(){
+	var container = document.getElementById("main");
+	if (container.addEventListener) {
+		container.addEventListener('click', editBox, false);
+	}
+	else if (container.attachEvent) {
+		container.attachEvent('onclick', function(e) {
+			return editBox.call(container, e || window.event);
+		});
+	}
+	get_remote_resource('./getLanguageDictionary', 'json', function (uwu){
+		window.language_dictionary = dictionary;
+	})
+}

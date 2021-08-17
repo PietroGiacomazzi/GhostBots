@@ -33,6 +33,15 @@ def validator_str_maxlen(maxlen):
             return string
     return validator
 
+def validator_set(values):
+    def validator(data):
+        string = str(data) #data.encode('utf-8')
+        if not string in values:
+            raise WebException("Illegal value", 400)
+        else:
+            return string
+    return validator
+
 class WebResponse:
     def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
         self.config = config

@@ -334,9 +334,38 @@ class editTranslations(WebPageResponseLang):
         select tt.id, lt.langId, lt.traitShort, lt.traitName
         from Trait tt
         left join LangTrait lt on (lt.traitId = tt.id and lt.langId = $langId)
+        order by tt.standard desc, tt.traittype asc, tt.ordering asc
         """
         traitData = dbm.db.query(query, vars=dict(langId=self.getLangId()))
         return render.translationEdit(global_template_params, self.getLanguageDict(), f'{self.session.discord_username}#{self.session.discord_userdiscriminator}', self.getString("web_label_logout"), "doLogout", traitData)
+
+def validator_language(data):
+    string = validator_str_maxlen(3)(data)
+    vl, _ = dbm.isValidLanguage(string)
+    if not vl:
+        raise WebException("Unsupported language", 400)
+    else:
+        return string
+
+def validator_trait(data):
+    string = validator_str_maxlen(8)(data)
+    vl, _ = dbm.isValidTrait(string)
+    if not vl:
+        raise WebException("Invalid trait", 400)
+    else:
+        return string
+
+class editTranslation(APIResponse):
+    def __init__(self):
+        super(editTranslation, self).__init__(config, session, min_access_level=5, accepted_input = {
+            'traitId': (MUST, validator_str_maxlen(8)),
+            'type': (MUST, validator_set( ("short", "name") )),
+            'langId': (MUST, validator_language),
+            'traitId': (MUST, validator_trait),     
+        })
+    def mGET(self):
+        return self.input_data
+
 
 if __name__ == "__main__":
     app.run(Log)
