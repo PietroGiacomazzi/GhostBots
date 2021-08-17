@@ -34,12 +34,7 @@ $def with (global_params, language_strings, username, btntext, action, traitData
 			<th>$language_strings['web_label_trait_name_translated']</th>
 		</tr>
 		$for n in traitData:
-			<tr>
-                <td>$n['id']</td>
-                <td>$n['langId']</td>
-                <td id='$n["id"]-short' data-langId="$n['langId']" data-traitid = "$n['id']" data-editable='1' data-type='short'>$n['traitShort']</td>
-                <td id='$n["id"]-name' data-langId="$n['langId']" data-traitid = "$n['id']" data-editable='1' data-type='name'>$n['traitName']</td>
-            </tr>
+			<tr> <td>$n['id']</td> <td>$n['langId']</td> <td id='$n["id"]-short' data-langId="$n['langId']" data-traitid = "$n['id']" data-editable='1' data-type='short'>$n['traitShort']</td> <td id='$n["id"]-name' data-langId="$n['langId']" data-traitid = "$n['id']" data-editable='1' data-type='name'>$n['traitName']</td> </tr>
 		</table>
 
 		

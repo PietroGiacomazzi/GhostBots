@@ -495,7 +495,7 @@ function saveTranslation(id){
 	input_id = td.id+'-input'
 	var input_tag = document.getElementById(input_id);
 
-	get_remote_resource('./editTranslation?traitId='+td.dataset.traitid+'&type='+td.dataset.type+'&langId'+td.dataset.langid+'&value='+input_tag.value, 'json', translationSaved)
+	get_remote_resource('./editTranslation?traitId='+td.dataset.traitid+'&type='+td.dataset.type+'&langId='+td.dataset.langid+'&value='+input_tag.value, 'json', translationSaved)
 }
 
 function cancelTranslation(id){
@@ -510,7 +510,7 @@ function editBox(event) {
 		text = td.innerHTML
 		td.dataset.backup = text;
 		var input_id = td.id+'-input'
-		td.innerHTML = '<input id="'+input_id+'" type="text" value'+text+'> <div class="w3-bar"> <button class="w3-btn w3-green" onclick="saveTranslation('+td.id+');">V</button> <button class="w3-btn w3-red" onclick="cancelTranslation('+td.id+');">X</button> </div> </form>'
+		td.innerHTML = '<div class="w3-bar"> <input id="'+input_id+'" type="text" value="'+text+'"> <button class="w3-btn w3-green" onclick="saveTranslation(\''+td.id+'\');">V</button> <button class="w3-btn w3-red" onclick="cancelTranslation(\''+td.id+'\');">X</button> </div> </form>'
 	}
 }
 
@@ -524,7 +524,7 @@ function translationEdit_page(){
 			return editBox.call(container, e || window.event);
 		});
 	}
-	get_remote_resource('./getLanguageDictionary', 'json', function (uwu){
+	get_remote_resource('./getLanguageDictionary', 'json', function (dictionary){
 		window.language_dictionary = dictionary;
 	})
 }

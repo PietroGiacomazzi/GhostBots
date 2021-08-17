@@ -35,7 +35,8 @@ urls = (
     '/getClanIcon', 'getClanIcon',
     '/getCharacterModLog', 'getCharacterModLog',
     '/getLanguageDictionary', 'getLanguageDictionary',
-    '/editTranslations', 'editTranslations'
+    '/editTranslations', 'editTranslations',
+    '/editTranslation', 'editTranslation'
     )
 
 
@@ -348,7 +349,7 @@ def validator_language(data):
         return string
 
 def validator_trait(data):
-    string = validator_str_maxlen(8)(data)
+    string = validator_str_maxlen(20)(data)
     vl, _ = dbm.isValidTrait(string)
     if not vl:
         raise WebException("Invalid trait", 400)
@@ -358,10 +359,10 @@ def validator_trait(data):
 class editTranslation(APIResponse):
     def __init__(self):
         super(editTranslation, self).__init__(config, session, min_access_level=5, accepted_input = {
-            'traitId': (MUST, validator_str_maxlen(8)),
+            'traitId': (MUST, validator_trait),
             'type': (MUST, validator_set( ("short", "name") )),
             'langId': (MUST, validator_language),
-            'traitId': (MUST, validator_trait),     
+            'value': (MUST, validator_str_maxlen(50)),     
         })
     def mGET(self):
         return self.input_data
