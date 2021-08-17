@@ -520,13 +520,13 @@ function saveTranslation(id){
 		value: input_tag.value
 	  });
 	get_remote_resource('./editTranslation?'+params.toString(), 'json', function (data){
-		translationSaved(data, id)
+		translationSaved(data, id);
 	})
 }
 
 function cancelTranslation(id){
 	var td = document.getElementById(id);
-	td.innerHTML = td.dataset.backup
+	td.innerHTML = td.dataset.backup;
 	td.dataset.editable = "1";
 }
 
