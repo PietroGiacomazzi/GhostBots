@@ -16,7 +16,7 @@ replace_HTMLElement["'"] = '&#x27;';
 function out_sanitize(string, sanitization_array){
 	var final_string = string.toString();
 	for (var key in sanitization_array) {
-		final_string.replaceAll(key, sanitization_array[key]);
+		final_string = final_string.replaceAll(key, sanitization_array[key]);
 	}
 	return final_string;
 }
@@ -503,7 +503,7 @@ function populate_page(){
 
 function translationSaved(data, id){
 	var td = document.getElementById(id);
-	td.innerHTML = out_sanitize(replace_HTMLElement, data.value);
+	td.innerHTML = out_sanitize(data.value, replace_HTMLElement);
 	td.dataset.editable = "1";
 }
 
