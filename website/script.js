@@ -524,6 +524,7 @@ function editBox(event) {
 				saveTranslation(td.id);
 			}
 		}); 
+		input.focus();
 	}
 }
 
