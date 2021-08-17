@@ -34,12 +34,13 @@ if (!String.format) {
   }
 
 function getLangString(string_id){
+	// output sanitization is a bit overkill here
 	if (window.language_dictionary){
-		return window.language_dictionary[string_id]
+		return out_sanitize(window.language_dictionary[string_id], replace_HTMLElement)
 	}
 	else
 	{
-		return string_id;
+		return out_sanitize(string_id, replace_HTMLElement);
 	}
 }
 
@@ -111,7 +112,7 @@ function renderhealth(health_text, max_value)
 		var line = document.createElement('tr');
 		
 		var level = document.createElement('td');
-		level.setAttribute("class", "nopadding");
+		level.className = "nopadding";
 		level.innerHTML = hurt_levels_vampire[i+1];
 		line.appendChild(level);
         
@@ -128,17 +129,32 @@ function renderhealth(health_text, max_value)
 		for (j=cursor; j<(cursor+add); ++j)
 		{
 			var cell = document.createElement('td');
-			cell.setAttribute("class", "nopadding");
+			cell.className = "nopadding";
 			//console.log(hs[j]);
-			cell.innerHTML = '<img height="20" width="20" class = "w3-border" src="../img_res/'+img_map.get(hs[j])+'" />';
+
+			var img = document.createElement('img');
+			img.setAttribute('height', "20");
+			img.setAttribute('width', "20");
+			img.className = "w3-border";
+			img.src = '../img_res/'+img_map.get(hs[j]);
+			cell.appendChild(img);
+			//cell.innerHTML = '<img height="20" width="20" class = "w3-border" src="../img_res/'+img_map.get(hs[j])+'" />';
 			line.appendChild(cell);
 		}
 		if (extra > 0 && i >= extra)
 		{
 			var cell = document.createElement('td');
-			cell.setAttribute("class", "nopadding");
+			cell.className = "nopadding";
+
+			var img = document.createElement('img');
+			img.setAttribute('height', "20");
+			img.setAttribute('width', "20");
+			img.className = "w3-border";
+			img.src = '.../img_res/'+img_map.get("B");
+			cell.appendChild(img);
+
 			//console.log(hs[j]);
-			cell.innerHTML = '<img height="20" width="20" class = "w3-border" src="../img_res/'+img_map.get("B")+'" />';
+			//cell.innerHTML = '<img height="20" width="20" class = "w3-border" src="../img_res/'+img_map.get("B")+'" />';
 			line.appendChild(cell);
 		}
 		cursor += add;
@@ -165,7 +181,7 @@ function populate_clan_img(clan_name){
 function populateSheet(characterTraits, character){
 	// create new sheet
 	var charsheet = window.sheet_template.cloneNode(true);
-	charsheet.setAttribute("id", 'charsheet');
+	charsheet.id ='charsheet';
 	// insert new sheet
 	var main = document.getElementById('main_content');
 	main.appendChild(charsheet);
@@ -175,7 +191,7 @@ function populateSheet(characterTraits, character){
 	// nome del giocatore
 	sheetspot = document.getElementById("testata");
 	var c = document.createElement('tr'); 
-	c.setAttribute("id", 'nome_giocatore');
+	c.id = 'nome_giocatore';
 	c.innerHTML = String.format(getLangString("web_string_charplayer"), character.ownername); 
 	sheetspot.appendChild(c);
 	
@@ -254,7 +270,7 @@ function populateSheet(characterTraits, character){
 				}
 				else if (traitdata.trackertype == 2) // danni
 				{
-					c.innerHTML = '<h4>'+traitdata.tnameLang+'</h4><p>'+traitdata.text_value+' (non implementato)</p>'; // TODO
+					c.innerHTML = '<h4>'+traitdata.tnameLang+'</h4><p>'+out_sanitize(traitdata.text_value, replace_HTMLElement)+' (non implementato)</p>'; // TODO
 				}
 				else if (traitdata.trackertype == 3) // punti senza massimo
 				{
@@ -262,7 +278,7 @@ function populateSheet(characterTraits, character){
 				}
 				else //fallback
 				{
-					c.innerHTML = '<h4>'+traitdata.tnameLang+'</h4><p>'+ traitdata.cur_value + "/" + traitdata.max_value + " " +traitdata.text_value+'</p>'; 
+					c.innerHTML = '<h4>'+traitdata.tnameLang+'</h4><p>'+ traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value, replace_HTMLElement)+'</p>'; 
 				}
 			}
 			// tratti std
@@ -295,7 +311,7 @@ function populateSheet(characterTraits, character){
 				}
 				else if (traitdata.trackertype == 2) // danni
 				{
-					c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+traitdata.text_value+' (non implementato)'+'</td>';// TODO
+					c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+out_sanitize(traitdata.text_value, replace_HTMLElement)+' (non implementato)'+'</td>';// TODO
 				}
 				else if (traitdata.trackertype == 3) // punti senza massimo
 				{
@@ -303,14 +319,14 @@ function populateSheet(characterTraits, character){
 				}
 				else //fallback
 				{
-					c.innerHTML = '<td class="nopadding">'+tname+"</td>" +'<td class="nopadding" style="float:right">'+ traitdata.cur_value + "/" + traitdata.max_value + " " +traitdata.text_value+'</td>';
+					c.innerHTML = '<td class="nopadding">'+tname+"</td>" +'<td class="nopadding" style="float:right">'+ traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value, replace_HTMLElement)+'</td>';
 				}
 			}
 			else
 			{
 				var temp = traitdata.tnameLang
 				if (traitdata.text_value != "-"){
-					temp += ": "+ traitdata.text_value;
+					temp += ": "+ out_sanitize(traitdata.text_value, replace_HTMLElement);
 				}
 				c.innerHTML = temp;
 				if (traitdata.trait == 'clan')
@@ -334,7 +350,7 @@ function populateSheet(characterTraits, character){
 				temp_dump.style.display = 'inline';
 			}
 			c.setAttribute("id", traitdata.trait);
-			c.innerHTML = traitdata.tnameLang + ": " + traitdata.cur_value + "/" + traitdata.max_value + " " +traitdata.text_value;
+			c.innerHTML = traitdata.tnameLang + ": " + traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value, replace_HTMLElement);
 			temp_dump.appendChild(c);
 			//c.addEventListener('click', function(id){var cid = id; return function() {load_charSheet(cid);}}(character.id))
 		}
@@ -423,7 +439,7 @@ function populate_charmenu(menuItem, chars){
         var c = document.createElement('div');
         c.innerHTML = menuItem;
 		c = c.firstChild
-		c.setAttribute("id", character.id);
+		c.id = character.id;
 		c.innerHTML = character.fullname
         chronicle_container.appendChild(c);
 		c.addEventListener('click', function(chardata){var c = chardata; return function() {load_charSheet(c);}}(character))
@@ -543,13 +559,13 @@ function editBox(event) {
 		eb.setAttribute("class", "w3-bar");
 
 		var inp = document.createElement("input");
-		inp.setAttribute("id", input_id);
-		inp.setAttribute("class", "w3-bar-item w3-border w3-border-gray");
+		inp.id = input_id;
+		inp.className = "w3-bar-item w3-border w3-border-gray";
 		inp.setAttribute("value", text);
 		eb.appendChild(inp);
 
 		var btnSave = document.createElement("button");
-		btnSave.setAttribute("class", "w3-bar-item w3-btn w3-green");
+		btnSave.className = "w3-bar-item w3-btn w3-green";
 		btnSave.addEventListener('click', function(event){
 			saveTranslation(td.id);
 		})
@@ -557,17 +573,15 @@ function editBox(event) {
 		eb.appendChild(btnSave)
 
 		var btnCancel = document.createElement("button");
-		btnCancel.setAttribute("class", "w3-bar-item w3-btn w3-red");
+		btnCancel.className = "w3-bar-item w3-btn w3-red";
 		btnCancel.addEventListener('click', function(event){
 			cancelTranslation(td.id);
 		})
 		btnCancel.innerHTML = '<span class="material-icons md-18">cancel</span>';
 		eb.appendChild(btnCancel)
 
-		//a.innerHTML = out_sanitize(replace_HTMLElement, f)
 		td.innerHTML = '';
 		td.appendChild(eb);
-		//td.innerHTML = '<div class="w3-bar"> <input class="w3-bar-item w3-border w3-border-gray" id="'+input_id+'" type="text" value="'+text+'"> <button class="w3-bar-item w3-btn w3-green" onclick="saveTranslation(\''+td.id+'\');"><span class="material-icons md-18">save</span></button> <button class="w3-bar-item w3-btn w3-red" onclick="cancelTranslation(\''+td.id+'\');"><span class="material-icons md-18">cancel</span></button> </div>'
 
 		var input = document.getElementById(input_id);
 		input.addEventListener("keyup", function(event) {
