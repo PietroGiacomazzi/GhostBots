@@ -494,6 +494,7 @@ function saveTranslation(id){
 	input_id = td.id+'-input'
 	var input_tag = document.getElementById(input_id);
 
+	// todo url encode
 	get_remote_resource('./editTranslation?traitId='+td.dataset.traitid+'&type='+td.dataset.type+'&langId='+td.dataset.langid+'&value='+input_tag.value, 'json', function (data){
 		translationSaved(data, id)
 	})
@@ -514,7 +515,15 @@ function editBox(event) {
 		text = td.innerHTML
 		td.dataset.backup = text;
 		var input_id = td.id+'-input'
-		td.innerHTML = '<div class="w3-bar"> <input id="'+input_id+'" type="text" value="'+text+'"> <button class="w3-btn w3-green" onclick="saveTranslation(\''+td.id+'\');">V</button> <button class="w3-btn w3-red" onclick="cancelTranslation(\''+td.id+'\');">X</button> </div> </form>'
+		// todo retrieve as resource
+		td.innerHTML = '<div class="w3-bar"> <input class"w3-bar-item" id="'+input_id+'" type="text" value="'+text+'"> <button class="w3-bar-item w3-btn w3-green" onclick="saveTranslation(\''+td.id+'\');"><span class="material-icons md-18">save</span></button> <button class="w3-bar-item w3-btn w3-red" onclick="cancelTranslation(\''+td.id+'\');"><span class="material-icons md-18">cancel</span></button> </div>'
+
+		var input = document.getElementById(input_id);
+		input.addEventListener("keyup", function(event) {
+			if (event.key === 'Enter') {
+				saveTranslation(td.id);
+			}
+		}); 
 	}
 }
 
