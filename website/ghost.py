@@ -207,7 +207,7 @@ class redirectDash(WebPageResponse):
 
 class dashboard(WebPageResponseLang):
     def __init__(self):
-        super(dashboard, self).__init__(config, session, accepted_input = {'character': (MAY, validator_str_maxlen(20))
+        super(dashboard, self).__init__(config, session, accepted_input = {'character': (MAY, validator_str_range(1, 20))
                                                                            })
     def mGET(self):
         try:
@@ -261,7 +261,7 @@ class getMyCharacters(APIResponse):
 
 class getCharacterTraits(APIResponse):
     def __init__(self):
-        super(getCharacterTraits, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_str_maxlen(20))})
+        super(getCharacterTraits, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_str_range(1, 20))})
     def mGET(self):
         try:
             ba, _ = dbm.isBotAdmin(self.session.discord_userid)
@@ -297,7 +297,7 @@ class getClanIcon(APIResponse):
 
 class getCharacterModLog(WebPageResponseLang):
     def __init__(self):
-        super(getCharacterModLog, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_str_maxlen(20))})
+        super(getCharacterModLog, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_str_range(1, 20))})
     def mGET(self):
         try:
             ba, _ = dbm.isBotAdmin(self.session.discord_userid)
@@ -341,7 +341,7 @@ class editTranslations(WebPageResponseLang):
         return render.translationEdit(global_template_params, self.getLanguageDict(), f'{self.session.discord_username}#{self.session.discord_userdiscriminator}', self.getString("web_label_logout"), "doLogout", traitData)
 
 def validator_language(data):
-    string = validator_str_maxlen(3)(data)
+    string = validator_str_range(1, 3)(data)
     vl, _ = dbm.isValidLanguage(string)
     if not vl:
         raise WebException("Unsupported language", 400)
@@ -349,7 +349,7 @@ def validator_language(data):
         return string
 
 def validator_trait(data):
-    string = validator_str_maxlen(20)(data)
+    string = validator_str_range(1, 20)(data)
     vl, _ = dbm.isValidTrait(string)
     if not vl:
         raise WebException("Invalid trait", 400)
@@ -376,7 +376,7 @@ class editTranslation(APIResponse):
         if u == 1:
             return self.input_data
         else:
-            raise WebException("Update failed", 500)
+            raise WebException(f"Update failed, {u} rows affected", 500)
 
 if __name__ == "__main__":
     app.run(Log)

@@ -33,6 +33,15 @@ def validator_str_maxlen(maxlen):
             return string
     return validator
 
+def validator_str_range(minlen, maxlen):
+    def validator(data):
+        string = str(data) #data.encode('utf-8')
+        if len(string) > maxlen or len(string) < minlen:
+            raise WebException("Input not in accepted length range", 400)
+        else:
+            return string
+    return validator
+
 def validator_set(values):
     def validator(data):
         string = str(data) #data.encode('utf-8')

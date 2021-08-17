@@ -3,6 +3,24 @@ window.selected_charid = null;
 window.language_dictionary = null;
 var urlParams = new URLSearchParams(window.location.search);
 
+var replace_HTMLElement = [];
+replace_HTMLElement['&'] = '&amp;';
+replace_HTMLElement['<'] = '&lt;';
+replace_HTMLElement['>'] = '&gt;';
+replace_HTMLElement['"'] = '&quot;';
+replace_HTMLElement["'"] = '&#x27;';
+
+//var replace_HTMLattribute = []
+//replace_HTMLattribute
+
+function out_sanitize(string, sanitization_array){
+	final_string = string;
+	for (var key in sanitization_array) {
+		final_string.replaceAll(key, sanitization_array[key]);
+	}
+	return final_string;
+}
+
 if (!String.format) {
 	String.format = function(format) {
 	  var args = Array.prototype.slice.call(arguments, 1);
@@ -485,7 +503,7 @@ function populate_page(){
 
 function translationSaved(data, id){
 	var td = document.getElementById(id);
-	td.innerHTML = data.value
+	td.innerHTML = out_sanitize(replace_HTMLElement, data.value) 
 	td.dataset.editable = "1";
 }
 
@@ -494,8 +512,14 @@ function saveTranslation(id){
 	input_id = td.id+'-input'
 	var input_tag = document.getElementById(input_id);
 
-	// todo url encode
-	get_remote_resource('./editTranslation?traitId='+td.dataset.traitid+'&type='+td.dataset.type+'&langId='+td.dataset.langid+'&value='+input_tag.value, 'json', function (data){
+	// todo post
+	const params = new URLSearchParams({
+		traitId: td.dataset.traitid,
+		type: td.dataset.type,
+		langId: td.dataset.langid,
+		value: input_tag.value
+	  });
+	get_remote_resource('./editTranslation?'+params.toString(), 'json', function (data){
 		translationSaved(data, id)
 	})
 }
@@ -509,14 +533,41 @@ function cancelTranslation(id){
 
 function editBox(event) {
     var td = event.target;
-	if (td.dataset.editable)
+	if (td.dataset.editable === "1")
 	{
-		td.dataset.editable = null;
+		td.dataset.editable = "0";
 		text = td.innerHTML
 		td.dataset.backup = text;
-		var input_id = td.id+'-input'
-		// todo retrieve as resource
-		td.innerHTML = '<div class="w3-bar"> <input class="w3-bar-item w3-border w3-border-gray" id="'+input_id+'" type="text" value="'+text+'"> <button class="w3-bar-item w3-btn w3-green" onclick="saveTranslation(\''+td.id+'\');"><span class="material-icons md-18">save</span></button> <button class="w3-bar-item w3-btn w3-red" onclick="cancelTranslation(\''+td.id+'\');"><span class="material-icons md-18">cancel</span></button> </div>'
+		var input_id = td.id+'-input';
+		
+		var eb = document.createElement("div");
+		eb.setAttribute("class", "w3-bar");
+
+		var inp = document.createElement("input");
+		inp.setAttribute("id", input_id);
+		inp.setAttribute("class", "w3-bar-item w3-border w3-border-gray");
+		inp.setAttribute("value", text);
+		eb.appendChild(inp);
+
+		var btnSave = document.createElement("button");
+		btnSave.setAttribute("class", "w3-bar-item w3-btn w3-green");
+		btnSave.addEventListener('click', function(event){
+			saveTranslation(td.id);
+		})
+		btnSave.innerHTML = '<span class="material-icons md-18">save</span>';
+		eb.appendChild(btnSave)
+
+		var btnCancel = document.createElement("button");
+		btnCancel.setAttribute("class", "w3-bar-item w3-btn w3-red");
+		btnCancel.addEventListener('click', function(event){
+			cancelTranslation(td.id);
+		})
+		btnSave.innerHTML = '<span class="material-icons md-18">cancel</span>';
+		eb.appendChild(btnCancel)
+
+		//a.innerHTML = out_sanitize(replace_HTMLElement, f)
+		td.appendChild(eb);
+		//td.innerHTML = '<div class="w3-bar"> <input class="w3-bar-item w3-border w3-border-gray" id="'+input_id+'" type="text" value="'+text+'"> <button class="w3-bar-item w3-btn w3-green" onclick="saveTranslation(\''+td.id+'\');"><span class="material-icons md-18">save</span></button> <button class="w3-bar-item w3-btn w3-red" onclick="cancelTranslation(\''+td.id+'\');"><span class="material-icons md-18">cancel</span></button> </div>'
 
 		var input = document.getElementById(input_id);
 		input.addEventListener("keyup", function(event) {
