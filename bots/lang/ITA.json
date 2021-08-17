@@ -135,6 +135,12 @@
 	"web_label_oldval": "Vecchio valore",
 	"web_label_newval": "Nuovo valore",
 	"web_label_modlog_origin": "Origine",
-	"web_label_modlog": "Registro modifiche"
+	"web_label_modlog": "Registro modifiche",
+	"web_label_trait_translation": "Traduzioni",
+	"web_label_trait_id": "ID tratto",
+	"web_label_trait_short_translated": "ID tratto tradotto",
+	"web_label_trait_name_translated": "Nome tratto tradotto",
+	"web_label_language_id": "ID Lingua"
+
 
 }

@@ -1,0 +1,44 @@
+$def with (global_params, language_strings, username, btntext, traitData)
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>$language_strings['web_label_trait_translation']</title>
+    <!--<link rel="stylesheet" href="/res/W3CSS/w3.css">-->
+	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css"> 
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="../css/custom.css">
+    <link rel="shortcut icon" type="image/x-icon" href="../img_res/favicon.ico" />
+	<link rel="preconnect" href="https://fonts.gstatic.com">
+	<link href="https://fonts.googleapis.com/css2?family=Merienda+One&display=swap" rel="stylesheet"> 
+</head>
+<body onload='populate_page()'>
+    <div>
+        <form id="loginlogoutform" action="$action" method="POST" class=""></form> 
+    </div>
+	<div id = "modlog_area">
+	</div>
+	<div class="w3-bar w3-black w3-top">
+        <button id="loginlogout" form="loginlogoutform" class="w3-bar-item w3-btn w3-indigo">$btntext</button>
+        <span class="w3-bar-item">$username</span>
+	</div> 
+	
+    <div class="w3-container" id = "main">
+        
+		<h2>$language_strings['web_label_trait_translation']:</h2>
+		<table class="w3-table w3-striped">
+		<tr>
+			<th>$language_strings['web_label_trait_id']</th>
+			<th>$language_strings['web_label_language_id']</th>
+			<th>$language_strings['web_label_trait_short_translated']</th>
+			<th>$language_strings['web_label_trait_name_translated']</th>
+		</tr>
+		$for n in traitData:
+			<tr><td>$n['id']</td><td>$n['langId']</td><td>$n['traitShort']</td><td>$n['traitName']</td></tr>
+		</table>
+
+		
+    </div>
+	<script src="../script.js"></script>
+</body>
+</html>

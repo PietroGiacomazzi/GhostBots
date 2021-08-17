@@ -136,6 +136,11 @@
 	"web_label_oldval": "Old value",
 	"web_label_newval": "New value",
 	"web_label_modlog_origin": "Origin",
-	"web_label_modlog": "Modification Log"
+	"web_label_modlog": "Modification Log",
+	"web_label_trait_translation": "Translations",
+	"web_label_trait_id": "Trait ID",
+	"web_label_trait_short_translated": "Translated trait ID",
+	"web_label_trait_name_translated": "Translated trait name",
+	"web_label_language_id": "Language ID"
 
 }

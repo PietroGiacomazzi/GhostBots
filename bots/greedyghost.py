@@ -827,8 +827,8 @@ async def end(ctx):
     sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
     if len(sessions):
         ba, _ = dbm.isBotAdmin(issuer)
-        st = dbm.db.query('select sc.chronicle from StoryTellerChronicleRel sc join GameSession gs on (sc.chronicle = gs.chronicle) where gs.channel=$channel and sc.storyteller = $st', vars=dict(channel=ctx.channel.id, st=ctx.message.author.id))
-        can_do = ba or bool(len(st))
+        st, _ = dbm.isChronicleStoryteller(issuer, sessions[0]['chronicle'])
+        can_do = ba or st
         if can_do:
             n = dbm.db.delete('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
             if n:
@@ -843,7 +843,7 @@ async def end(ctx):
 
 
 @bot.command(name = 'translate', brief='Permette di aggiornare la traduzione di un tratto un unn lingua' , help = "")
-async def transalte(ctx, *args):
+async def translate(ctx, *args):
     issuer = ctx.message.author.id
     lid = getLanguage(issuer, dbm)
     language = None

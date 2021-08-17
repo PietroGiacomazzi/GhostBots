@@ -34,7 +34,8 @@ urls = (
     '/getCharacterTraits', 'getCharacterTraits',
     '/getClanIcon', 'getClanIcon',
     '/getCharacterModLog', 'getCharacterModLog',
-    '/getLanguageDictionary', 'getLanguageDictionary'
+    '/getLanguageDictionary', 'getLanguageDictionary',
+    '/editTranslations', 'editTranslations'
     )
 
 
@@ -163,6 +164,15 @@ class discordCallback(APIResponse):
             self.session.discord_username = user['username']
             self.session.discord_userdiscriminator = user['discriminator']
             self.session.language = getLanguage(self.session, dbm)
+            
+            ba, _ = dbm.isBotAdmin(self.session.discord_userid)
+            st, _ = dbm.isStoryteller(self.session.discord_userid)
+            if st:
+                self.session.access_level = 5
+            elif ba:
+                self.session.access_level = 10
+            else:
+                self.session.access_level = 1
             raise web.seeother('/')
 
 
@@ -313,6 +323,20 @@ class getLanguageDictionary(APIResponse):
         super(getLanguageDictionary, self).__init__(config, session)
     def mGET(self):
         return lp.languages[getLanguage(self.session, dbm)]
+
+class editTranslations(WebPageResponseLang):
+    def __init__(self):
+        super(editTranslations, self).__init__(config, session, min_access_level=5)
+    def mGET(self):
+        #ba, _ = dbm.isBotAdmin(self.session.discord_userid)
+        #st, _ = dbm.isStoryteller(self.session.discord_userid)
+        query = """
+        select tt.id, lt.langId, lt.traitShort, lt.traitName
+        from Trait tt
+        left join LangTrait lt on (lt.traitId = tt.id and lt.langId = $langId)
+        """
+        traitData = dbm.db.query(query, vars=dict(langId=self.getLangId()))
+        return render.translationEdit(global_template_params, self.getLanguageDict(), f'{self.session.discord_username}#{self.session.discord_userdiscriminator}', self.getString("web_label_logout"), "doLogout", traitData)
 
 if __name__ == "__main__":
     app.run(Log)
