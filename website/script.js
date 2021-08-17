@@ -14,7 +14,7 @@ replace_HTMLElement["'"] = '&#x27;';
 //replace_HTMLattribute
 
 function out_sanitize(string, sanitization_array){
-	final_string = string;
+	var final_string = string.toString();
 	for (var key in sanitization_array) {
 		final_string.replaceAll(key, sanitization_array[key]);
 	}
@@ -503,7 +503,7 @@ function populate_page(){
 
 function translationSaved(data, id){
 	var td = document.getElementById(id);
-	td.innerHTML = out_sanitize(replace_HTMLElement, data.value) 
+	td.innerHTML = out_sanitize(replace_HTMLElement, data.value);
 	td.dataset.editable = "1";
 }
 
@@ -529,7 +529,6 @@ function cancelTranslation(id){
 	td.innerHTML = td.dataset.backup
 	td.dataset.editable = "1";
 }
-
 
 function editBox(event) {
     var td = event.target;
@@ -562,10 +561,11 @@ function editBox(event) {
 		btnCancel.addEventListener('click', function(event){
 			cancelTranslation(td.id);
 		})
-		btnSave.innerHTML = '<span class="material-icons md-18">cancel</span>';
+		btnCancel.innerHTML = '<span class="material-icons md-18">cancel</span>';
 		eb.appendChild(btnCancel)
 
 		//a.innerHTML = out_sanitize(replace_HTMLElement, f)
+		td.innerHTML = '';
 		td.appendChild(eb);
 		//td.innerHTML = '<div class="w3-bar"> <input class="w3-bar-item w3-border w3-border-gray" id="'+input_id+'" type="text" value="'+text+'"> <button class="w3-bar-item w3-btn w3-green" onclick="saveTranslation(\''+td.id+'\');"><span class="material-icons md-18">save</span></button> <button class="w3-bar-item w3-btn w3-red" onclick="cancelTranslation(\''+td.id+'\');"><span class="material-icons md-18">cancel</span></button> </div>'
 
