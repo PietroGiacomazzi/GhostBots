@@ -516,7 +516,7 @@ function editBox(event) {
 		td.dataset.backup = text;
 		var input_id = td.id+'-input'
 		// todo retrieve as resource
-		td.innerHTML = '<div class="w3-bar"> <input class"w3-bar-item" id="'+input_id+'" type="text" value="'+text+'"> <button class="w3-bar-item w3-btn w3-green" onclick="saveTranslation(\''+td.id+'\');"><span class="material-icons md-18">save</span></button> <button class="w3-bar-item w3-btn w3-red" onclick="cancelTranslation(\''+td.id+'\');"><span class="material-icons md-18">cancel</span></button> </div>'
+		td.innerHTML = '<div class="w3-bar"> <input class="w3-bar-item w3-border w3-border-gray" id="'+input_id+'" type="text" value="'+text+'"> <button class="w3-bar-item w3-btn w3-green" onclick="saveTranslation(\''+td.id+'\');"><span class="material-icons md-18">save</span></button> <button class="w3-bar-item w3-btn w3-red" onclick="cancelTranslation(\''+td.id+'\');"><span class="material-icons md-18">cancel</span></button> </div>'
 
 		var input = document.getElementById(input_id);
 		input.addEventListener("keyup", function(event) {
