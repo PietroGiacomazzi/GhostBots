@@ -483,11 +483,10 @@ function populate_page(){
 
 // ---
 
-function translationSaved(data){
-	alert("saved!");
-	console.log(data);
-
-	//todo: use data to reset
+function translationSaved(data, id){
+	var td = document.getElementById(id);
+	td.innerHTML = data.value
+	td.dataset.editable = "1";
 }
 
 function saveTranslation(id){
@@ -495,11 +494,15 @@ function saveTranslation(id){
 	input_id = td.id+'-input'
 	var input_tag = document.getElementById(input_id);
 
-	get_remote_resource('./editTranslation?traitId='+td.dataset.traitid+'&type='+td.dataset.type+'&langId='+td.dataset.langid+'&value='+input_tag.value, 'json', translationSaved)
+	get_remote_resource('./editTranslation?traitId='+td.dataset.traitid+'&type='+td.dataset.type+'&langId='+td.dataset.langid+'&value='+input_tag.value, 'json', function (data){
+		translationSaved(data, id)
+	})
 }
 
 function cancelTranslation(id){
-
+	var td = document.getElementById(id);
+	td.innerHTML = td.dataset.backup
+	td.dataset.editable = "1";
 }
 
 
@@ -507,6 +510,7 @@ function editBox(event) {
     var td = event.target;
 	if (td.dataset.editable)
 	{
+		td.dataset.editable = null;
 		text = td.innerHTML
 		td.dataset.backup = text;
 		var input_id = td.id+'-input'

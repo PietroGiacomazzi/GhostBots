@@ -334,7 +334,7 @@ class editTranslations(WebPageResponseLang):
         query = """
         select tt.id, lt.langId, lt.traitShort, lt.traitName
         from Trait tt
-        left join LangTrait lt on (lt.traitId = tt.id and lt.langId = $langId)
+        join LangTrait lt on (lt.traitId = tt.id and lt.langId = $langId)
         order by tt.standard desc, tt.traittype asc, tt.ordering asc
         """
         traitData = dbm.db.query(query, vars=dict(langId=self.getLangId()))
@@ -365,8 +365,18 @@ class editTranslation(APIResponse):
             'value': (MUST, validator_str_maxlen(50)),     
         })
     def mGET(self):
-        return self.input_data
+        u = 0
+        if self.input_data['type'] == "short":
+            u = dbm.db.update("LangTrait", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=self.input_data['traitId'], langId = self.input_data['langId']), traitShort = self.input_data['value'])
+        elif self.input_data['type'] == "name":
+            u = dbm.db.update("LangTrait", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=self.input_data['traitId'], langId = self.input_data['langId']), traitName = self.input_data['value'])
+        else: # does not ever happen
+            raise WebException("Invalid input", 400)
 
+        if u == 1:
+            return self.input_data
+        else:
+            raise WebException("Update failed", 500)
 
 if __name__ == "__main__":
     app.run(Log)
