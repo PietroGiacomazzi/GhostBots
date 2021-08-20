@@ -314,6 +314,7 @@ function populateSheet(characterTraits, character){
 					trait_title.innerHTML = tname;
 					c.appendChild(trait_title);
 
+					/*
 					var dots_string = dot.repeat(Math.min(traitdata.cur_value,traitdata.max_value))
 					//var temp = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding" style="float:right">'+dot.repeat(Math.min(traitdata.cur_value,traitdata.max_value));
 					if (traitdata.cur_value < traitdata.max_value)
@@ -324,14 +325,23 @@ function populateSheet(characterTraits, character){
 					if (traitdata.cur_value < max_dots)
 						dots_string += emptydot.repeat(max_dots-Math.max(traitdata.max_value, traitdata.cur_value));
 					//temp += "</td>"
+					*/
+					var dots_array = Array(Math.min(traitdata.cur_value,traitdata.max_value)).fill(dot);
+					if (traitdata.cur_value < traitdata.max_value)
+						dots_array.concat(Array(traitdata.max_value-traitdata.cur_value).fill(red_dot));
+					if (traitdata.cur_value>traitdata.max_value)
+						dots_array.concat(Array(traitdata.cur_value-traitdata.max_value).fill(blue_dot));
+					max_dots = Math.max(traitdata.pimp_max, 5)
+					if (traitdata.cur_value < max_dots)
+						dots_array.concat(Array(max_dots-Math.max(traitdata.max_value, traitdata.cur_value)).fill(emptydot));
 					//c.innerHTML = temp;
 					var trait_dots = document.createElement('td');
-					for (j = 0; j<dots_string.length; ++j) // this can go into a function that takes the dot string (and maybe some extra stuff for trackers)
+					for (j = 0; j<dots_array.length; ++j) // this can go into a function that takes the dot string (and maybe some extra stuff for trackers)
 					{
 						var dot_span = document.createElement('span');
 						dot_span.dataset.traitid = traitdata.trait
 						dot_span.dataset.dot_id = j+1
-						dot_span.innerText = dots_string[j];
+						dot_span.innerHTML = dots_array[j];
 						trait_dots.appendChild(dot_span);
 					}
 					c.appendChild(trait_dots);
