@@ -139,7 +139,6 @@ function renderhealth(health_text, max_value)
 		{
 			var cell = document.createElement('td');
 			cell.className = "nopadding";
-			//console.log(hs[j]);
 
 			var img = document.createElement('img');
 			img.setAttribute('height', "20");
@@ -147,7 +146,6 @@ function renderhealth(health_text, max_value)
 			img.className = "w3-border";
 			img.src = '../img_res/'+img_map.get(hs[j]);
 			cell.appendChild(img);
-			//cell.innerHTML = '<img height="20" width="20" class = "w3-border" src="../img_res/'+img_map.get(hs[j])+'" />';
 			line.appendChild(cell);
 		}
 		if (extra > 0 && i >= extra)
@@ -161,9 +159,6 @@ function renderhealth(health_text, max_value)
 			img.className = "w3-border";
 			img.src = '../img_res/'+img_map.get("B");
 			cell.appendChild(img);
-
-			//console.log(hs[j]);
-			//cell.innerHTML = '<img height="20" width="20" class = "w3-border" src="../img_res/'+img_map.get("B")+'" />';
 			line.appendChild(cell);
 		}
 		cursor += add;
@@ -173,13 +168,11 @@ function renderhealth(health_text, max_value)
 }
 
 function render_clan_icon(icon_path){
-	//console.log("owo:"+icon_path.clan_icon);
 	if (icon_path.clan_icon)
 	{
 		el = document.getElementById('title_clanicon');
 		el.src = icon_path.clan_icon;
 		el.width=icon_path.icon_size;
-		//el.height="100";
 	}
 }
 
@@ -192,24 +185,17 @@ function editTrait(event) {
 	//console.log(span);
 	if (window.charEditMode && span.dataset.traitid)
 	{
-		console.log("attempting edit trait...");
-		console.log(span.dataset);
-
 		// todo post
 		const params = new URLSearchParams({
-			traitId: td.dataset.traitid,
+			traitId: span.dataset.traitid,
 			charId: window.selected_charid,
 			newValue: span.dataset.dot_id
 		});
 		get_remote_resource('./editCharacterTrait?'+params.toString(), 'json', 
 		function (data){
-			console.log("saved");
-			console.log(data);
-
 			var newTrait = createTraitElement(data);
 			var oldTrait = document.getElementById(data.trait);
 			oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-
 		}/*, 
 		function(xhr){
 

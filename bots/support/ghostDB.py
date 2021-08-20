@@ -44,14 +44,15 @@ class DBManager:
     FROM CharacterTrait ct
     join Trait t on (t.id = ct.trait)
     join TraitType tt on (t.traittype = tt.id)
-    where ct.trait = $trait and ct.playerchar = $pc
+    WHERE ct.trait = $trait 
+    and ct.playerchar = $pc
     """, vars=dict(trait=trait_id, pc=pc_id))
         if len(traits) == 0:
             raise DBException(0, 'string_PC_does_not_have_TRAIT', (pc_id, trait_id))
             #raise DBException(0, '{} non ha il tratto {}', (pc_id, trait_id))
         return traits[0]
     def getTrait_Lang(self, pc_id, trait_id, lang_id):
-        """Get a character's trait (version based of user language)"""
+        """Get a character's trait (input needs to be translated)"""
         traits = self.db.query("""
     SELECT
         ct.*,
@@ -62,7 +63,28 @@ class DBManager:
     join Trait t on (t.id = ct.trait)
     join TraitType tt on (t.traittype = tt.id)
     join LangTrait lt on(t.id = lt.traitId)
-    where lt.traitShort = $trait
+    WHERE lt.traitShort = $trait
+    and ct.playerchar = $pc
+    and lt.langId = $lid
+    """, vars=dict(trait=trait_id, pc=pc_id, lid = lang_id))
+        if len(traits) == 0:
+            raise DBException(0, 'string_PC_does_not_have_TRAIT', (pc_id, trait_id))
+        if len(traits) != 1:
+            raise DBException(0, 'string_TRAIT_is_ambiguous_N_found', (trait_id, len(traits)))
+        return traits[0]
+    def getTrait_LangAndTranslate(self, pc_id, trait_id, lang_id):
+        """Get a character's trait (input is raw id and output is translated)"""
+        traits = self.db.query("""
+    SELECT
+        ct.*,
+        t.*,
+        tt.textbased as textbased,
+        lt.traitName as traitName
+    FROM CharacterTrait ct
+    join Trait t on (t.id = ct.trait)
+    join TraitType tt on (t.traittype = tt.id)
+    join LangTrait lt on(t.id = lt.traitId)
+    WHERE ct.trait = $trait 
     and ct.playerchar = $pc
     and lt.langId = $lid
     """, vars=dict(trait=trait_id, pc=pc_id, lid = lang_id))
@@ -74,8 +96,11 @@ class DBManager:
     def getTrait_LangSafe(self, pc_id, trait_id, lang_id):
         try:
             return self.getTrait_Lang(pc_id, trait_id, lang_id) # can raise
-        except DBException as e: # fallback to regular trait id
-            return self.getTrait(pc_id, trait_id) # can raise
+        except DBException as e: # fallback to base trait id and translate it 
+            try:
+                return self.getTrait_LangAndTranslate(pc_id, trait_id, lang_id) 
+            except DBException as e: # fallback to pure trait
+                return self.getTrait(pc_id, trait_id) # can raise
     def getChannelStoryTellers(self, channelid):
         """Get Storytellers for the active chronicle in this channel"""
         sts = self.db.query("""

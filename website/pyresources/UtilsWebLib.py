@@ -52,11 +52,11 @@ def validator_set(values):
     return validator
 
 def validator_positive_integer(value):
-    val = int(value)
-    if value < 0:
+    retval = int(value)
+    if retval < 0:
         raise WebException("Integer must be positive", 400)
     else:
-        return val
+        return retval
 
 class WebResponse:
     def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
