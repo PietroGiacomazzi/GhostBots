@@ -1,6 +1,7 @@
 window.sheet_template = null;
 window.selected_charid = null;
 window.language_dictionary = null;
+window.charEditMode = false;
 var urlParams = new URLSearchParams(window.location.search);
 
 var replace_HTMLElement = [];
@@ -13,7 +14,7 @@ replace_HTMLElement["'"] = '&#x27;';
 //var replace_HTMLattribute = []
 //replace_HTMLattribute
 
-function out_sanitize(string, sanitization_array){
+function out_sanitize(string, sanitization_array = replace_HTMLElement){
 	var final_string = string.toString();
 	for (var key in sanitization_array) {
 		final_string = final_string.replaceAll(key, sanitization_array[key]);
@@ -150,7 +151,7 @@ function renderhealth(health_text, max_value)
 			img.setAttribute('height', "20");
 			img.setAttribute('width', "20");
 			img.className = "w3-border";
-			img.src = '.../img_res/'+img_map.get("B");
+			img.src = '../img_res/'+img_map.get("B");
 			cell.appendChild(img);
 
 			//console.log(hs[j]);
@@ -177,6 +178,22 @@ function render_clan_icon(icon_path){
 function populate_clan_img(clan_name){
 	get_remote_resource('./getClanIcon?clan='+clan_name, 'json', render_clan_icon);
 }
+
+function editTrait(event) {
+    var span = event.target;
+	console.log(span);
+	if (window.charEditMode && span.dataset.traitid)
+	{
+		console.log("attempting edit trait...");
+		console.log(span.dataset);
+		
+	}
+	else{
+		console.log("Edit mode is disabled");
+	}
+}
+
+
 
 function populateSheet(characterTraits, character){
 	// create new sheet
@@ -284,7 +301,7 @@ function populateSheet(characterTraits, character){
 			// tratti std
 			else if (!traitdata.textbased)
 			{
-				var tname = traitdata.tnameLang;
+				var tname = out_sanitize(traitdata.tnameLang);
 				if (!traitdata.standard && (['attitudine', 'capacita', 'conoscenza'].indexOf(traitdata.traittype) >= 0 ))
 				{
 					tname = '<b>'+tname+'</b>';
@@ -292,18 +309,33 @@ function populateSheet(characterTraits, character){
 				
 				if (traitdata.trackertype == 0) // normale
 				{
-					//c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.cur_value))+emptydot.repeat(Math.max(0, 5-traitdata.cur_value))+"</td>";
-					//c.innerHTML = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding">'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 5-traitdata.max_value))+"</td>";
-					var temp = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding" style="float:right">'+dot.repeat(Math.min(traitdata.cur_value,traitdata.max_value));
+					var trait_title = document.createElement('td');
+					trait_title.className = "nopadding";
+					trait_title.innerHTML = tname;
+					c.appendChild(trait_title);
+
+					var dots_string = dot.repeat(Math.min(traitdata.cur_value,traitdata.max_value))
+					//var temp = '<td class="nopadding">'+tname+ ": " +"</td>" +'<td class="nopadding" style="float:right">'+dot.repeat(Math.min(traitdata.cur_value,traitdata.max_value));
 					if (traitdata.cur_value < traitdata.max_value)
-						temp += red_dot.repeat(traitdata.max_value-traitdata.cur_value)
+						dots_string += red_dot.repeat(traitdata.max_value-traitdata.cur_value)
 					if (traitdata.cur_value>traitdata.max_value)
-						temp += blue_dot.repeat(traitdata.cur_value-traitdata.max_value)
+						dots_string += blue_dot.repeat(traitdata.cur_value-traitdata.max_value)
 					max_dots = Math.max(traitdata.pimp_max, 5)
 					if (traitdata.cur_value < max_dots)
-						temp += emptydot.repeat(max_dots-Math.max(traitdata.max_value, traitdata.cur_value));
-					temp += "</td>"
-					c.innerHTML = temp;
+						dots_string += emptydot.repeat(max_dots-Math.max(traitdata.max_value, traitdata.cur_value));
+					//temp += "</td>"
+					//c.innerHTML = temp;
+					var trait_dots = document.createElement('td');
+					for (j = 0; j<dots_string.length; ++j) // this can go into a function that takes the dot string (and maybe some extra stuff for trackers)
+					{
+						var dot_span = document.createElement('span');
+						dot_span.dataset.traitid = traitdata.trait
+						dot_span.dataset.dot_id = j+1
+						dot_span.innerText = dots_string[j];
+						trait_dots.appendChild(dot_span);
+					}
+					c.appendChild(trait_dots);
+
 				}
 				else if (traitdata.trackertype == 1) // punti con massimo
 				{
@@ -380,6 +412,16 @@ function populateSheet(characterTraits, character){
 		var temp = document.getElementById('switch_vie');
 		temp.remove();
 	}
+
+	if (charsheet.addEventListener) {
+		charsheet.addEventListener('click', editTrait, false);
+	}
+	else if (charsheet.attachEvent) {
+		charsheet.attachEvent('onclick', function(e) {
+			return editTrait.call(charsheet, e || window.event);
+		});
+	}
+
 	window.selected_charid = character.id;
 	var modregisterbtn = document.getElementById('modregister');
 	modregisterbtn.style.display = "inline";
@@ -480,7 +522,13 @@ function load_modlog()
 	get_remote_resource('./getCharacterModLog?charid='+window.selected_charid, 'text',  view_modlog);
 }
 
-function get_remote_resource(url, res_type, callback){
+function default_error_callback(xhr){
+	//callback(status, xhr.response);
+	console.log('Error ('+xhr.status+') while getting remote resource '+xhr.url);
+	post_error(xhr.status+": "+xhr.response);
+}
+
+function get_remote_resource(url, res_type, callback, error_callback = default_error_callback){
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.responseType = res_type;
@@ -489,9 +537,7 @@ function get_remote_resource(url, res_type, callback){
       if (status === 200) {
         callback(xhr.response);
       } else {
-        //callback(status, xhr.response);
-        console.log('Error ('+status+') while getting remote resource '+url);
-        post_error(status+": "+xhr.response);
+        error_callback(xhr);
       }
     };
     xhr.send();
