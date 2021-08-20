@@ -136,6 +136,15 @@ join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
 where gs.channel = $channel and cc.playerchar = $charid
 """, vars=dict(channel=channelid, charid=charid))
         return bool(len(result)), result[0] if len(result) else None
+    def isAnySessionActiveForCharacter(self, charid): #
+        """Is there a session anywhere that includes this character?"""
+        result = self.db.query("""
+SELECT cc.playerchar
+FROM GameSession gs
+join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
+where and cc.playerchar = $charid
+""", vars=dict(charid=charid))
+        return bool(len(result)), result[0] if len(result) else None
     def isChronicleStoryteller(self, userid, chronicle):
         """Is this user a Storyteller for this chronicle?"""
         storytellers = self.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=userid, chronicle = chronicle))
