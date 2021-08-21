@@ -40,9 +40,9 @@ class DBManager:
         t.*,
         tt.textbased as textbased,
         t.name as traitName
-    join Trait t on (t.id = ct.trait)
+    Trait t
     join TraitType tt on (t.traittype = tt.id)
-    WHERE ct.trait = $trait 
+    WHERE t.id = $trait 
     """, vars=dict(trait=trait_id))
         if len(traits) == 0:
             raise DBException(0, 'string_TRAIT_does_not_exist', (trait_id))
