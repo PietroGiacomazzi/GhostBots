@@ -33,6 +33,20 @@ class DBManager:
         if len(playercharacters) > 1:
             raise DBException(0, "Stai interpretando più di un personaggio in questa cronaca, non so a chi ti riferisci!")
         return playercharacters[0]
+    def getTraitInfo(self, trait_id):
+        """Get trait info"""
+        traits = self.db.query("""
+    SELECT
+        t.*,
+        tt.textbased as textbased,
+        t.name as traitName
+    join Trait t on (t.id = ct.trait)
+    join TraitType tt on (t.traittype = tt.id)
+    WHERE ct.trait = $trait 
+    """, vars=dict(trait=trait_id))
+        if len(traits) == 0:
+            raise DBException(0, 'string_TRAIT_does_not_exist', (trait_id))
+        return traits[0]
     def getTrait(self, pc_id, trait_id):
         """Get a character's trait"""
         traits = self.db.query("""

@@ -185,21 +185,32 @@ function editTrait(event) {
 	//console.log(span);
 	if (window.charEditMode && span.dataset.traitid)
 	{
-		// todo post
-		const params = new URLSearchParams({
-			traitId: span.dataset.traitid,
-			charId: window.selected_charid,
-			newValue: span.dataset.dot_id
-		});
-		get_remote_resource('./editCharacterTrait?'+params.toString(), 'json', 
-		function (data){
-			var newTrait = createTraitElement(data);
-			var oldTrait = document.getElementById(data.trait);
-			oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-		}/*, 
-		function(xhr){
-
-		}*/)
+		if (!span.dataset.textbased){
+			// todo post
+			const params = new URLSearchParams({
+				traitId: span.dataset.traitid,
+				charId: window.selected_charid,
+				newValue: span.dataset.dot_id
+			});
+			get_remote_resource('./editCharacterTrait?'+params.toString(), 'json', 
+			function (data){
+				var newTrait = createTraitElement(data);
+				var oldTrait = document.getElementById(data.trait);
+				oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+			}/*, 
+			function(xhr){
+			}*/)
+		}
+		else if (span.dataset.textbased){
+			editBox(event, 
+				function (id){
+					console.log("saving...");
+				}
+				, function (id){
+					console.log("canceling...");
+				}
+				);
+		}
 	}
 	/*
 	else{
@@ -286,6 +297,7 @@ function createTraitElement(traitdata){
 			{
 				var dot_span = document.createElement('span');
 				dot_span.dataset.traitid = traitdata.trait
+				trait_text.dataset.textbased = 0;
 				dot_span.dataset.dot_id = j+1
 				dot_span.innerHTML = dots_array[j];
 				trait_dots.appendChild(dot_span);
@@ -312,11 +324,19 @@ function createTraitElement(traitdata){
 	}
 	else
 	{
-		var temp = traitdata.traitName
+		var trait_title = document.createElement('span');
+		trait_title.innerHTML = out_sanitize(traitdata.traitName) + ": ";
+		c.appendChild(trait_title);
+
 		if (traitdata.text_value != "-"){
-			temp += ": "+ out_sanitize(traitdata.text_value, replace_HTMLElement);
+			var trait_text = document.createElement('span');
+			trait_text.id = traitdata.trait + "-content";
+			trait_text.innerHTML = out_sanitize(traitdata.text_value);
+			trait_text.dataset.traitid = traitdata.trait;
+			trait_text.dataset.textbased = 1;
+			trait_text.dataset.editable = "1"
+			c.appendChild(trait_text);
 		}
-		c.innerHTML = temp;
 		if (traitdata.trait == 'clan')
 		{
 			populate_clan_img(traitdata.text_value);
@@ -609,7 +629,7 @@ function cancelTranslation(id){
 	td.dataset.editable = "1";
 }
 
-function editBox(event) {
+function editBox(event, save_function, cancel_function) {
     var td = event.target;
 	if (td.dataset.editable === "1")
 	{
@@ -638,7 +658,7 @@ function editBox(event) {
 		var btnCancel = document.createElement("button");
 		btnCancel.className = "w3-bar-item w3-btn w3-red";
 		btnCancel.addEventListener('click', function(event){
-			cancelTranslation(td.id);
+			save_function(td.id);
 		})
 		btnCancel.innerHTML = '<span class="material-icons md-18">cancel</span>';
 		eb.appendChild(btnCancel)
@@ -649,21 +669,25 @@ function editBox(event) {
 		var input = document.getElementById(input_id);
 		input.addEventListener("keyup", function(event) {
 			if (event.key === 'Enter') {
-				saveTranslation(td.id);
+				cancel_function(td.id);
 			}
 		}); 
 		input.focus();
 	}
 }
 
+function editBoxTranslate(event){
+	return editBox(event, saveTranslation, cancelTranslation);
+}
+
 function translationEdit_page(){
 	var container = document.getElementById("main");
 	if (container.addEventListener) {
-		container.addEventListener('click', editBox, false);
+		container.addEventListener('click', editBoxTranslate, false);
 	}
 	else if (container.attachEvent) {
 		container.attachEvent('onclick', function(e) {
-			return editBox.call(container, e || window.event);
+			return editBoxTranslate.call(container, e || window.event);
 		});
 	}
 	get_remote_resource('./getLanguageDictionary', 'json', function (dictionary){

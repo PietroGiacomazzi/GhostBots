@@ -112,6 +112,29 @@ def validator_trait(data):
     else:
         return string
 
+def validator_trait_number(data):
+    string = validator_str_range(1, 20)(data)
+    try:
+        trait = dbm.getTraitInfo(string)
+        if trait['textbased']:
+            raise WebException("Invalid trait", 400)
+        else:
+            return string
+    except ghostDB.DBException as e:
+        raise WebException("Invalid trait", 400)
+      
+
+def validator_trait_textbased(data):
+    string = validator_str_range(1, 20)(data)
+    try:
+        trait = dbm.getTraitInfo(string)
+        if not trait['textbased']:
+            raise WebException("Invalid trait", 400)
+        else:
+            return string
+    except ghostDB.DBException as e:
+        raise WebException("Invalid trait", 400)
+
 class Log(WsgiLog): # this shit needs the config to be loaded so it can't be off this file :(
     def __init__(self, application):
         WsgiLog.__init__(
@@ -131,7 +154,7 @@ class WebPageResponseLang(WebPageResponse):
         super(WebPageResponseLang, self).__init__(config, session, properties, accepted_input, min_access_level)
     def getLangId(self):
         try:
-            return session.language
+            return self.session.language
         except AttributeError:
             return getLanguage(self.session, dbm)
     def getString(self, string_id, *args):
@@ -411,10 +434,10 @@ def pgmodPermissionCheck_web(issuer_id, character):
 
     return (st or ba or co)
 
-class editCharacterTrait(APIResponse): # no textbased
+class editCharacterTraitNumber(APIResponse): # no textbased
     def __init__(self):
-        super(editCharacterTrait, self).__init__(config, session, min_access_level=1, accepted_input = {
-            'traitId': (MUST, validator_trait), # todo textbased check
+        super(editCharacterTraitNumber, self).__init__(config, session, min_access_level=1, accepted_input = {
+            'traitId': (MUST, validator_trait_number),
             'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
             'newValue': (MUST, validator_positive_integer),   
         })
@@ -430,9 +453,6 @@ class editCharacterTrait(APIResponse): # no textbased
             trait_id = self.input_data['traitId']
             new_val = self.input_data['newValue']
             charId = self.input_data['charId']
-            #istrait, trait = dbm.isValidTrait(traitid)
-            #if not istrait:
-            #    raise BotException(f"Il tratto {traitid} non esiste!")
             
             ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id'])).list()
             if not len(ptraits):
@@ -442,6 +462,38 @@ class editCharacterTrait(APIResponse): # no textbased
                 dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val, max_value = new_val)
                 dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.MAX_VALUE, new_val, ptraits[0]['max_value'], "web")
                 dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, ptraits[0]['cur_value'], "web")
+                return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
+
+        else:
+            raise WebException("Permission denied", 403)
+
+class editCharacterTraitText(APIResponse): #textbased
+    def __init__(self):
+        super(editCharacterTraitText, self).__init__(config, session, min_access_level=1, accepted_input = {
+            'traitId': (MUST, validator_trait_textbased), 
+            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
+            'newValue': (MUST, validator_str_maxlen(50)),   
+        })
+    def mGET(self):
+        vl, character = dbm.isValidCharacter(self.input_data['charId'])
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if can_edit:
+            trait_id = self.input_data['traitId']
+            new_val = self.input_data['newValue']
+            charId = self.input_data['charId']
+            
+            ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id'])).list()
+            if not len(ptraits):
+                raise WebException(f"{character['fullname']} does not have the {trait_id} trait", 500)
+            
+            else:
+                dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), text_value = new_val)
+                dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.TEXT_VALUE, new_val, ptraits[0]['text_value'], "web")
                 return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
 
         else:
