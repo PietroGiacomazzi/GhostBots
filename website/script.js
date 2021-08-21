@@ -185,7 +185,7 @@ function editTrait(event) {
 	//console.log(span);
 	if (window.charEditMode && span.dataset.traitid)
 	{
-		if (!span.dataset.textbased){
+		if (span.dataset.textbased === "0"){
 			// todo post
 			const params = new URLSearchParams({
 				traitId: span.dataset.traitid,
@@ -201,7 +201,7 @@ function editTrait(event) {
 			function(xhr){
 			}*/)
 		}
-		else if (span.dataset.textbased){
+		else if (span.dataset.textbased === "1"){
 			editBox(event, 
 				function (id){
 					console.log("saving...");
@@ -297,7 +297,7 @@ function createTraitElement(traitdata){
 			{
 				var dot_span = document.createElement('span');
 				dot_span.dataset.traitid = traitdata.trait
-				trait_text.dataset.textbased = 0;
+				dot_span.dataset.textbased = "0";
 				dot_span.dataset.dot_id = j+1
 				dot_span.innerHTML = dots_array[j];
 				trait_dots.appendChild(dot_span);
@@ -333,7 +333,7 @@ function createTraitElement(traitdata){
 			trait_text.id = traitdata.trait + "-content";
 			trait_text.innerHTML = out_sanitize(traitdata.text_value);
 			trait_text.dataset.traitid = traitdata.trait;
-			trait_text.dataset.textbased = 1;
+			trait_text.dataset.textbased = "1";
 			trait_text.dataset.editable = "1"
 			c.appendChild(trait_text);
 		}
@@ -650,7 +650,7 @@ function editBox(event, save_function, cancel_function) {
 		var btnSave = document.createElement("button");
 		btnSave.className = "w3-bar-item w3-btn w3-green";
 		btnSave.addEventListener('click', function(event){
-			saveTranslation(td.id);
+			save_function(td.id);
 		})
 		btnSave.innerHTML = '<span class="material-icons md-18">save</span>';
 		eb.appendChild(btnSave)
@@ -658,7 +658,7 @@ function editBox(event, save_function, cancel_function) {
 		var btnCancel = document.createElement("button");
 		btnCancel.className = "w3-bar-item w3-btn w3-red";
 		btnCancel.addEventListener('click', function(event){
-			save_function(td.id);
+			cancel_function(td.id);
 		})
 		btnCancel.innerHTML = '<span class="material-icons md-18">cancel</span>';
 		eb.appendChild(btnCancel)
@@ -669,7 +669,7 @@ function editBox(event, save_function, cancel_function) {
 		var input = document.getElementById(input_id);
 		input.addEventListener("keyup", function(event) {
 			if (event.key === 'Enter') {
-				cancel_function(td.id);
+				save_function(td.id);
 			}
 		}); 
 		input.focus();
