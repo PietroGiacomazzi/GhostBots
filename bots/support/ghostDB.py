@@ -40,7 +40,7 @@ class DBManager:
         t.*,
         tt.textbased as textbased,
         t.name as traitName
-    Trait t
+    FROM Trait t
     join TraitType tt on (t.traittype = tt.id)
     WHERE t.id = $trait 
     """, vars=dict(trait=trait_id))
