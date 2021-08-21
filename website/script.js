@@ -192,7 +192,7 @@ function editTrait(event) {
 				charId: window.selected_charid,
 				newValue: span.dataset.dot_id
 			});
-			get_remote_resource('./editCharacterTrait?'+params.toString(), 'json', 
+			get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
 			function (data){
 				var newTrait = createTraitElement(data);
 				var oldTrait = document.getElementById(data.trait);

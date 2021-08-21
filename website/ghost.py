@@ -37,7 +37,8 @@ urls = (
     '/getLanguageDictionary', 'getLanguageDictionary',
     '/editTranslations', 'editTranslations',
     '/editTranslation', 'editTranslation',
-    "/editCharacterTrait", "editCharacterTrait"
+    "/editCharacterTraitNumber", "editCharacterTraitNumber",
+    "/editCharacterTraitText", "editCharacterTraitText"
     )
 
 
