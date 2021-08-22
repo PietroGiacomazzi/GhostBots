@@ -69,7 +69,7 @@ function enableCharEditMode(){
 	for (i = 0; i<window.editElements.length; ++i)
 	{
 		el = document.getElementById(window.editElements[i]);
-		el.display = 'inline';
+		el.style.display = 'inline';
 	}
 }
 
@@ -78,7 +78,7 @@ function disableCHarEditMode(){
 	for (i = 0; i<window.editElements.length; ++i)
 	{
 		el = document.getElementById(window.editElements[i]);
-		el.display = 'none';
+		el.style.display = 'none';
 	}
 }
 
@@ -347,7 +347,9 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 function createMaxModElement(traitdata){
 	var trait_maxmod = document.createElement('p');
 	trait_maxmod.id = traitdata.trait+"-maxmod"
-	trait_maxmod.display = "none";
+	if (window.charEditMode == false){
+		trait_maxmod.style.display = "none";
+	}	
 
 	var desc = document.createElement('span');
 	desc.innerHTML = getLangString("web_label_total")+": ";
@@ -359,13 +361,28 @@ function createMaxModElement(traitdata){
 	val.dataset.editable = "1"
 	trait_maxmod.appendChild(val);
 
-	window.editElements.push(trait_maxmod.id)
+	if (!window.editElements.includes(trait_maxmod.id)){
+		window.editElements.push(trait_maxmod.id)
+	}		
 	return trait_maxmod;
 }
 
 function createTraitElement(traitdata){
 	var c = document.createElement('tr'); 
 	c.setAttribute("id", traitdata.trait);
+
+	var deletecontrol = document.createElement("span");
+	deletecontrol.id = traitdata.trait+"-delet-control";
+	deletecontrol.className = "material-icons md-18";
+	deletecontrol.innerHTML = "delete_forever";
+	if (window.charEditMode == false){
+		deletecontrol.style.display = "none";
+	}	
+	if (!window.editElements.includes(deletecontrol.id)){
+		window.editElements.push(deletecontrol.id)
+	}	
+	c.appendChild(deletecontrol);
+
 	// tratti con visualizzazioni specifiche
 	if (traitdata.trait == 'volonta')
 	{
@@ -471,14 +488,15 @@ function createTraitElement(traitdata){
 		{
 			tname = '<b>'+tname+'</b>';
 		}
+
+		
+		var trait_title = document.createElement('td');
+		trait_title.className = "nopadding";
+		trait_title.innerHTML = tname;
+		c.appendChild(trait_title);
 		
 		if (traitdata.trackertype == 0) // normale
 		{
-			var trait_title = document.createElement('td');
-			trait_title.className = "nopadding";
-			trait_title.innerHTML = tname;
-			c.appendChild(trait_title);
-
 			var dots_array = Array(Math.min(traitdata.cur_value,traitdata.max_value)).fill(window.dot_data.dot);
 			if (traitdata.cur_value < traitdata.max_value)
 				dots_array = dots_array.concat(Array(traitdata.max_value-traitdata.cur_value).fill(window.dot_data.red_dot));
@@ -499,19 +517,49 @@ function createTraitElement(traitdata){
 		}
 		else if (traitdata.trackertype == 1) // punti con massimo (nessun uso al momento)
 		{
-			c.innerHTML = '<td class="nopadding">'+tname+ "</td>" +'<td class="nopadding" style="float:right">'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</td>';
+			// current
+			var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
+			var n_empty_dots = Math.max(0, traitdata.max_value-traitdata.cur_value);
+			if (n_empty_dots > 0)
+				sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
+			
+			var trait_sqrs = document.createElement('td');
+			trait_sqrs.className = "nopadding";
+			trait_sqrs.style = "float:right";
+			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true);
+			c.appendChild(trait_sqrs);
+			
+			c.appendChild(createMaxModElement(traitdata));
+
+			//c.innerHTML = '<td class="nopadding">'+tname+ "</td>" +'<td class="nopadding" style="float:right">'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</td>';
 		}
 		else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
 		{
-			c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+out_sanitize(traitdata.text_value, replace_HTMLElement)+' (visualizzazione non implementata)'+'</td>';// TODO
+			var trait_body = document.createElement('td');
+			trait_body.innerHTML = out_sanitize(traitdata.text_value)+' (visualizzazione non implementata)'; //TODO
+			trait_body.className = "nopadding";
+			trait_body.style = "float:right";
+			c.appendChild(trait_body);
+
+			//c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+out_sanitize(traitdata.text_value, replace_HTMLElement)+' (visualizzazione non implementata)'+'</td>';// TODO
 		}
 		else if (traitdata.trackertype == 3) // punti senza massimo (nessun uso al momento)
 		{
-			c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+traitdata.cur_value+'</td>';
+			var trait_body = document.createElement('p');
+			trait_body.innerHTML = traitdata.cur_value;
+			trait_body.className = "nopadding";
+			trait_body.style = "float:right";
+			c.appendChild(trait_body);
+			//c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+traitdata.cur_value+'</td>';
 		}
 		else //fallback
 		{
-			c.innerHTML = '<td class="nopadding">'+tname+"</td>" +'<td class="nopadding" style="float:right">'+ traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value, replace_HTMLElement)+'</td>';
+			var trait_body = document.createElement('p');
+			trait_body.innerHTML = traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value)
+			trait_body.className = "nopadding";
+			trait_body.style = "float:right";
+			c.appendChild(trait_body);
+			//c.innerHTML = '<td class="nopadding">'+tname+"</td>" +'<td class="nopadding" style="float:right">'+ traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value, replace_HTMLElement)+'</td>';
 		}
 	}
 	else // text based
@@ -520,19 +568,41 @@ function createTraitElement(traitdata){
 		trait_title.innerHTML = out_sanitize(traitdata.traitName);
 		c.appendChild(trait_title);
 
-		if (traitdata.text_value != "-"){
-			var ddot = document.createElement('span');
-			ddot.innerHTML = ":";
-			c.appendChild(ddot);
+		if (traitdata.text_value != "-" && traitdata.text_value != "")
 
-			var trait_text = document.createElement('span');
-			trait_text.id = traitdata.trait + "-content";
-			trait_text.innerHTML = out_sanitize(traitdata.text_value);
-			trait_text.dataset.traitid = traitdata.trait;
-			trait_text.dataset.textbased = "1";
-			trait_text.dataset.editable = "1"
-			c.appendChild(trait_text);
+		var ddot = document.createElement('span');
+		ddot.id = traitdata.trait+"-separator";		
+		ddot.innerHTML = ":&nbsp;";
+		c.appendChild(ddot);
+
+		var trait_text = document.createElement('span');
+		trait_text.id = traitdata.trait + "-content";
+		
+		trait_text.innerHTML = out_sanitize(traitdata.text_value);
+		trait_text.dataset.traitid = traitdata.trait;
+		trait_text.dataset.textbased = "1";
+		trait_text.dataset.editable = "1"
+		c.appendChild(trait_text);
+
+		if (traitdata.text_value === "-" || traitdata.text_value === "")
+		{
+			if (!window.charEditMode){
+				trait_text.style.display = "none";
+				ddot.style.display = "none";
+			}
+			if (! window.editElements.includes(trait_text.id))
+			{
+				window.editElements.push(trait_text.id);
+			}
+			if (! window.editElements.includes(ddot.id))
+			{
+				window.editElements.push(ddot.id);
+			}
+			/*if (traitdata.text_value === ""){
+				trait_text.
+			}*/
 		}
+		
 		if (traitdata.trait == 'clan')
 		{
 			populate_clan_img(traitdata.text_value);
