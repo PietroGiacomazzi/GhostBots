@@ -568,8 +568,6 @@ function createTraitElement(traitdata){
 		trait_title.innerHTML = out_sanitize(traitdata.traitName);
 		c.appendChild(trait_title);
 
-		if (traitdata.text_value != "-" && traitdata.text_value != "")
-
 		var ddot = document.createElement('span');
 		ddot.id = traitdata.trait+"-separator";		
 		ddot.innerHTML = ":&nbsp;";
