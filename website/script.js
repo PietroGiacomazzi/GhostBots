@@ -1,7 +1,6 @@
 window.sheet_template = null;
 window.selected_charid = null;
 window.language_dictionary = null;
-window.charEditMode = false;
 window.dot_data = {
 	dot: "&#9899;", //"⚫"; //9899
 	emptydot: "&#9898;", //"⚪"; //9898
@@ -11,6 +10,9 @@ window.dot_data = {
 	square_empty: "&#11036;",
 };
 var urlParams = new URLSearchParams(window.location.search);
+
+window.charEditMode = false;
+window.editElements = Array();
 
 var replace_HTMLElement = [];
 replace_HTMLElement['&'] = '&amp;';
@@ -60,6 +62,24 @@ function getCharMenuItem(characters){
 function getMyCharacters(dictionary){
 	window.language_dictionary = dictionary;
     get_remote_resource('./getMyCharacters', 'json',  getCharMenuItem);
+}
+
+function enableCharEditMode(){
+	window.charEditMode = true;
+	for (i = 0; i<window.editElements.length; ++i)
+	{
+		el = document.getElementById(window.editElements[i]);
+		el.display = 'inline';
+	}
+}
+
+function disableCHarEditMode(){
+	window.charEditMode = false;
+	for (i = 0; i<window.editElements.length; ++i)
+	{
+		el = document.getElementById(window.editElements[i]);
+		el.display = 'none';
+	}
 }
 
 function renderhealth(health_text, max_value)
@@ -185,7 +205,7 @@ function editTrait(event) {
 	console.log(span);
 	if (window.charEditMode && span.dataset.traitid)
 	{
-		if (! span.dataset.textbased){
+		if (!span.dataset.textbased){
 			if (span.dataset.current_val){
 				if (span.dataset.dotbased){
 					// todo post
@@ -231,20 +251,48 @@ function editTrait(event) {
 				}
 			}
 			else{
-				// todo post
-				const params = new URLSearchParams({
-					traitId: span.dataset.traitid,
-					charId: window.selected_charid,
-					newValue: span.dataset.dot_id
-				});
-				get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
-				function (data){
-					var newTrait = createTraitElement(data);
-					var oldTrait = document.getElementById(data.trait);
-					oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-				}/*, 
-				function(xhr){
-				}*/)
+				if (span.dataset.dotbased){
+					// todo post
+					const params = new URLSearchParams({
+						traitId: span.dataset.traitid,
+						charId: window.selected_charid,
+						newValue: span.dataset.dot_id
+					});
+					get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
+					function (data){
+						var newTrait = createTraitElement(data);
+						var oldTrait = document.getElementById(data.trait);
+						oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+					}/*, 
+					function(xhr){
+					}*/)
+				}
+				else{
+					editBox(event, 
+						function (id){
+							input_id = id+'-input'
+							var input_tag = document.getElementById(input_id);
+							// todo post
+							const params = new URLSearchParams({
+								traitId: span.dataset.traitid,
+								charId: window.selected_charid,
+								newValue: input_tag.value
+							});
+							get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
+							function (data){
+								var newTrait = createTraitElement(data);
+								var oldTrait = document.getElementById(data.trait);
+								oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+							}/*, 
+							function(xhr){
+							}*/)
+						}
+						, function (id){
+							span.innerHTML = span.dataset.backup;
+							span.dataset.editable = "1";
+						}
+						);
+				}
 			}
 		}
 		else if (span.dataset.textbased){
@@ -296,6 +344,25 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 	return element;
 }
 
+function createMaxModElement(traitdata){
+	var trait_maxmod = document.createElement('p');
+	trait_maxmod.id = traitdata.trait+"-maxmod"
+	trait_maxmod.display = "none";
+
+	var desc = document.createElement('span');
+	desc.innerHTML = getLangString("web_label_total")+": ";
+	trait_maxmod.appendChild(desc);
+
+	var val = document.createElement('span');
+	val.innerHTML = traitdata.max_value
+	val.dataset.traitid = traitdata.trait
+	val.dataset.editable = "1"
+	trait_maxmod.appendChild(val);
+
+	window.editElements.push(trait_maxmod.id)
+	return trait_maxmod;
+}
+
 function createTraitElement(traitdata){
 	var c = document.createElement('tr'); 
 	c.setAttribute("id", traitdata.trait);
@@ -325,15 +392,10 @@ function createTraitElement(traitdata){
 		var trait_sqrs = document.createElement('p');
 		trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true);
 		c.appendChild(trait_sqrs);
-		
-		//c.innerHTML = '<h4>'+ getLangString("web_label_willpower") +'</h4><p>'+(window.dot_data.dot.repeat(traitdata.max_value))+window.dot_data.emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p><p>'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, 10-traitdata.cur_value))+'</p>'; // todo elemento a parte?
 	}
-	/*else if (traitdata.trait == 'sangue')
-	{
-		c.innerHTML = '<h4>'+getLangString("web_label_bloodpoints")+'</h4><p>'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>'; // todo elemento a parte?
-	}*/
 	else if (traitdata.trait == 'salute')
 	{
+		c.appendChild(createMaxModElement(traitdata));
 		c.appendChild(renderhealth(traitdata['text_value'], traitdata['max_value']));
 	}
 	else if (traitdata.trait == 'exp') // i need this here because the other traits are in <td>'s -> might be worth to generalize
@@ -365,11 +427,11 @@ function createTraitElement(traitdata){
 			var trait_dots = document.createElement('p');
 			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata);
 			c.appendChild(trait_dots);
-
-			//c.innerHTML = '<h4>'+traitdata.traitName+'</h4><p>'+(window.dot_data.dot.repeat(traitdata.max_value))+window.dot_data.emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>';
 		}
 		else if (traitdata.trackertype == 1) // punti con massimo (sangue, yin...)
 		{
+			c.appendChild(createMaxModElement(traitdata));
+			
 			// current
 			var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
 			var n_empty_dots = Math.max(0, traitdata.max_value-traitdata.cur_value);
@@ -379,7 +441,8 @@ function createTraitElement(traitdata){
 			var trait_sqrs = document.createElement('p');
 			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true);
 			c.appendChild(trait_sqrs);
-			//c.innerHTML = '<h4>'+traitdata.traitName+'</h4><p>'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>';
+
+			
 		}
 		else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
 		{
@@ -454,7 +517,7 @@ function createTraitElement(traitdata){
 	else // text based
 	{
 		var trait_title = document.createElement('span');
-		trait_title.innerHTML = out_sanitize(traitdata.traitName) + ": ";
+		trait_title.innerHTML = out_sanitize(traitdata.traitName);
 		c.appendChild(trait_title);
 
 		if (traitdata.text_value != "-"){

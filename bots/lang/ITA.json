@@ -141,7 +141,8 @@
 	"web_label_trait_id": "ID tratto",
 	"web_label_trait_short_translated": "ID tratto tradotto",
 	"web_label_trait_name_translated": "Nome tratto tradotto",
-	"web_label_language_id": "ID Lingua"
+	"web_label_language_id": "ID Lingua",
+	"web_label_total": "Totale"
 
 
 }
