@@ -353,6 +353,19 @@ function editTrait(event) {
 }
 
 function populateDotArrayElement(element, dots_array, traitdata, current_val = false){
+	var zdot_span = document.createElement('span');
+	zdot_span.dataset.traitid = traitdata.trait
+	zdot_span.dataset.dotbased = "1";
+	zdot_span.dataset.dot_id = 0
+	zdot_span.innerHTML = window.dot_data.red_dot
+	if (window.charEditMode == false){
+		zdot_span.style.display = "none";
+	}
+	if (!window.editElements.includes(zdot_span.id)){
+		window.editElements.push(zdot_span.id)
+	}
+	element.appendChild(zdot_span);
+	
 	for (j = 0; j<dots_array.length; ++j) 
 	{
 		var dot_span = document.createElement('span');
