@@ -14,3 +14,12 @@
 .main-content{
   margin-top:55px;
 }
+
+.delete_control{
+  color:red;
+}
+
+.empty_space_tofill{
+  padding-left: 30px;
+  background-color: red;
+}

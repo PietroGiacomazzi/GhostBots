@@ -69,7 +69,12 @@ function enableCharEditMode(){
 	for (i = 0; i<window.editElements.length; ++i)
 	{
 		el = document.getElementById(window.editElements[i]);
-		el.style.display = 'inline';
+		if (el == null){
+			console.log(window.editElements[i])
+		}
+		else{
+			el.style.display = 'inline';
+		}
 	}
 }
 
@@ -78,7 +83,12 @@ function disableCHarEditMode(){
 	for (i = 0; i<window.editElements.length; ++i)
 	{
 		el = document.getElementById(window.editElements[i]);
-		el.style.display = 'none';
+		if (el == null){
+			console.log(window.editElements[i])
+		}
+		else{
+			el.style.display = 'none';
+		}
 	}
 }
 
@@ -373,7 +383,7 @@ function createTraitElement(traitdata){
 
 	var deletecontrol = document.createElement("span");
 	deletecontrol.id = traitdata.trait+"-delet-control";
-	deletecontrol.className = "material-icons md-18";
+	deletecontrol.className = "material-icons md-18 delete_control";
 	deletecontrol.innerHTML = "delete_forever";
 	if (window.charEditMode == false){
 		deletecontrol.style.display = "none";
@@ -596,9 +606,9 @@ function createTraitElement(traitdata){
 			{
 				window.editElements.push(ddot.id);
 			}
-			/*if (traitdata.text_value === ""){
-				trait_text.
-			}*/
+			if (traitdata.text_value === ""){
+				trait_text.className = "empty_space_tofill";
+			}
 		}
 		
 		if (traitdata.trait == 'clan')
