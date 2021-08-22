@@ -13,7 +13,8 @@ DEFAULT_INPUT_ACCEPT = {None: (MUST_NOT, str)}
 
 http_status_map = {
     401: "401 Unauthorized",
-    400: "400 Bad Request"
+    400: "400 Bad Request",
+    500: "500 Internal Server Error"
     }
 
 class WebException(Exception):
@@ -136,6 +137,7 @@ class WebResponse:
         except:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             self.logger.error("Unhandled Exception: "+str(exc_value)+ "\n"+"".join(traceback.format_tb(exc_traceback)))
+            web.ctx.status = http_status_map[500]
             sendback = str(exc_value)
             sendback = "Unhandled exception: "+sendback
             result = self.postHook(sendback)
