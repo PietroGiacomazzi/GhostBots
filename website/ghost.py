@@ -536,7 +536,7 @@ class editCharacterTraitText(APIResponse): #textbased
 class editCharacterTraitRemove(APIResponse): #textbased
     def __init__(self):
         super(editCharacterTraitRemove, self).__init__(config, session, min_access_level=1, accepted_input = {
-            'traitId': (MUST, validator_trait_textbased), 
+            'traitId': (MUST, validator_trait), 
             'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
         })
     def mGET(self):
