@@ -185,22 +185,50 @@ function editTrait(event) {
 	console.log(span);
 	if (window.charEditMode && span.dataset.traitid)
 	{
-		if (span.dataset.textbased === "0"){
-			if (span.dataset.current_val === "1"){
-				// todo post
-				const params = new URLSearchParams({
-					traitId: span.dataset.traitid,
-					charId: window.selected_charid,
-					newValue: span.dataset.dot_id
-				});
-				get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
-				function (data){
-					var newTrait = createTraitElement(data);
-					var oldTrait = document.getElementById(data.trait);
-					oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-				}/*, 
-				function(xhr){
-				}*/)
+		if (! span.dataset.textbased){
+			if (span.dataset.current_val){
+				if (span.dataset.dotbased){
+					// todo post
+					const params = new URLSearchParams({
+						traitId: span.dataset.traitid,
+						charId: window.selected_charid,
+						newValue: span.dataset.dot_id
+					});
+					get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
+					function (data){
+						var newTrait = createTraitElement(data);
+						var oldTrait = document.getElementById(data.trait);
+						oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+					}/*, 
+					function(xhr){
+					}*/)
+				}
+				else {
+					editBox(event, 
+						function (id){
+							input_id = id+'-input'
+							var input_tag = document.getElementById(input_id);
+							// todo post
+							const params = new URLSearchParams({
+								traitId: span.dataset.traitid,
+								charId: window.selected_charid,
+								newValue: input_tag.value
+							});
+							get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
+							function (data){
+								var newTrait = createTraitElement(data);
+								var oldTrait = document.getElementById(data.trait);
+								oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+							}/*, 
+							function(xhr){
+							}*/)
+						}
+						, function (id){
+							span.innerHTML = span.dataset.backup;
+							span.dataset.editable = "1";
+						}
+						);
+				}
 			}
 			else{
 				// todo post
@@ -219,7 +247,7 @@ function editTrait(event) {
 				}*/)
 			}
 		}
-		else if (span.dataset.textbased === "1"){
+		else if (span.dataset.textbased){
 			editBox(event, 
 				function (id){
 					input_id = id+'-input'
@@ -257,13 +285,10 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 	{
 		var dot_span = document.createElement('span');
 		dot_span.dataset.traitid = traitdata.trait
-		dot_span.dataset.textbased = "0";
+		dot_span.dataset.dotbased = "1";
 		dot_span.dataset.dot_id = j+1
 		if (current_val){
 			dot_span.dataset.current_val = "1";
-		}
-		else{
-			dot_span.dataset.current_val = "0";
 		}
 		dot_span.innerHTML = dots_array[j];
 		element.appendChild(dot_span);
@@ -303,25 +328,35 @@ function createTraitElement(traitdata){
 		
 		//c.innerHTML = '<h4>'+ getLangString("web_label_willpower") +'</h4><p>'+(window.dot_data.dot.repeat(traitdata.max_value))+window.dot_data.emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p><p>'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, 10-traitdata.cur_value))+'</p>'; // todo elemento a parte?
 	}
-	else if (traitdata.trait == 'sangue')
+	/*else if (traitdata.trait == 'sangue')
 	{
 		c.innerHTML = '<h4>'+getLangString("web_label_bloodpoints")+'</h4><p>'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>'; // todo elemento a parte?
-	}
+	}*/
 	else if (traitdata.trait == 'salute')
 	{
 		c.appendChild(renderhealth(traitdata['text_value'], traitdata['max_value']));
 	}
-	else if (traitdata.trait == 'exp')
+	else if (traitdata.trait == 'exp') // i need this here because the other traits are in <td>'s -> might be worth to generalize
 	{
-		c.innerHTML = '<p>'+traitdata.traitName+': '+traitdata.cur_value+'</p>'; // todo elemento a parte?
+		var trait_title = document.createElement('span');
+		trait_title.innerHTML = out_sanitize(traitdata.traitName+': ');
+		c.appendChild(trait_title);
+
+		var trait_cont = document.createElement('span');
+		trait_cont.id = trait_cont+'-content';
+		trait_cont.innerHTML = traitdata.cur_value;
+		trait_cont.dataset.traitid = traitdata.trait;
+		trait_cont.dataset.editable = "1"
+		trait_cont.dataset.current_val = "1"
+		c.appendChild(trait_cont);		
 	}
 	else if (traitdata.traittype == 'uvp'){
+		var trait_title = document.createElement('h4');
+		trait_title.innerHTML = out_sanitize;(traitdata.traitName)
+		c.appendChild(trait_title);
+
 		if (traitdata.trackertype == 0) // normale (umanità/vie)
 		{
-			var trait_title = document.createElement('h4');
-			trait_title.innerHTML = out_sanitize(traitdata.traitName);
-			c.appendChild(trait_title);
-
 			var dots_array = Array(traitdata.max_value).fill(window.dot_data.dot);
 			var n_empty_dots = Math.max(0, 10-traitdata.max_value);
 			if (n_empty_dots > 0)
@@ -333,21 +368,36 @@ function createTraitElement(traitdata){
 
 			//c.innerHTML = '<h4>'+traitdata.traitName+'</h4><p>'+(window.dot_data.dot.repeat(traitdata.max_value))+window.dot_data.emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>';
 		}
-		else if (traitdata.trackertype == 1) // punti con massimo
+		else if (traitdata.trackertype == 1) // punti con massimo (sangue, yin...)
 		{
-			c.innerHTML = '<h4>'+traitdata.traitName+'</h4><p>'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>';
+			// current
+			var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
+			var n_empty_dots = Math.max(0, 10-traitdata.cur_value);
+			if (n_empty_dots > 0)
+				sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
+			
+			var trait_sqrs = document.createElement('p');
+			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true);
+			c.appendChild(trait_sqrs);
+			//c.innerHTML = '<h4>'+traitdata.traitName+'</h4><p>'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>';
 		}
-		else if (traitdata.trackertype == 2) // danni
+		else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
 		{
-			c.innerHTML = '<h4>'+traitdata.traitName+'</h4><p>'+out_sanitize(traitdata.text_value, replace_HTMLElement)+' (non implementato)</p>'; // TODO
+			var trait_body = document.createElement('p');
+			trait_body.innerHTML = out_sanitize(traitdata.text_value)+' (visualizzazione non implementata)'; //TODO
+			c.appendChild(trait_body);
 		}
-		else if (traitdata.trackertype == 3) // punti senza massimo
+		else if (traitdata.trackertype == 3) // punti senza massimo (nessun uso al momento)
 		{
-			c.innerHTML = '<h4>'+traitdata.traitName+': '+traitdata.cur_value+'</h4>';
+			var trait_body = document.createElement('p');
+			trait_body.innerHTML = traitdata.cur_value;
+			c.appendChild(trait_body);
 		}
 		else //fallback
 		{
-			c.innerHTML = '<h4>'+traitdata.traitName+'</h4><p>'+ traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value, replace_HTMLElement)+'</p>'; 
+			var trait_body = document.createElement('p');
+			trait_body.innerHTML = traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value)
+			c.appendChild(trait_body);
 		}
 	}
 	// tratti std
@@ -384,15 +434,15 @@ function createTraitElement(traitdata){
 			c.appendChild(trait_dots);
 
 		}
-		else if (traitdata.trackertype == 1) // punti con massimo
+		else if (traitdata.trackertype == 1) // punti con massimo (nessun uso al momento)
 		{
 			c.innerHTML = '<td class="nopadding">'+tname+ "</td>" +'<td class="nopadding" style="float:right">'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</td>';
 		}
-		else if (traitdata.trackertype == 2) // danni
+		else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
 		{
-			c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+out_sanitize(traitdata.text_value, replace_HTMLElement)+' (non implementato)'+'</td>';// TODO
+			c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+out_sanitize(traitdata.text_value, replace_HTMLElement)+' (visualizzazione non implementata)'+'</td>';// TODO
 		}
-		else if (traitdata.trackertype == 3) // punti senza massimo
+		else if (traitdata.trackertype == 3) // punti senza massimo (nessun uso al momento)
 		{
 			c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+traitdata.cur_value+'</td>';
 		}
@@ -408,6 +458,10 @@ function createTraitElement(traitdata){
 		c.appendChild(trait_title);
 
 		if (traitdata.text_value != "-"){
+			var ddot = document.createElement('span');
+			ddot.innerHTML = ":";
+			c.appendChild(ddot);
+
 			var trait_text = document.createElement('span');
 			trait_text.id = traitdata.trait + "-content";
 			trait_text.innerHTML = out_sanitize(traitdata.text_value);
@@ -498,7 +552,7 @@ function populateSheet(characterTraits, character){
 				temp_dump.style.display = 'inline';
 			}
 			c.setAttribute("id", traitdata.trait);
-			c.innerHTML = traitdata.traitName + ": " + traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value, replace_HTMLElement);
+			c.innerHTML = out_sanitize(traitdata.traitName) + ": " + traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value);
 			temp_dump.appendChild(c);
 			//c.addEventListener('click', function(id){var cid = id; return function() {load_charSheet(cid);}}(character.id))
 		}
@@ -712,7 +766,7 @@ function editBox(event, save_function, cancel_function) {
     var td = event.target;
 	if (td.dataset.editable === "1")
 	{
-		td.dataset.editable = "0";
+		delete td.dataset.editable; //td.dataset.editable = "0";
 		text = td.innerHTML
 		td.dataset.backup = text;
 		var input_id = td.id+'-input';
