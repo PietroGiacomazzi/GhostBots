@@ -67,13 +67,13 @@ function getMyCharacters(dictionary){
 }
 
 function openNewTrait(){
-	if (window.input_modal && window.traitList){
+	if (window.input_modal != null  && window.traitList != null ){
 		// inject the modal
 		var modal_area = document.getElementById('inputmodal_area');	
 		modal_area.innerHTML = window.input_modal
 		document.getElementById('input_modal').style.display = 'block';
 		// setup the modal
-		document.getElementById('inputmodal_area').innerHTML = getLangString("web_label_add_trait");
+		document.getElementById('input_modal_title').innerHTML = getLangString("web_label_add_trait");
 		var form = document.getElementById('input_modal_form');
 		form.action = "./TODO"; // todo
 		var input_tag = document.getElementById('input_modal_myInput');
