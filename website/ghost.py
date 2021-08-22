@@ -572,6 +572,32 @@ class traitList(APIResponse):
         traitData = dbm.db.query(query, vars=dict(langId=getLanguage(session, dbm))).list()
         return traitData
 
+class editCharacterTraitAdd(APIResponse): #textbased
+    def __init__(self):
+        super(editCharacterTraitAdd, self).__init__(config, session, min_access_level=1, accepted_input = {
+            'traitId': (MUST, validator_trait), 
+            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
+        })
+    def mGET(self):
+        vl, character = dbm.isValidCharacter(self.input_data['charId'])
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if can_edit:
+            trait_id = self.input_data['traitId']
+            charId = self.input_data['charId']
+            
+            # if trait aldeary exists
+            # initialize
+            # return the newly added trait
+            raise WebException("not implemented", 500)
+
+        else:
+            raise WebException("Permission denied", 403)
+
 if __name__ == "__main__":
     app.run(Log)
 else:

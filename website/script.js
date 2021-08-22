@@ -75,9 +75,31 @@ function openNewTrait(){
 		// setup the modal
 		document.getElementById('input_modal_title').innerHTML = getLangString("web_label_add_trait");
 		var form = document.getElementById('input_modal_form');
-		form.action = "./TODO"; // todo
+		//form.action = "./TODO"; // todo
 		var input_tag = document.getElementById('input_modal_myInput');
-		input_tag.setAttribute("placeholder", getLangString("web_label_trait")+"...") ;
+		input_tag.setAttribute("placeholder", getLangString("web_label_trait")+"...");
+
+		var input_save = document.getElementById('input_modal_submit');
+		input_save.innerHTML = getLangString("web_label_save");
+		input_save.addEventListener('click', function(event){
+			var inp = document.getElementById('input_modal_myInput');
+			// todo post
+			const params = new URLSearchParams({
+				traitId: inp.value,
+				charId: window.selected_charid
+			});
+			get_remote_resource('./editCharacterTraitAdd?'+params.toString(), 'json', 
+			function (traitdata){
+				var sheetspot = document.getElementById(traitdata.traittype);
+				if (sheetspot)
+				{
+					var c = createTraitElement(traitdata);
+					sheetspot.appendChild(c);	
+				}
+			}/*, 
+			function(xhr){
+			}*/)
+		 });
 
 		autocomplete(document.getElementById("input_modal_myInput"), window.traitList);
 	}
@@ -560,7 +582,6 @@ function createTraitElement(traitdata){
 		{
 			tname = '<b>'+tname+'</b>';
 		}
-
 		
 		var trait_title = document.createElement('td');
 		trait_title.className = "nopadding";
@@ -585,7 +606,6 @@ function createTraitElement(traitdata){
 			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata);
 			
 			c.appendChild(trait_dots);
-
 		}
 		else if (traitdata.trackertype == 1) // punti con massimo (nessun uso al momento)
 		{
@@ -602,8 +622,6 @@ function createTraitElement(traitdata){
 			c.appendChild(trait_sqrs);
 			
 			c.appendChild(createMaxModElement(traitdata));
-
-			//c.innerHTML = '<td class="nopadding">'+tname+ "</td>" +'<td class="nopadding" style="float:right">'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</td>';
 		}
 		else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
 		{
@@ -612,8 +630,6 @@ function createTraitElement(traitdata){
 			trait_body.className = "nopadding";
 			trait_body.style = "float:right";
 			c.appendChild(trait_body);
-
-			//c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+out_sanitize(traitdata.text_value, replace_HTMLElement)+' (visualizzazione non implementata)'+'</td>';// TODO
 		}
 		else if (traitdata.trackertype == 3) // punti senza massimo (nessun uso al momento)
 		{
@@ -622,7 +638,6 @@ function createTraitElement(traitdata){
 			trait_body.className = "nopadding";
 			trait_body.style = "float:right";
 			c.appendChild(trait_body);
-			//c.innerHTML = '<td class="nopadding">'+tname +"</td>" +'<td class="nopadding" style="float:right">'+traitdata.cur_value+'</td>';
 		}
 		else //fallback
 		{
@@ -631,7 +646,6 @@ function createTraitElement(traitdata){
 			trait_body.className = "nopadding";
 			trait_body.style = "float:right";
 			c.appendChild(trait_body);
-			//c.innerHTML = '<td class="nopadding">'+tname+"</td>" +'<td class="nopadding" style="float:right">'+ traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value, replace_HTMLElement)+'</td>';
 		}
 	}
 	else // text based
