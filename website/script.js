@@ -186,7 +186,7 @@ function editTrait(event) {
 	if (window.charEditMode && span.dataset.traitid)
 	{
 		if (span.dataset.textbased === "0"){
-			if (span.dataset.current_val){
+			if (span.dataset.current_val === "1"){
 				// todo post
 				const params = new URLSearchParams({
 					traitId: span.dataset.traitid,
@@ -259,7 +259,12 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 		dot_span.dataset.traitid = traitdata.trait
 		dot_span.dataset.textbased = "0";
 		dot_span.dataset.dot_id = j+1
-		dot_span.dataset.current_val = current_val;
+		if (current_val){
+			dot_span.dataset.current_val = "1";
+		}
+		else{
+			dot_span.dataset.current_val = "0";
+		}
 		dot_span.innerHTML = dots_array[j];
 		element.appendChild(dot_span);
 	}
@@ -290,7 +295,7 @@ function createTraitElement(traitdata){
 		var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
 		var n_empty_dots = Math.max(0, 10-traitdata.cur_value);
 		if (n_empty_dots > 0)
-			sqr_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
+			sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
 		
 		var trait_sqrs = document.createElement('p');
 		trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true);
