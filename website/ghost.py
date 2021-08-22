@@ -39,7 +39,7 @@ urls = (
     '/editTranslation', 'editTranslation',
     "/editCharacterTraitNumber", "editCharacterTraitNumber",
     "/editCharacterTraitText", "editCharacterTraitText",
-    "/editCharacterTraitNumberCurrent", "editCharacterTraitNumberCurrent"
+    "/editCharacterTraitNumberCurrent", "editCharacterTraitNumberCurrent",
     "/editCharacterTraitRemove", "editCharacterTraitRemove"
     )
 

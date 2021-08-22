@@ -399,7 +399,7 @@ function createTraitElement(traitdata){
 	deletecontrol.id = traitdata.trait+"-delet-control";
 	deletecontrol.className = "material-icons md-18 delete_control";
 	deletecontrol.innerHTML = "delete_forever";
-	deletecontrol.dataset.traitId = traitdata.trait;
+	deletecontrol.dataset.traitid = traitdata.trait;
 	deletecontrol.dataset.removetrait = "1"
 	if (window.charEditMode == false){
 		deletecontrol.style.display = "none";
