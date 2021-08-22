@@ -40,6 +40,7 @@ urls = (
     "/editCharacterTraitNumber", "editCharacterTraitNumber",
     "/editCharacterTraitText", "editCharacterTraitText",
     "/editCharacterTraitNumberCurrent", "editCharacterTraitNumberCurrent"
+    "/editCharacterTraitRemove", "editCharacterTraitRemove"
     )
 
 
@@ -531,6 +532,38 @@ class editCharacterTraitText(APIResponse): #textbased
 
         else:
             raise WebException("Permission denied", 403)
+
+class editCharacterTraitRemove(APIResponse): #textbased
+    def __init__(self):
+        super(editCharacterTraitRemove, self).__init__(config, session, min_access_level=1, accepted_input = {
+            'traitId': (MUST, validator_trait_textbased), 
+            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
+        })
+    def mGET(self):
+        vl, character = dbm.isValidCharacter(self.input_data['charId'])
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if can_edit:
+            trait_id = self.input_data['traitId']
+            charId = self.input_data['charId']
+            
+            trait = dbm.getTrait(charId, trait_id)
+
+            updated_rows = dbm.db.delete("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']))
+            if trait['textbased']:
+                dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.DELETE, "", trait['text_value'], "web edit")
+            else:
+                dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.DELETE, "", f"{trait['cur_value']}/{trait['max_value']}", "web edit")
+                
+            return ["done"]
+
+        else:
+            raise WebException("Permission denied", 403)
+
 
 if __name__ == "__main__":
     app.run(Log)

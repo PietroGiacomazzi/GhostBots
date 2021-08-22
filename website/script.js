@@ -78,7 +78,7 @@ function enableCharEditMode(){
 	}
 }
 
-function disableCHarEditMode(){
+function disableCharEditMode(){
 	window.charEditMode = false;
 	for (i = 0; i<window.editElements.length; ++i)
 	{
@@ -212,10 +212,24 @@ function populate_clan_img(clan_name){
 
 function editTrait(event) {
     var span = event.target;
-	console.log(span);
+	//console.log(span);
 	if (window.charEditMode && span.dataset.traitid)
 	{
-		if (!span.dataset.textbased){
+		if (span.dataset.removetrait){
+			// todo post
+			const params = new URLSearchParams({
+				traitId: span.dataset.traitid,
+				charId: window.selected_charid
+			});
+			get_remote_resource('./editCharacterTraitRemove?'+params.toString(), 'json', 
+			function (data){
+				var oldTrait = document.getElementById(data.trait);
+				oldTrait.remove();
+			}/*, 
+			function(xhr){
+			}*/)
+		}
+		else if (!span.dataset.textbased){
 			if (span.dataset.current_val){
 				if (span.dataset.dotbased){
 					// todo post
@@ -385,12 +399,14 @@ function createTraitElement(traitdata){
 	deletecontrol.id = traitdata.trait+"-delet-control";
 	deletecontrol.className = "material-icons md-18 delete_control";
 	deletecontrol.innerHTML = "delete_forever";
+	deletecontrol.dataset.traitId = traitdata.trait;
+	deletecontrol.dataset.removetrait = "1"
 	if (window.charEditMode == false){
 		deletecontrol.style.display = "none";
 	}	
 	if (!window.editElements.includes(deletecontrol.id)){
 		window.editElements.push(deletecontrol.id)
-	}	
+	}
 	c.appendChild(deletecontrol);
 
 	// tratti con visualizzazioni specifiche
@@ -621,6 +637,7 @@ function createTraitElement(traitdata){
 
 
 function populateSheet(characterTraits, character){
+	window.editElements = Array();
 	// create new sheet
 	var charsheet = window.sheet_template.cloneNode(true);
 	charsheet.id ='charsheet';
