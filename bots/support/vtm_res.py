@@ -49,7 +49,7 @@ def decider(roll_sorted, difficulty, failcancel = 2, spec = False, cancel_high =
         return count_success, roll_sorted
 
 def roller(ndice, nfaces, diff, cancel = True, spec = False):
-    roll_raw = sorted(list(map(lambda x: random.randint(1, nfaces), range(0, ndice))))
+    roll_raw = list(map(lambda x: random.randint(1, nfaces), range(0, ndice)))
     roll_sorted = sorted(roll_raw)
     md = -1 # will contain the index of the first success
     for i in range(0, len(roll_sorted)):
@@ -62,9 +62,9 @@ def roller(ndice, nfaces, diff, cancel = True, spec = False):
     count_success = len(successes)
     crit_fails = roll_sorted.count(1)
     canceled = 0
-    if cancel:
+    if cancel: # crit failing is only available when canceling is ON
         if crit_fails > 0 and count_success == 0: # critfail
-            return -1, roll_raw, 0
+            return -1, roll_sorted, 0
         elif crit_fails > count_success: # critfail drammatico
             return -2, roll_sorted, count_success
         else: #just cancel

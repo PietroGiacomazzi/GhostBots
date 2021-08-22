@@ -204,10 +204,26 @@ function editTrait(event) {
 		else if (span.dataset.textbased === "1"){
 			editBox(event, 
 				function (id){
-					console.log("saving...");
+					input_id = id+'-input'
+					var input_tag = document.getElementById(input_id);
+					// todo post
+					const params = new URLSearchParams({
+						traitId: span.dataset.traitid,
+						charId: window.selected_charid,
+						newValue: input_tag.value
+					});
+					get_remote_resource('./editCharacterTraitText?'+params.toString(), 'json', 
+					function (data){
+						var newTrait = createTraitElement(data);
+						var oldTrait = document.getElementById(data.trait);
+						oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+					}/*, 
+					function(xhr){
+					}*/)
 				}
 				, function (id){
-					console.log("canceling...");
+					span.innerHTML = span.dataset.backup;
+					td.dataset.editable = "1";
 				}
 				);
 		}
@@ -230,11 +246,6 @@ function createTraitElement(traitdata){
 	{
 		c.innerHTML = '<h4>'+getLangString("web_label_bloodpoints")+'</h4><p>'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, traitdata.max_value-traitdata.cur_value))+'</p>'; // todo elemento a parte?
 	}
-	/*
-	else if (traitdata.trait == 'umanita')
-	{
-		c.innerHTML = '<h4>Umanità</h4><p>'+(dot.repeat(traitdata.max_value))+emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>'; // todo elemento a parte?
-	}*/
 	else if (traitdata.trait == 'salute')
 	{
 		c.appendChild(renderhealth(traitdata['text_value'], traitdata['max_value']));
@@ -244,9 +255,30 @@ function createTraitElement(traitdata){
 		c.innerHTML = '<p>'+traitdata.traitName+': '+traitdata.cur_value+'</p>'; // todo elemento a parte?
 	}
 	else if (traitdata.traittype == 'uvp'){
-		if (traitdata.trackertype == 0) // normale
+		if (traitdata.trackertype == 0) // normale (umanità/vie)
 		{
-			c.innerHTML = '<h4>'+traitdata.traitName+'</h4><p>'+(window.dot_data.dot.repeat(traitdata.max_value))+window.dot_data.emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>';
+			var trait_title = document.createElement('h4');
+			trait_title.innerHTML = out_sanitize(traitdata.traitName);
+			c.appendChild(trait_title);
+
+			var dots_array = Array(traitdata.max_value).fill(window.dot_data.dot);
+			var n_empty_dots = Math.max(0, 10-traitdata.max_value);
+			if (n_empty_dots > 0)
+				dots_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.emptydot));
+			
+			var trait_dots = document.createElement('p');
+			for (j = 0; j<dots_array.length; ++j) // this can go into a function that takes the dot string (and maybe some extra stuff for trackers)
+			{
+				var dot_span = document.createElement('span');
+				dot_span.dataset.traitid = traitdata.trait
+				dot_span.dataset.textbased = "0";
+				dot_span.dataset.dot_id = j+1
+				dot_span.innerHTML = dots_array[j];
+				trait_dots.appendChild(dot_span);
+			}
+			c.appendChild(trait_dots);
+
+			//c.innerHTML = '<h4>'+traitdata.traitName+'</h4><p>'+(window.dot_data.dot.repeat(traitdata.max_value))+window.dot_data.emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>';
 		}
 		else if (traitdata.trackertype == 1) // punti con massimo
 		{
@@ -322,7 +354,7 @@ function createTraitElement(traitdata){
 			c.innerHTML = '<td class="nopadding">'+tname+"</td>" +'<td class="nopadding" style="float:right">'+ traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value, replace_HTMLElement)+'</td>';
 		}
 	}
-	else
+	else // text based
 	{
 		var trait_title = document.createElement('span');
 		trait_title.innerHTML = out_sanitize(traitdata.traitName) + ": ";
