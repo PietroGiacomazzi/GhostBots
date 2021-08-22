@@ -38,7 +38,8 @@ urls = (
     '/editTranslations', 'editTranslations',
     '/editTranslation', 'editTranslation',
     "/editCharacterTraitNumber", "editCharacterTraitNumber",
-    "/editCharacterTraitText", "editCharacterTraitText"
+    "/editCharacterTraitText", "editCharacterTraitText",
+    "/editCharacterTraitNumberCurrent", "editCharacterTraitNumberCurrent"
     )
 
 
@@ -455,18 +456,49 @@ class editCharacterTraitNumber(APIResponse): # no textbased
             new_val = self.input_data['newValue']
             charId = self.input_data['charId']
             
-            ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id'])).list()
-            if not len(ptraits):
-                raise WebException(f"{character['fullname']} does not have the {trait_id} trait", 500)
+            trait = dbm.getTrait(charId, trait_id)
             
-            else:
-                dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val, max_value = new_val)
-                dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.MAX_VALUE, new_val, ptraits[0]['max_value'], "web")
-                dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, ptraits[0]['cur_value'], "web")
-                return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
+            dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val, max_value = new_val)
+            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.MAX_VALUE, new_val, trait['max_value'], "web")
+            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], "web")
+            return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
 
         else:
             raise WebException("Permission denied", 403)
+
+class editCharacterTraitNumberCurrent(APIResponse): # no textbased
+    def __init__(self):
+        super(editCharacterTraitNumberCurrent, self).__init__(config, session, min_access_level=1, accepted_input = {
+            'traitId': (MUST, validator_trait_number),
+            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
+            'newValue': (MUST, validator_positive_integer),   
+        })
+    def mGET(self):
+        lid = getLanguage(self.session, dbm)
+        vl, character = dbm.isValidCharacter(self.input_data['charId'])
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if can_edit:
+            trait_id = self.input_data['traitId']
+            new_val = self.input_data['newValue']
+            charId = self.input_data['charId']
+
+            trait = dbm.getTrait(charId, trait_id)
+
+            if new_val > trait['max_value']:
+                raise WebException("Value too large", 400)
+            
+            dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val)
+            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], "web")
+            return dbm.getTrait_LangSafe(charId, trait_id, lid)
+
+        else:
+            raise WebException("Permission denied", 403)
+
 
 class editCharacterTraitText(APIResponse): #textbased
     def __init__(self):
@@ -488,14 +520,11 @@ class editCharacterTraitText(APIResponse): #textbased
             new_val = self.input_data['newValue']
             charId = self.input_data['charId']
             
-            ptraits = dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id'])).list()
-            if not len(ptraits):
-                raise WebException(f"{character['fullname']} does not have the {trait_id} trait", 500)
+            trait = dbm.getTrait(charId, trait_id)
             
-            else:
-                dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), text_value = new_val)
-                dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.TEXT_VALUE, new_val, ptraits[0]['text_value'], "web")
-                return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
+            dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), text_value = new_val)
+            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.TEXT_VALUE, new_val, trait['text_value'], "web")
+            return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
 
         else:
             raise WebException("Permission denied", 403)

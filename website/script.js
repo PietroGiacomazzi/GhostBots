@@ -182,24 +182,42 @@ function populate_clan_img(clan_name){
 
 function editTrait(event) {
     var span = event.target;
-	//console.log(span);
+	console.log(span);
 	if (window.charEditMode && span.dataset.traitid)
 	{
 		if (span.dataset.textbased === "0"){
-			// todo post
-			const params = new URLSearchParams({
-				traitId: span.dataset.traitid,
-				charId: window.selected_charid,
-				newValue: span.dataset.dot_id
-			});
-			get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
-			function (data){
-				var newTrait = createTraitElement(data);
-				var oldTrait = document.getElementById(data.trait);
-				oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-			}/*, 
-			function(xhr){
-			}*/)
+			if (span.dataset.current_val){
+				// todo post
+				const params = new URLSearchParams({
+					traitId: span.dataset.traitid,
+					charId: window.selected_charid,
+					newValue: span.dataset.dot_id
+				});
+				get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
+				function (data){
+					var newTrait = createTraitElement(data);
+					var oldTrait = document.getElementById(data.trait);
+					oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+				}/*, 
+				function(xhr){
+				}*/)
+			}
+			else{
+				// todo post
+				const params = new URLSearchParams({
+					traitId: span.dataset.traitid,
+					charId: window.selected_charid,
+					newValue: span.dataset.dot_id
+				});
+				get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
+				function (data){
+					var newTrait = createTraitElement(data);
+					var oldTrait = document.getElementById(data.trait);
+					oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+				}/*, 
+				function(xhr){
+				}*/)
+			}
 		}
 		else if (span.dataset.textbased === "1"){
 			editBox(event, 
@@ -223,7 +241,7 @@ function editTrait(event) {
 				}
 				, function (id){
 					span.innerHTML = span.dataset.backup;
-					td.dataset.editable = "1";
+					span.dataset.editable = "1";
 				}
 				);
 		}
@@ -234,13 +252,51 @@ function editTrait(event) {
 	}*/
 }
 
+function populateDotArrayElement(element, dots_array, traitdata, current_val = false){
+	for (j = 0; j<dots_array.length; ++j) 
+	{
+		var dot_span = document.createElement('span');
+		dot_span.dataset.traitid = traitdata.trait
+		dot_span.dataset.textbased = "0";
+		dot_span.dataset.dot_id = j+1
+		dot_span.dataset.current_val = current_val;
+		dot_span.innerHTML = dots_array[j];
+		element.appendChild(dot_span);
+	}
+	return element;
+}
+
 function createTraitElement(traitdata){
 	var c = document.createElement('tr'); 
 	c.setAttribute("id", traitdata.trait);
 	// tratti con visualizzazioni specifiche
 	if (traitdata.trait == 'volonta')
 	{
-		c.innerHTML = '<h4>'+getLangString("web_label_willpower")+'</h4><p>'+(window.dot_data.dot.repeat(traitdata.max_value))+window.dot_data.emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p><p>'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, 10-traitdata.cur_value))+'</p>'; // todo elemento a parte?
+		var trait_title = document.createElement('h4');
+		trait_title.innerHTML = getLangString("web_label_willpower")
+		c.appendChild(trait_title);
+
+		// permanent
+		var dots_array = Array(traitdata.max_value).fill(window.dot_data.dot);
+		var n_empty_dots = Math.max(0, 10-traitdata.max_value);
+		if (n_empty_dots > 0)
+			dots_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.emptydot));
+		
+		var trait_dots = document.createElement('p');
+		trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata);
+		c.appendChild(trait_dots);
+
+		// current
+		var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
+		var n_empty_dots = Math.max(0, 10-traitdata.cur_value);
+		if (n_empty_dots > 0)
+			sqr_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
+		
+		var trait_sqrs = document.createElement('p');
+		trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true);
+		c.appendChild(trait_sqrs);
+		
+		//c.innerHTML = '<h4>'+ getLangString("web_label_willpower") +'</h4><p>'+(window.dot_data.dot.repeat(traitdata.max_value))+window.dot_data.emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p><p>'+(window.dot_data.square_full.repeat(traitdata.cur_value))+window.dot_data.square_empty.repeat(Math.max(0, 10-traitdata.cur_value))+'</p>'; // todo elemento a parte?
 	}
 	else if (traitdata.trait == 'sangue')
 	{
@@ -267,15 +323,7 @@ function createTraitElement(traitdata){
 				dots_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.emptydot));
 			
 			var trait_dots = document.createElement('p');
-			for (j = 0; j<dots_array.length; ++j) // this can go into a function that takes the dot string (and maybe some extra stuff for trackers)
-			{
-				var dot_span = document.createElement('span');
-				dot_span.dataset.traitid = traitdata.trait
-				dot_span.dataset.textbased = "0";
-				dot_span.dataset.dot_id = j+1
-				dot_span.innerHTML = dots_array[j];
-				trait_dots.appendChild(dot_span);
-			}
+			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata);
 			c.appendChild(trait_dots);
 
 			//c.innerHTML = '<h4>'+traitdata.traitName+'</h4><p>'+(window.dot_data.dot.repeat(traitdata.max_value))+window.dot_data.emptydot.repeat(Math.max(0, 10-traitdata.max_value))+'</p>';
@@ -321,19 +369,13 @@ function createTraitElement(traitdata){
 			max_dots = Math.max(traitdata.pimp_max, 5)
 			if (traitdata.cur_value < max_dots)
 				dots_array = dots_array.concat(Array(max_dots-Math.max(traitdata.max_value, traitdata.cur_value)).fill(window.dot_data.emptydot));
-			//c.innerHTML = temp;
+
 			var trait_dots = document.createElement('td');
 			trait_dots.className = "nopadding";
 			trait_dots.style = "float:right";
-			for (j = 0; j<dots_array.length; ++j) // this can go into a function that takes the dot string (and maybe some extra stuff for trackers)
-			{
-				var dot_span = document.createElement('span');
-				dot_span.dataset.traitid = traitdata.trait
-				dot_span.dataset.textbased = "0";
-				dot_span.dataset.dot_id = j+1
-				dot_span.innerHTML = dots_array[j];
-				trait_dots.appendChild(dot_span);
-			}
+
+			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata);
+			
 			c.appendChild(trait_dots);
 
 		}
