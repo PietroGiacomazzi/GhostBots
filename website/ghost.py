@@ -489,7 +489,10 @@ class editCharacterTraitNumberCurrent(APIResponse): # no textbased
 
             trait = dbm.getTrait(charId, trait_id)
 
-            if new_val > trait['max_value']:
+            if trait['pimp_max']==0 and trait['trackertype']==0:
+                raise WebException(f"Current value cannot be modified")
+
+            if new_val > trait['max_value'] and trait['trackertype'] != 3:
                 raise WebException("Value too large", 400)
             
             dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val)

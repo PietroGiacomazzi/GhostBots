@@ -343,7 +343,7 @@ function createTraitElement(traitdata){
 		c.appendChild(trait_title);
 
 		var trait_cont = document.createElement('span');
-		trait_cont.id = trait_cont+'-content';
+		trait_cont.id = traitdata.trait+'-content';
 		trait_cont.innerHTML = traitdata.cur_value;
 		trait_cont.dataset.traitid = traitdata.trait;
 		trait_cont.dataset.editable = "1"
@@ -352,7 +352,7 @@ function createTraitElement(traitdata){
 	}
 	else if (traitdata.traittype == 'uvp'){
 		var trait_title = document.createElement('h4');
-		trait_title.innerHTML = out_sanitize;(traitdata.traitName)
+		trait_title.innerHTML = out_sanitize(traitdata.traitName)
 		c.appendChild(trait_title);
 
 		if (traitdata.trackertype == 0) // normale (umanità/vie)
@@ -372,7 +372,7 @@ function createTraitElement(traitdata){
 		{
 			// current
 			var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
-			var n_empty_dots = Math.max(0, 10-traitdata.cur_value);
+			var n_empty_dots = Math.max(0, traitdata.max_value-traitdata.cur_value);
 			if (n_empty_dots > 0)
 				sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
 			
