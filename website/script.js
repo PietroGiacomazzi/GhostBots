@@ -88,7 +88,7 @@ function openNewTrait(){
 
 function enableCharEditMode(){
 	if (window.input_modal == null){
-		get_remote_resource('../html_res/inputFieldModal.html', 'text',  function(modaldata){window.input_modal = modaldata;});
+		get_remote_resource('../html_res/InputFieldModal.html', 'text',  function(modaldata){window.input_modal = modaldata;});
 	}
 	if (window.traitList == null){
 		get_remote_resource('./traitList', 'json', function(data){window.traitList = data});

@@ -569,7 +569,7 @@ class traitList(APIResponse):
         join LangTrait lt on (lt.traitId = tt.id and lt.langId = $langId)
         order by tt.standard desc, tt.traittype asc, tt.ordering asc
         """
-        traitData = dbm.db.query(query, vars=dict(langId=getLanguage(session, dbm)))
+        traitData = dbm.db.query(query, vars=dict(langId=getLanguage(session, dbm))).list()
         return traitData
 
 if __name__ == "__main__":
