@@ -354,6 +354,7 @@ function editTrait(event) {
 
 function populateDotArrayElement(element, dots_array, traitdata, current_val = false){
 	var zdot_span = document.createElement('span');
+	zdot_span.id = traitdata.trait+"-zerocontrol"
 	zdot_span.dataset.traitid = traitdata.trait
 	zdot_span.dataset.dotbased = "1";
 	zdot_span.dataset.dot_id = 0
