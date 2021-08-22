@@ -559,7 +559,7 @@ class editCharacterTraitRemove(APIResponse): #textbased
             else:
                 dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.DELETE, "", f"{trait['cur_value']}/{trait['max_value']}", "web edit")
                 
-            return ["done"]
+            return {"trait": trait_id}
 
         else:
             raise WebException("Permission denied", 403)
