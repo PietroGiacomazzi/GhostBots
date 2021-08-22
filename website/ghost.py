@@ -40,7 +40,8 @@ urls = (
     "/editCharacterTraitNumber", "editCharacterTraitNumber",
     "/editCharacterTraitText", "editCharacterTraitText",
     "/editCharacterTraitNumberCurrent", "editCharacterTraitNumberCurrent",
-    "/editCharacterTraitRemove", "editCharacterTraitRemove"
+    "/editCharacterTraitRemove", "editCharacterTraitRemove",
+    "/traitList", "traitList"
     )
 
 
@@ -266,7 +267,6 @@ class dashboard(WebPageResponseLang):
         except AttributeError:
             return render.dashboard(global_template_params, self.getLanguageDict(), '', self.getString("web_label_login"), "doLogin",  self.getString("web_default_dashboard_msg_notlogged"))
             
-
 my_chars_query_admin = """
 select pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername
 from PlayerCharacter pc
@@ -308,7 +308,6 @@ class getMyCharacters(APIResponse):
         except AttributeError as e:
             self.logger.error(f"getMyCharacters error: {e}")
             return []
-
 
 class getCharacterTraits(APIResponse):
     def __init__(self):
@@ -395,8 +394,6 @@ class editTranslations(WebPageResponseLang):
         traitData = dbm.db.query(query, vars=dict(langId=self.getLangId()))
         return render.translationEdit(global_template_params, self.getLanguageDict(), f'{self.session.discord_username}#{self.session.discord_userdiscriminator}', self.getString("web_label_logout"), "doLogout", traitData)
 
-
-
 class editTranslation(APIResponse):
     def __init__(self):
         super(editTranslation, self).__init__(config, session, min_access_level=5, accepted_input = {
@@ -418,8 +415,6 @@ class editTranslation(APIResponse):
             return self.input_data
         else:
             raise WebException(f"Update failed, {u} rows affected", 500)
-
-
 
 def pgmodPermissionCheck_web(issuer_id, character):
     owner_id = character['owner']
@@ -564,6 +559,18 @@ class editCharacterTraitRemove(APIResponse): #textbased
         else:
             raise WebException("Permission denied", 403)
 
+class traitList(APIResponse): 
+    def __init__(self):
+        super(traitList, self).__init__(config, session, min_access_level=1)
+    def mGET(self):
+        query = """
+        select tt.id as value, lt.traitName as display
+        from Trait tt
+        join LangTrait lt on (lt.traitId = tt.id and lt.langId = $langId)
+        order by tt.standard desc, tt.traittype asc, tt.ordering asc
+        """
+        traitData = dbm.db.query(query, vars=dict(langId=getLanguage(session, dbm)))
+        return traitData
 
 if __name__ == "__main__":
     app.run(Log)

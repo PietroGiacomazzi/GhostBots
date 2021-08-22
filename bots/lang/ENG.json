@@ -142,6 +142,6 @@
 	"web_label_trait_short_translated": "Translated trait ID",
 	"web_label_trait_name_translated": "Translated trait name",
 	"web_label_language_id": "Language ID",
-	"web_label_total": "Total"
-
+	"web_label_total": "Total",
+	"web_label_add_trait": "Add a trait"
 }
