@@ -185,7 +185,7 @@ class doLogin(WebPageResponseLang):
             discord = make_session(scope=['identify'])
             authorization_url, state = discord.authorization_url(AUTHORIZATION_BASE_URL)
             self.session.oauth2_state = state
-            raise web.seeother(authorization_url)
+            web.seeother(authorization_url)
 
 
 class doLogout(WebPageResponse):
@@ -193,7 +193,7 @@ class doLogout(WebPageResponse):
         super(doLogout, self).__init__(config, session, min_access_level = 0)
     def mPOST(self):
         self.session.kill()
-        raise web.seeother("/")
+        web.seeother("/")
 
 class discordCallback(APIResponse):
     def __init__(self):
@@ -228,7 +228,7 @@ class discordCallback(APIResponse):
                 self.session.access_level = 10
             else:
                 self.session.access_level = 1
-            raise web.seeother('/')
+            web.seeother('/')
 
 
 class listIndex(WebPageResponseLang):
