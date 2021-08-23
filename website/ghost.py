@@ -2,7 +2,6 @@
 
 import sys, os
 
-from support.ghostDB import DBException
 abspath = os.path.dirname(__file__)+"/"
 sys.path.append(abspath)
 
