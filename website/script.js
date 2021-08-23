@@ -71,7 +71,9 @@ function openNewTrait(){
 		// inject the modal
 		var modal_area = document.getElementById('inputmodal_area');	
 		modal_area.innerHTML = window.input_modal
-		document.getElementById('input_modal').style.display = 'block';
+
+		var modal = document.getElementById('input_modal')
+		modal.style.display = 'block';
 		// setup the modal
 		document.getElementById('input_modal_title').innerHTML = getLangString("web_label_add_trait");
 		var form = document.getElementById('input_modal_form');
@@ -94,11 +96,13 @@ function openNewTrait(){
 				if (sheetspot)
 				{
 					var c = createTraitElement(traitdata);
-					sheetspot.appendChild(c);	
+					sheetspot.appendChild(c);
 				}
 			}/*, 
 			function(xhr){
 			}*/)
+			modal.style.display='none';
+			modal.remove();
 		 });
 
 		autocomplete(document.getElementById("input_modal_myInput"), window.traitList);
