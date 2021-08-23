@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import sys, os
+
+from support.ghostDB import DBException
 abspath = os.path.dirname(__file__)+"/"
 sys.path.append(abspath)
 
@@ -41,7 +43,8 @@ urls = (
     "/editCharacterTraitText", "editCharacterTraitText",
     "/editCharacterTraitNumberCurrent", "editCharacterTraitNumberCurrent",
     "/editCharacterTraitRemove", "editCharacterTraitRemove",
-    "/traitList", "traitList"
+    "/traitList", "traitList",
+    "/editCharacterTraitAdd", "editCharacterTraitAdd"
     )
 
 
@@ -575,10 +578,11 @@ class traitList(APIResponse):
 class editCharacterTraitAdd(APIResponse): #textbased
     def __init__(self):
         super(editCharacterTraitAdd, self).__init__(config, session, min_access_level=1, accepted_input = {
-            'traitId': (MUST, validator_trait), 
+            'traitId': (MUST, validator_str_maxlen(20)), # I'm validating the trait later because I also need trait data
             'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
         })
     def mGET(self):
+        lid = getLanguage(self.session, dbm)
         vl, character = dbm.isValidCharacter(self.input_data['charId'])
         if not vl:
             raise WebException("Invalid character", 400)
@@ -589,11 +593,26 @@ class editCharacterTraitAdd(APIResponse): #textbased
         if can_edit:
             trait_id = self.input_data['traitId']
             charId = self.input_data['charId']
+
+            try:
+                _ = dbm.getTrait(charId, trait_id)
+                raise WebException("The character already has this trait", 400)
+            except ghostDB.DBException as e:
+                pass
             
-            # if trait aldeary exists
-            # initialize
-            # return the newly added trait
-            raise WebException("not implemented", 500)
+            trait = dbm.getTraitInfo(trait_id)
+            
+            if trait['textbased']:
+                textval = ""
+                dbm.db.insert("CharacterTrait", trait=trait_id, playerchar=charId, cur_value = 0, max_value = 0, text_value = textval, pimp_max = 0)
+                dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.TEXT_VALUE, textval, '', "web edit")
+            else:
+                numval = 0
+                pimp = 6 if trait['traittype'] in ['fisico', 'sociale', 'mentale'] else 0
+                dbm.db.insert("CharacterTrait", trait=trait_id, playerchar=charId, cur_value = numval, max_value = numval, text_value = "", pimp_max = pimp)
+                dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.MAX_VALUE, numval, '',  "web edit")
+
+            return dbm.getTrait_LangSafe(charId, trait_id, lid)
 
         else:
             raise WebException("Permission denied", 403)

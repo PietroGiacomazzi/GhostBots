@@ -67,7 +67,7 @@ function getMyCharacters(dictionary){
 }
 
 function openNewTrait(){
-	if (window.input_modal != null  && window.traitList != null ){
+	if (window.charEditMode && window.input_modal != null  && window.traitList != null ){
 		// inject the modal
 		var modal_area = document.getElementById('inputmodal_area');	
 		modal_area.innerHTML = window.input_modal
@@ -405,19 +405,20 @@ function editTrait(event) {
 
 function populateDotArrayElement(element, dots_array, traitdata, current_val = false){
 	var zdot_span = document.createElement('span');
-	zdot_span.id = traitdata.trait+"-zerocontrol"
-	zdot_span.dataset.traitid = traitdata.trait
+	zdot_span.id = traitdata.trait+"-zerocontrol";
+	zdot_span.dataset.traitid = traitdata.trait;
 	zdot_span.dataset.dotbased = "1";
-	zdot_span.dataset.dot_id = 0
+	zdot_span.dataset.dot_id = 0;
 	if (current_val){
 		zdot_span.dataset.current_val = "1";
+		zdot_span.id = zdot_span.id+"-current";
 	}
-	zdot_span.innerHTML = window.dot_data.red_dot
+	zdot_span.innerHTML = window.dot_data.red_dot;
 	if (window.charEditMode == false){
 		zdot_span.style.display = "none";
 	}
 	if (!window.editElements.includes(zdot_span.id)){
-		window.editElements.push(zdot_span.id)
+		window.editElements.push(zdot_span.id);
 	}
 	element.appendChild(zdot_span);
 	
@@ -426,7 +427,7 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 		var dot_span = document.createElement('span');
 		dot_span.dataset.traitid = traitdata.trait
 		dot_span.dataset.dotbased = "1";
-		dot_span.dataset.dot_id = j+1
+		dot_span.dataset.dot_id = j+1;
 		if (current_val){
 			dot_span.dataset.current_val = "1";
 		}
@@ -698,6 +699,7 @@ function createTraitElement(traitdata){
 
 function populateSheet(characterTraits, character){
 	window.editElements = Array();
+	disableCharEditMode(); // doing this here makes it faster because we don't have many items to disable
 	// create new sheet
 	var charsheet = window.sheet_template.cloneNode(true);
 	charsheet.id ='charsheet';
