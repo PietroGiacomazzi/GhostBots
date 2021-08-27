@@ -41,14 +41,14 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 		<div class="w3-sidebar w3-bar-block under-navbar" id='side_menu'>
 		</div>
 
-		<div class = "central_content under-navbar w3-display-container" id='main_content'>
+		<div class = "central_content under-navbar " id='main_content'> <!-- w3-display-container-->
 		
-			<div id = "central_msg"  class="w3-display-middle">
+			<div id = "central_msg"  class="w3-display-middle"> 
 				<p>$msg</p>
 			</div>
 			
-			<div id = "charsheet_template" class = "w3-display-topmiddle" style="display:none">
-			
+			<div id = "charsheet_template"  style="display:none">
+			  <div class = "w3-table w3-display-topmiddle under-navbar central_content ">
 				<div id ="titolo" class="w3-container" >
 					<h1 id = "title_pgname" class="charnamefont" ></h1>
 					<img id = "title_clanicon" class="w3-display-topright w3-margin"/>
@@ -182,6 +182,7 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 				<div id ="altro" class="w3-container">
 				<h4>$language_strings['web_label_trait_other']</h4>
 				</div>
+			  </div>
 			</div>
 		</div>
     </div>
