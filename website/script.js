@@ -734,13 +734,13 @@ function populateSheet(characterTraits, character){
 	});
 	get_remote_resource('./canEditCharacter?'+params.toString(), 'json', 
 					function (data){
-						console.log(data);
+						//console.log(data);
+						var editcontrol = document.getElementById("editchar")
 						if (data == 1){
-							var editcontrol = document.getElementById("editchar")
 							editcontrol.style.display = 'block';
-							editcontrol.addEventListener('click', function(event){
-								switchEditMode();
-							 });
+						}
+						else{
+							editcontrol.style.display = 'none';
 						}
 					}/*, 
 					function(xhr){
