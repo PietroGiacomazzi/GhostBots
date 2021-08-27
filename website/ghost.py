@@ -44,7 +44,7 @@ urls = (
     "/editCharacterTraitRemove", "editCharacterTraitRemove",
     "/traitList", "traitList",
     "/editCharacterTraitAdd", "editCharacterTraitAdd",
-    "/canEditChar", "canEditChar"
+    "/canEditCharacter", "canEditCharacter"
     )
 
 

@@ -712,7 +712,7 @@ function populateSheet(characterTraits, character){
 	main.appendChild(charsheet);
 
 	//enable controls
-	document.getElementById("newchar").style.display = 'inline';
+	document.getElementById("newchar").style.display = 'block';
 
 	const params = new URLSearchParams({
 		charId: character.id
@@ -721,7 +721,7 @@ function populateSheet(characterTraits, character){
 					function (data){
 						console.log(data);
 						if (data){
-							document.getElementById("editchar").style.display = 'inline';
+							document.getElementById("editchar").style.display = 'block';
 						}
 					}/*, 
 					function(xhr){
@@ -860,7 +860,7 @@ function populate_charmenu(menuItem, chars){
 	var side_menu = document.getElementById(side_menu_id);
 
 	// enable controls
-	document.getElementById("newchar").style.display = 'inline';
+	document.getElementById("newchar").style.display = 'block';
 
 	// characters
 	if (chars.length)
