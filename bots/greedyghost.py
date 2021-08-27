@@ -807,10 +807,14 @@ async def session_list(ctx):
     
     sessions = dbm.db.select('GameSession').list()
     channels = []
-    for s in sessions:
-        ch = await bot.fetch_channel(int(s['channel']))
-        channels.append(ch)
     lines = []
+    for s in sessions:
+        try:
+            ch = await bot.fetch_channel(int(s['channel']))
+            channels.append(ch)
+        except discord.errors.Forbidden as e:
+            lines.append(f"**{s['chronicle']}** in: UNKNOWN")
+            channels.append(None)
     #pvt = 0
     for session, channel in zip(sessions, channels):
         if isinstance(channel, discord.abc.GuildChannel):
