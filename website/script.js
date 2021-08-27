@@ -122,6 +122,8 @@ function enableCharEditMode(){
 
 	var editcontrol = document.getElementById("editchar");
 	editcontrol.innerHTML = getLangString("web_label_fihishedit_character");
+	var addtraitcharcontrol = document.getElementById("addtraitchar");
+	addtraitcharcontrol.style.display = 'block';
 
 	window.charEditMode = true;
 	for (i = 0; i<window.editElements.length; ++i)
@@ -139,6 +141,8 @@ function enableCharEditMode(){
 function disableCharEditMode(){
 	var editcontrol = document.getElementById("editchar");
 	editcontrol.innerHTML = getLangString("web_label_edit_character");
+	var addtraitcharcontrol = document.getElementById("addtraitchar");
+	addtraitcharcontrol.style.display = 'none';
 
 	window.charEditMode = false;
 	for (i = 0; i<window.editElements.length; ++i)
@@ -736,14 +740,11 @@ function populateSheet(characterTraits, character){
 					function (data){
 						//console.log(data);
 						var editcontrol = document.getElementById("editchar");
-						var addtraitcharcontrol = document.getElementById("addtraitchar");
 						if (data == 1){
 							editcontrol.style.display = 'block';
-							addtraitcharcontrol.style.display = 'block';
 						}
 						else{
 							editcontrol.style.display = 'none';
-							addtraitcharcontrol.style.display = 'none';
 						}
 					}/*, 
 					function(xhr){
