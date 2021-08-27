@@ -148,5 +148,6 @@
 	"web_label_save": "Save",
 	"web_label_actions": "Actions",
 	"web_label_new_character": "New character",
-	"web_label_edit_character": "Edit character"
+	"web_label_edit_character": "Edit character",
+	"web_label_fihishedit_character": "Stop editing"
 }

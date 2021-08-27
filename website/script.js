@@ -120,6 +120,9 @@ function enableCharEditMode(){
 		get_remote_resource('./traitList', 'json', function(data){window.traitList = data});
 	}
 
+	var editcontrol = document.getElementById("editchar");
+	editcontrol.innerHTML = getLangString("web_label_fihishedit_character");
+
 	window.charEditMode = true;
 	for (i = 0; i<window.editElements.length; ++i)
 	{
@@ -134,6 +137,9 @@ function enableCharEditMode(){
 }
 
 function disableCharEditMode(){
+	var editcontrol = document.getElementById("editchar");
+	editcontrol.innerHTML = getLangString("web_label_edit_character");
+
 	window.charEditMode = false;
 	for (i = 0; i<window.editElements.length; ++i)
 	{
@@ -144,6 +150,15 @@ function disableCharEditMode(){
 		else{
 			el.style.display = 'none';
 		}
+	}
+}
+
+function switchEditMode(){
+	if (window.charEditMode){
+		disableCharEditMode();
+	}
+	else{
+		enableCharEditMode()
 	}
 }
 
@@ -720,8 +735,12 @@ function populateSheet(characterTraits, character){
 	get_remote_resource('./canEditCharacter?'+params.toString(), 'json', 
 					function (data){
 						console.log(data);
-						if (data){
-							document.getElementById("editchar").style.display = 'block';
+						if (data == 1){
+							var editcontrol = document.getElementById("editchar")
+							editcontrol.style.display = 'block';
+							editcontrol.addEventListener('click', function(event){
+								switchEditMode();
+							 });
 						}
 					}/*, 
 					function(xhr){
@@ -729,7 +748,6 @@ function populateSheet(characterTraits, character){
 
 	// do stuff
 	document.getElementById('title_pgname').innerHTML = '<b>'+character.fullname+'</b>';
-	
 	
 	// nome del giocatore
 	sheetspot = document.getElementById("testata");
@@ -836,7 +854,7 @@ function populateSheet(characterTraits, character){
 
 	window.selected_charid = character.id;
 	var modregisterbtn = document.getElementById('modregister');
-	modregisterbtn.style.display = "inline";
+	modregisterbtn.style.display = "block";
 	var central_msg = document.getElementById('central_msg');
 	central_msg.style.display = "none";
 	charsheet.style.display = "inline";
