@@ -605,7 +605,7 @@ function createTraitElement(traitdata){
 				dots_array = dots_array.concat(Array(max_dots-Math.max(traitdata.max_value, traitdata.cur_value)).fill(window.dot_data.emptydot));
 
 			var trait_dots = document.createElement('td');
-			trait_dots.className = "nopadding";
+			trait_dots.className = "nopadding dotseq";
 			trait_dots.style = "float:right";
 
 			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata);
