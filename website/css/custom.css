@@ -24,6 +24,10 @@
   background-color: red;
 }
 
+.central_content{
+  width: max-content;
+}
+
 /* autocomplete stuff */
 
 /*

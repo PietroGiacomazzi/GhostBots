@@ -79,6 +79,7 @@
 	"string_msg_trait_X_in_Y_has_translation_Z1_Z2": "Il tratto {} ha traduzione in {}: {} (nome corto: {}) ",
 	"string_msg_trait_X_not_translated_Y": "Il tratto {} non ha una traduzione in {}",
 	"string_TRAIT_does_not_exist": "Il tratto {} non esiste",
+	"string_error_wrong_number_arguments": "Numero di argomenti errato",
 
 	"web_already_logged_as": "Hai già eseguito il login come {}#{}",
 	"web_index_page_title": "Indice",
