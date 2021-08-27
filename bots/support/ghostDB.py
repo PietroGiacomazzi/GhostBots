@@ -181,7 +181,7 @@ where gs.channel = $channel and cc.playerchar = $charid
 SELECT cc.playerchar
 FROM GameSession gs
 join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
-where and cc.playerchar = $charid
+where cc.playerchar = $charid
 """, vars=dict(charid=charid))
         return bool(len(result)), result[0] if len(result) else None
     def isChronicleStoryteller(self, userid, chronicle):
