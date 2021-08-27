@@ -21,11 +21,14 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 	<div id = "inputmodal_area">
 	</div>
 	<div class="w3-bar w3-black w3-top">
-		<div class="w3-dropdown-content w3-bar-block w3-card-4">
-			<a href="#" id = "modregister" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_mod_register']</a>
-			<a href="#" class="w3-bar-item w3-button">Link 2</a>
-			<a href="#" class="w3-bar-item w3-button">Link 3</a>
-		  </div>
+		<div class="w3-dropdown-hover">
+			<button class="w3-button">$language_strings['web_label_actions']</button>
+			<div class="w3-dropdown-content w3-bar-block w3-card-4">
+				<a href="#" id = "modregister" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_mod_register']</a>
+				<a href="#" class="w3-bar-item w3-button">Link 2</a>
+				<a href="#" class="w3-bar-item w3-button">Link 3</a>
+			</div>
+		</div>
 
 		<div id='user-info'>
         	<button id="loginlogout" form="loginlogoutform" class="w3-bar-item w3-btn w3-indigo w3-right">$btntext</button>
@@ -33,7 +36,7 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 		</div>
 	</div> 
 	
-    <div class="w3-container main-content w3-display-container" id = "main">
+    <div class="w3-container main-content" id = "main"> <!-- w3-display-container-->
         
 		<div class="w3-sidebar w3-bar-block" id='side_menu'>
 		</div>

@@ -145,5 +145,6 @@
 	"web_label_language_id": "ID Lingua",
 	"web_label_total": "Totale",
 	"web_label_add_trait": "Aggiungi un tratto",
-	"web_label_save": "Salva"
+	"web_label_save": "Salva",
+	"web_label_actions": "Azioni"
 }

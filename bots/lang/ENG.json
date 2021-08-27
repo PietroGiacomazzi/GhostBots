@@ -145,5 +145,6 @@
 	"web_label_language_id": "Language ID",
 	"web_label_total": "Total",
 	"web_label_add_trait": "Add a trait",
-	"web_label_save": "Save"
+	"web_label_save": "Save",
+	"web_label_actions": "Actions"
 }
