@@ -146,5 +146,7 @@
 	"web_label_total": "Total",
 	"web_label_add_trait": "Add a trait",
 	"web_label_save": "Save",
-	"web_label_actions": "Actions"
+	"web_label_actions": "Actions",
+	"web_label_new_character": "New character",
+	"web_label_edit_character": "Edit character"
 }

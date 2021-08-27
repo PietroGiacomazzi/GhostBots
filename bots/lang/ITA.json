@@ -146,5 +146,7 @@
 	"web_label_total": "Totale",
 	"web_label_add_trait": "Aggiungi un tratto",
 	"web_label_save": "Salva",
-	"web_label_actions": "Azioni"
+	"web_label_actions": "Azioni",
+	"web_label_new_character": "Nuovo personaggio",
+	"web_label_edit_character": "Modifica personaggio"
 }

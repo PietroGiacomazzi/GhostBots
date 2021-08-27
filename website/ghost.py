@@ -43,7 +43,8 @@ urls = (
     "/editCharacterTraitNumberCurrent", "editCharacterTraitNumberCurrent",
     "/editCharacterTraitRemove", "editCharacterTraitRemove",
     "/traitList", "traitList",
-    "/editCharacterTraitAdd", "editCharacterTraitAdd"
+    "/editCharacterTraitAdd", "editCharacterTraitAdd",
+    "/canEditChar", "canEditChar"
     )
 
 
@@ -615,6 +616,25 @@ class editCharacterTraitAdd(APIResponse): #textbased
 
         else:
             raise WebException("Permission denied", 403)
+
+class canEditCharacter(APIResponse): #textbased
+    def __init__(self):
+        super(canEditCharacter, self).__init__(config, session, min_access_level=1, accepted_input = {
+            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
+        })
+    def mGET(self):
+        lid = getLanguage(self.session, dbm)
+        vl, character = dbm.isValidCharacter(self.input_data['charId'])
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if can_edit:
+            return 1
+        else:
+            return 0
 
 if __name__ == "__main__":
     app.run(Log)

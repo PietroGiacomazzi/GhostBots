@@ -710,8 +710,26 @@ function populateSheet(characterTraits, character){
 	// insert new sheet
 	var main = document.getElementById('main_content');
 	main.appendChild(charsheet);
+
+	//enable controls
+	document.getElementById("newchar").style.display = 'inline';
+
+	const params = new URLSearchParams({
+		charId: character.id
+	});
+	get_remote_resource('./canEditCharacter?'+params.toString(), 'json', 
+					function (data){
+						console.log(data);
+						if (data){
+							document.getElementById("editchar").style.display = 'inline';
+						}
+					}/*, 
+					function(xhr){
+					}*/)
+
 	// do stuff
 	document.getElementById('title_pgname').innerHTML = '<b>'+character.fullname+'</b>';
+	
 	
 	// nome del giocatore
 	sheetspot = document.getElementById("testata");
@@ -838,11 +856,17 @@ function load_charSheet(character){
 
 function populate_charmenu(menuItem, chars){
 	var loaded = urlParams.get('character') == null;
-	var side_menu = document.getElementById('side_menu');
+	var side_menu_id = 'side_menu'
+	var side_menu = document.getElementById(side_menu_id);
+
+	// enable controls
+	document.getElementById("newchar").style.display = 'inline';
+
+	// characters
 	if (chars.length)
 	{
 		var title = document.createElement('h3');
-		title.innerHTML = "<h3>"+getLangString("web_label_chronicles")+":</h3>";
+		title.innerHTML = getLangString("web_label_chronicles")+":";
 		side_menu.appendChild(title);
 	}
 	var i;
