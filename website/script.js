@@ -736,11 +736,14 @@ function populateSheet(characterTraits, character){
 					function (data){
 						//console.log(data);
 						var editcontrol = document.getElementById("editchar")
+						var addtraitcharcontrol = document.getElementById("addtraitchar")
 						if (data == 1){
 							editcontrol.style.display = 'block';
+							addtraitcharcontrol.style.display = 'block';
 						}
 						else{
 							editcontrol.style.display = 'none';
+							addtraitcharcontrol.style.display = 'none';
 						}
 					}/*, 
 					function(xhr){
