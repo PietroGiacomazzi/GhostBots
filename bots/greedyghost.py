@@ -777,12 +777,15 @@ async def session(ctx):
 @session.command(brief = 'Inizia una sessione', description = '.session start <nomecronaca>: inizia una sessione per <nomecronaca> (richiede essere admin o storyteller della cronaca da iniziare) (richiede essere admin o storyteller della cronaca da iniziare)')
 async def start(ctx, *args):
     issuer = str(ctx.message.author.id)
+    #lid = getLanguage(issuer, dbm)
+    if len(args) != 1:
+        await atSendLang(ctx, "string_error_wrong_number_arguments")
+        return
     sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
     chronicleid = args[0].lower()
     st, _ = dbm.isChronicleStoryteller(issuer, chronicleid)
     ba, _ = dbm.isBotAdmin(issuer)
     can_do = st or ba
-    #can_do = len(dbm.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=ctx.message.author.id))) + len(dbm.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=ctx.message.author.id, chronicle = chronicle)))
     if len(sessions):
         response = "C'è già una sessione in corso in questo canale"
     elif can_do:
