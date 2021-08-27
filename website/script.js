@@ -735,8 +735,8 @@ function populateSheet(characterTraits, character){
 	get_remote_resource('./canEditCharacter?'+params.toString(), 'json', 
 					function (data){
 						//console.log(data);
-						var editcontrol = document.getElementById("editchar")
-						var addtraitcharcontrol = document.getElementById("addtraitchar")
+						var editcontrol = document.getElementById("editchar");
+						var addtraitcharcontrol = document.getElementById("addtraitchar");
 						if (data == 1){
 							editcontrol.style.display = 'block';
 							addtraitcharcontrol.style.display = 'block';
