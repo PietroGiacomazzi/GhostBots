@@ -15,6 +15,7 @@ window.charEditMode = false;
 window.editElements = Array();
 window.traitList = null;
 window.input_modal = null;
+window.newchar_modal = null;
 
 var replace_HTMLElement = [];
 replace_HTMLElement['&'] = '&amp;';
@@ -66,6 +67,23 @@ function getMyCharacters(dictionary){
     get_remote_resource('./getMyCharacters', 'json',  getCharMenuItem);
 }
 
+function openNewChar(event){
+	if (window.newchar_modal){
+		// inject the modal
+		var modal_area = document.getElementById('newchar_modal_area');	
+		modal_area.innerHTML = window.newchar_modal
+
+		var modal = document.getElementById('new_char_modal')
+		modal.style.display = 'block';
+
+		// setup the modal
+		//todo
+	}
+	else{
+		console.log("newchar modal not loaded!")
+	}
+}
+
 function openNewTrait(){
 	if (window.charEditMode && window.input_modal != null  && window.traitList != null ){
 		// inject the modal
@@ -77,7 +95,7 @@ function openNewTrait(){
 		// setup the modal
 		document.getElementById('input_modal_title').innerHTML = getLangString("web_label_add_trait");
 		var form = document.getElementById('input_modal_form');
-		//form.action = "./TODO"; // todo
+
 		var input_tag = document.getElementById('input_modal_myInput');
 		input_tag.setAttribute("placeholder", getLangString("web_label_trait")+"...");
 
@@ -1001,7 +1019,15 @@ function populate_page(){
 			document.getElementById("action-menu").style.display = 'block';
 		}
 		if (data.new_character){
-			document.getElementById("newchar").style.display = 'block';
+			var el = document.getElementById("newchar")
+			el.style.display = 'block';
+			const params = new URLSearchParams({
+				modalId: 'new_char_modal'
+			});
+			get_remote_resource('./getModal?'+params.toString(), 'html', function(data){
+				window.newchar_modal = data;
+			}) 
+			el.addEventListener('click', openNewChar);
 		}
 		if (data.translate_traits){
 			document.getElementById("traittranslation").style.display = 'block';

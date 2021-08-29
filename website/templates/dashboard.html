@@ -20,6 +20,8 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 	</div>
 	<div id = "inputmodal_area">
 	</div>
+	<div id = "newchar_modal_area">
+	</div>
 	<div class="w3-bar w3-black w3-top">
 		<div id='user-info'>
         	<button id="loginlogout" form="loginlogoutform" class="w3-bar-item w3-btn w3-indigo w3-right">$btntext</button>
@@ -32,7 +34,7 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 		<div class="w3-sidebar w3-bar-block under-navbar larger-sidebar" id='side_menu'>
 			<div id = "action-menu" style="display:none">
 				<h3>$language_strings['web_label_actions']:</h3>
-				<a href="/editTranslations" id = "traittranslation" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_trait_translation']</a>
+				<a href="editTranslations" id = "traittranslation" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_trait_translation']</a>
 				<a href="#" id = "modregister" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_mod_register']</a>
 				<a href="#" id = "newchar" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_new_character']</a>
 				<a href="#" id = "editchar" class="w3-bar-item w3-button" onclick="switchEditMode()" style="display:none">$language_strings['web_label_edit_character']</a>

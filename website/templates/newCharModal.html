@@ -1,0 +1,16 @@
+$def with (global_params, language_strings, modal_params)
+<div id="$modal_params['modal_id']" class="w3-modal">
+  <div class="w3-modal-content">
+    <div class="w3-container">
+      <span onclick="document.getElementById('$modal_params['modal_id']').style.display='none'" class="w3-button w3-display-topright">&times;</span>
+		  <h2>$language_strings["web_label_new_character"] </h2>
+		  <form id="newchar_modal_form" action="" class="w3-container">
+        <label>$language_strings["web_label_charid"]</label>
+        <input class="w3-input" type="text">
+        <label>$language_strings["web_label_charid"]</label>
+        <input class="w3-input" type="text">
+      </form>
+      <button id="inewchar_modal_submit" class=" w3-btn w3-green"></button>
+    </div>
+  </div>
+</div>

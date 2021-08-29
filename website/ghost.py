@@ -45,7 +45,8 @@ urls = (
     "/traitList", "traitList",
     "/editCharacterTraitAdd", "editCharacterTraitAdd",
     "/canEditCharacter", "canEditCharacter",
-    "/webFunctionVisibility", "webFunctionVisibility"
+    "/webFunctionVisibility", "webFunctionVisibility",
+    "/getModal", "getModal"
     )
 
 
@@ -644,13 +645,31 @@ class webFunctionVisibility(APIResponse):
         super(webFunctionVisibility, self).__init__(config, session)
     def mGET(self):
         lid = getLanguage(self.session, dbm)
-        ba, _ = dbm.isBotAdmin(self.session.discord_userid)
-        st, _ = dbm.isStoryteller(self.session.discord_userid)
+        ba = False
+        st = False
+        if "discord_userid" in self.session:
+            ba, _ = dbm.isBotAdmin(self.session.discord_userid)
+            st, _ = dbm.isStoryteller(self.session.discord_userid)
+
         return {
             "action_menu": self.session.access_level >= 1, # any logged user
             "new_character": self.session.access_level >= 1, # any logged user
             "translate_traits": ba or st, # storytellers or admins
         }
+
+class getModal(WebPageResponseLang):
+    def __init__(self):
+        super(getModal, self).__init__(config, session, accepted_input = {
+            'modalId': (MUST, validator_str_maxlen(30)),
+        })
+    def mGET(self):
+        if self.input_data.modalId == 'new_char_modal':
+            modal_params = {
+                "modal_id": self.input_data.modalId
+            }
+            return render.newCHarModal(global_template_params, self.getLanguageDict(), modal_params)
+        
+        raise WebException("Invalid modal id", 400)
 
 if __name__ == "__main__":
     app.run(Log)
