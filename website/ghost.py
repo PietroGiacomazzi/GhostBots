@@ -663,11 +663,11 @@ class getModal(WebPageResponseLang):
             'modalId': (MUST, validator_str_maxlen(30)),
         })
     def mGET(self):
-        if self.input_data.modalId == 'new_char_modal':
+        if self.input_data['modalId'] == 'new_char_modal':
             modal_params = {
-                "modal_id": self.input_data.modalId
+                "modal_id": self.input_data['modalId']
             }
-            return render.newCHarModal(global_template_params, self.getLanguageDict(), modal_params)
+            return render.newCharModal(global_template_params, self.getLanguageDict(), modal_params)
         
         raise WebException("Invalid modal id", 400)
 

@@ -887,10 +887,10 @@ async def translate(ctx, *args):
 
 damage_types = ["a", "l", "c"]
 
-def defaultTraitFormatter(trait):
+def defaultTraitFormatter(trait, lid):
     return f"Oh no! devo usare il formatter di default!\n{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}/{trait['pimp_max']}, text: {trait['text_value']}"
 
-def prettyDotTrait(trait):
+def prettyDotTrait(trait, lid):
     pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
     pretty += ":red_circle:"*min(trait['cur_value'], trait['max_value'])
     if trait['cur_value']<trait['max_value']:
@@ -912,14 +912,14 @@ healthToEmoji = {
     }
 
 hurt_levels_vampire = [
-    (0, "Illeso"),
-    (0, "Contuso"),
-    (-1, "Graffiato"),
-    (-1, "Leso"),
-    (-2, "Ferito"),
-    (-2, "Straziato"),
-    (-5, "Menomato"),
-    (-INFINITY, "Incapacitato"),
+    (0, "hurt_levels_vampire_unharmed"),
+    (0, "hurt_levels_vampire_bruised"),
+    (-1, "hurt_levels_vampire_hurt"),
+    (-1, "hurt_levels_vampire_injured"),
+    (-2, "hurt_levels_vampire_wounded"),
+    (-2, "hurt_levels_vampire_mauled"),
+    (-5, "hurt_levels_vampire_crippled"),
+    (-INFINITY, "hurt_levels_vampire_incapacitated"),
 ]
 
 
@@ -945,35 +945,35 @@ def parseHealth(trait, levels_list = hurt_levels_vampire):
             health_lines.append(hs[cursor:cursor+columns]+"B"*(extra > 0)) #prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], hs[cursor:cursor+columns]+"B"*(extra > 0))))
             cursor += columns
     #return hurt_levels[hurt_level] +"\n"+ prettytext
-    return hurt_levels_vampire[hurt_level], health_lines
+    return levels_list[hurt_level], health_lines
 
-def prettyHealth(trait, levels_list = hurt_levels_vampire):
+def prettyHealth(trait, lid, levels_list = hurt_levels_vampire):
     penalty, parsed = parseHealth(trait, levels_list)
     prettytext = f'{trait["traitName"]}:'
     for line in parsed:
         prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], line)))
-    return f'{penalty[1]} ({penalty[0]})' +"\n"+ prettytext
+    return lp.get(lid, penalty[1]) +"\n"+ prettytext
 
-def prettyFDV(trait):
-    return defaultTraitFormatter(trait)
+def prettyFDV(trait, lid):
+    return defaultTraitFormatter(trait, lid)
 
 blood_emojis = [":drop_of_blood:", ":droplet:"]
 will_emojis = [":white_square_button:", ":white_large_square:"]
 
-def prettyMaxPointTracker(trait, emojis, separator = ""):
+def prettyMaxPointTracker(trait, lid, emojis = [":black_circle:", ":white_circle:"], separator = ""):
     pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
     pretty += separator.join([emojis[0]]*trait['cur_value'])
     pretty += separator
     pretty += separator.join([emojis[1]]*(trait['max_value']-trait['cur_value']))
     return pretty
 
-def prettyPointAccumulator(trait):
+def prettyPointAccumulator(trait, lid):
     return f"{trait['traitName']}: {trait['cur_value']}"
 
-def prettyTextTrait(trait):
+def prettyTextTrait(trait, lid):
     return f"{trait['traitName']}: {trait['text_value']}"
 
-def prettyGeneration(trait):
+def prettyGeneration(trait, lid):
     return f"{13 - trait['cur_value']}a generazione\n{prettyDotTrait(trait)}"
 
 def getTraitFormatter(trait):
@@ -987,9 +987,9 @@ def getTraitFormatter(trait):
         return prettyDotTrait
     elif trait['trackertype']==1:
         if trait['id'] == 'sangue':
-            return lambda x: prettyMaxPointTracker(x, blood_emojis)
+            return lambda x, y: prettyMaxPointTracker(x, y, blood_emojis)
         else:
-            return lambda x: prettyMaxPointTracker(x, will_emojis, " ")
+            return lambda x, y: prettyMaxPointTracker(x, y, will_emojis, " ")
     elif trait['trackertype']==2:
         return prettyHealth
     elif trait['trackertype']==3:
@@ -1018,7 +1018,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
         else:
             trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
             prettyFormatter = getTraitFormatter(trait)
-            return prettyFormatter(trait)
+            return prettyFormatter(trait, lid)
 
     # qui siamo sicuri che c'è un'operazione (o spazzatura)
     if not can_edit:
@@ -1067,10 +1067,10 @@ async def pc_interact(ctx, pc, can_edit, *args):
         dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], ctx.message.content)
         if u == 1:
             trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-            return prettyFormatter(trait)
+            return prettyFormatter(trait, lid)
         elif u == 0:
             trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-            return prettyFormatter(trait)+'\n(nessuna modifica effettuata)'
+            return prettyFormatter(trait, lid)+'\n(nessuna modifica effettuata)'
         else:
             return f'Qualcosa è andato storto, righe aggiornate:  {u}'
 
@@ -1097,7 +1097,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-        response = prettyFormatter(trait)        
+        response = prettyFormatter(trait, lid)        
     elif operazione == "+":
         rip = False
         for i in range(n): # applico i danni uno alla volta perchè sono un nabbo
@@ -1141,7 +1141,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
         if u != 1 and not rip:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-        response = prettyFormatter(trait)
+        response = prettyFormatter(trait, lid)
         if rip:
             response += "\n\n RIP"
     elif operazione == "-":
@@ -1174,7 +1174,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-        response = prettyFormatter(trait)
+        response = prettyFormatter(trait, lid)
     else: # =
         full = param[1:]
         counts = list(map(lambda x: full.count(x), damage_types))
@@ -1187,7 +1187,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
         trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-        response = prettyFormatter(trait)
+        response = prettyFormatter(trait, lid)
 
     return response
 
