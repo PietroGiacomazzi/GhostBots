@@ -731,6 +731,7 @@ function populateSheet(characterTraits, character){
 	main.appendChild(charsheet);
 
 	//enable controls
+	document.getElementById("action-menu").style.display = 'block';
 	document.getElementById("newchar").style.display = 'block';
 
 	const params = new URLSearchParams({
@@ -881,9 +882,6 @@ function populate_charmenu(menuItem, chars){
 	var side_menu_id = 'side_menu'
 	var side_menu = document.getElementById(side_menu_id);
 
-	// enable controls
-	document.getElementById("newchar").style.display = 'block';
-
 	// characters
 	if (chars.length)
 	{
@@ -998,6 +996,18 @@ function populate_page(){
 	var modlog = document.getElementById('modregister');
 	modlog.addEventListener('click', load_modlog);
     //var side_menu = document.getElementById('side_menu');
+	get_remote_resource('./webFunctionVisibility', 'json', function(data){
+		if (data.action_menu){
+			document.getElementById("action-menu").style.display = 'block';
+		}
+		if (data.new_character){
+			document.getElementById("newchar").style.display = 'block';
+		}
+		if (data.translate_traits){
+			document.getElementById("traittranslation").style.display = 'block';
+		}
+	})
+	
 	get_remote_resource('./getLanguageDictionary', 'json', getMyCharacters)
 }
 

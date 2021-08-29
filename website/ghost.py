@@ -44,7 +44,8 @@ urls = (
     "/editCharacterTraitRemove", "editCharacterTraitRemove",
     "/traitList", "traitList",
     "/editCharacterTraitAdd", "editCharacterTraitAdd",
-    "/canEditCharacter", "canEditCharacter"
+    "/canEditCharacter", "canEditCharacter",
+    "/webFunctionVisibility", "webFunctionVisibility"
     )
 
 
@@ -635,6 +636,21 @@ class canEditCharacter(APIResponse): #textbased
             return 1
         else:
             return 0
+
+class webFunctionVisibility(APIResponse):
+    # This call tells the website what functions the user can see, but can easily be circumvented
+    # The actual enforcing of these permissions is done on the server side calls of the individual functions
+    def __init__(self):
+        super(webFunctionVisibility, self).__init__(config, session)
+    def mGET(self):
+        lid = getLanguage(self.session, dbm)
+        ba, _ = dbm.isBotAdmin(self.session.discord_userid)
+        st, _ = dbm.isStoryteller(self.session.discord_userid)
+        return {
+            "action_menu": self.session.access_level >= 1, # any logged user
+            "new_character": self.session.access_level >= 1, # any logged user
+            "translate_traits": ba or st, # storytellers or admins
+        }
 
 if __name__ == "__main__":
     app.run(Log)

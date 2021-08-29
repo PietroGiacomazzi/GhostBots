@@ -19,8 +19,11 @@ $def with (global_params, language_strings, username, btntext, action, traitData
 	<div id = "modlog_area">
 	</div>
 	<div class="w3-bar w3-black w3-top">
-        <button id="loginlogout" form="loginlogoutform" class="w3-bar-item w3-btn w3-indigo">$btntext</button>
-        <span class="w3-bar-item">$username</span>
+		<a href="/" class="w3-bar-item w3-button w3-indigo">$language_strings['web_label_dashboard']</a>
+		<div id='user-info'>
+        	<button id="loginlogout" form="loginlogoutform" class="w3-bar-item w3-btn w3-indigo w3-right">$btntext</button>
+        	<span class="w3-bar-item w3-right">$username</span>
+		</div>
 	</div> 
 	
     <div class="w3-container main-content" id = "main">
