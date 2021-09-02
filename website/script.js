@@ -77,7 +77,21 @@ function openNewChar(event){
 		modal.style.display = 'block';
 
 		// setup the modal
-		//todo
+		var submit = document.getElementById('newchar_modal_submit');
+		submit.addEventListener('click', function (event){
+			var charId = document.getElementById('newchar_modal_charId').value;
+			var charName = document.getElementById('newchar_modal_charName').value;
+			const params = new URLSearchParams({
+				charId: charId,
+				charName: charName
+			});
+			get_remote_resource('./newCharacter?'+params.toString(), 'json',  function(data){
+				const params = new URLSearchParams({
+					character: data.charId
+				});
+				window.location.href = './?'+params.toString();
+			});
+		});
 	}
 	else{
 		console.log("newchar modal not loaded!")
@@ -594,8 +608,6 @@ function createTraitElement(traitdata){
 			var trait_sqrs = document.createElement('p');
 			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true);
 			c.appendChild(trait_sqrs);
-
-			
 		}
 		else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
 		{

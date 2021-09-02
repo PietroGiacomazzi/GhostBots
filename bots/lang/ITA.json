@@ -152,5 +152,6 @@
 	"web_label_fihishedit_character": "Finisci di modificare",
 	"web_label_addt_character": "Aggiungi un tratto",
 	"web_label_charid": "ID personaggio",
-	"web_label_charName": "Nome personaggio"
+	"web_label_charName": "Nome personaggio",
+	"web_label_createChar": "Crea personaggio"
 }

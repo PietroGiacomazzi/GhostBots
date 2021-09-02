@@ -46,7 +46,8 @@ urls = (
     "/editCharacterTraitAdd", "editCharacterTraitAdd",
     "/canEditCharacter", "canEditCharacter",
     "/webFunctionVisibility", "webFunctionVisibility",
-    "/getModal", "getModal"
+    "/getModal", "getModal",
+    "/newCharacter", "newCharacter"
     )
 
 
@@ -221,6 +222,10 @@ class discordCallback(APIResponse):
             self.session.discord_userid = user['id']
             self.session.discord_username = user['username']
             self.session.discord_userdiscriminator = user['discriminator']
+
+            if not len(dbm.db.select('People', where='userid=$userid', vars=dict(userid=self.session.discord_userid))):
+                dbm.db.insert('People', userid=self.session.discord_userid, name= self.session.discord_username, langId = default_language)
+
             self.session.language = getLanguage(self.session, dbm)
             
             ba, _ = dbm.isBotAdmin(self.session.discord_userid)
@@ -670,6 +675,50 @@ class getModal(WebPageResponseLang):
             return render.newCharModal(global_template_params, self.getLanguageDict(), modal_params)
         
         raise WebException("Invalid modal id", 400)
+
+class newCharacter(WebPageResponseLang):
+    def __init__(self):
+        super(newCharacter, self).__init__(config, session, accepted_input = {
+            'charId': (MUST, validator_str_maxlen(20)),
+            'charName': (MUST, validator_str_maxlen(50)),
+        })
+    def mGET(self):
+        vl, character = dbm.isValidCharacter(self.input_data['charId'])
+        if vl:
+            raise WebException("Character ID already exists", 400)
+        
+        chid = self.input_data['modalId']
+        owner = self.session.discord_userid
+        fullname = self.input_data['charName']
+        
+        # todo: create chars for other people
+
+        t = dbm.db.transaction()
+        try:
+            dbm.db.insert('PlayerCharacter', id=chid, owner=owner, player=owner, fullname=fullname)
+            dbm.db.query("""
+insert into CharacterTrait
+    select t.id as trait, 
+    pc.id as playerchar, 
+    0 as cur_value, 
+    0 as max_value, 
+    "" as text_value,
+    case 
+    WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
+    else 0
+    end
+    as pimp_max
+    from Trait t, PlayerCharacter pc
+    where t.standard = true
+    and pc.id = $pcid;
+""", vars = dict(pcid=chid))
+        except:
+            t.rollback()
+            raise
+        else:
+            t.commit()
+            return self.input_data # idk
+        
 
 if __name__ == "__main__":
     app.run(Log)

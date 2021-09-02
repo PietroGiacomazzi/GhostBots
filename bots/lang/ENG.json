@@ -152,5 +152,6 @@
 	"web_label_fihishedit_character": "Stop editing",
 	"web_label_addt_character": "Add a trait",
 	"web_label_charid": "Character ID",
-	"web_label_charName": "Character name"
+	"web_label_charName": "Character name",
+	"web_label_createChar": "Create character"
 }
