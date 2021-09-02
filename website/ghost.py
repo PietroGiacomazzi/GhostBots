@@ -676,7 +676,7 @@ class getModal(WebPageResponseLang):
         
         raise WebException("Invalid modal id", 400)
 
-class newCharacter(WebPageResponseLang):
+class newCharacter(APIResponse):
     def __init__(self):
         super(newCharacter, self).__init__(config, session, accepted_input = {
             'charId': (MUST, validator_str_maxlen(20)),
