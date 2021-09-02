@@ -687,7 +687,7 @@ class newCharacter(WebPageResponseLang):
         if vl:
             raise WebException("Character ID already exists", 400)
         
-        chid = self.input_data['modalId']
+        chid = self.input_data['charId']
         owner = self.session.discord_userid
         fullname = self.input_data['charName']
         
