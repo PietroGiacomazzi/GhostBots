@@ -9,12 +9,13 @@ $def with (global_params, language_strings, items)
 			<th>$language_strings['web_label_user']</th>
 			<th>$language_strings['web_label_date']</th>
 			<th>$language_strings['web_label_trait']</th>
+			<th>$language_strings['web_label_trait_part']</th>
 			<th>$language_strings['web_label_oldval']</th>
 			<th>$language_strings['web_label_newval']</th>
 			<th>$language_strings['web_label_modlog_origin']</th>
 		</tr>
 		$for n in items:
-			<tr><td>$n['name']</td><td>$n['logtime']</td><td>$n['traitid']</td><td>$n['old_val']</td><td>$n['new_val']</td><td>$n['command']</td></tr>
+			<tr><td>$n['name']</td><td>$n['logtime']</td><td>$n['traitid']</td><td>$language_strings['web_label_valtype_'+n['val_type']]</td><td>$n['old_val']</td><td>$n['new_val']</td><td>$n['command']</td></tr>
 		</table>
       </div>
     </div>

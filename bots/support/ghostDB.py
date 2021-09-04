@@ -41,7 +41,7 @@ insert into CharacterTrait
 """, vars = dict(pcid=chid))
         except:
             t.rollback()
-            raise DBException(0, "db_failed_inserting_character", (chid))
+            raise DBException(0, "db_failed_inserting_character", (chid,))
         else:
             t.commit()
             return
@@ -73,7 +73,7 @@ insert into CharacterTrait
     WHERE t.id = $trait 
     """, vars=dict(trait=trait_id))
         if len(traits) == 0:
-            raise DBException(0, 'string_TRAIT_does_not_exist', (trait_id))
+            raise DBException(0, 'string_TRAIT_does_not_exist', (trait_id,))
         return traits[0]
     def getTrait(self, pc_id, trait_id):
         """Get a character's trait"""

@@ -137,6 +137,7 @@
 	"web_label_user": "User",
 	"web_label_date": "Date",
 	"web_label_trait": "Trait",
+	"web_label_trait_part": "Component",
 	"web_label_oldval": "Old value",
 	"web_label_newval": "New value",
 	"web_label_modlog_origin": "Origin",
@@ -158,5 +159,11 @@
 	"web_label_charName": "Character name",
 	"web_label_createChar": "Create character",
 	"web_label_charid_placeholder": "Short name (e.g. george)",
-	"web_label_charName_placeholder": "Complete name (e.g. Generic George)"
+	"web_label_charName_placeholder": "Complete name (e.g. Generic George)",
+	"web_label_valtype_0": "Current",
+	"web_label_valtype_1": "Total",
+	"web_label_valtype_2": "Text",
+	"web_label_valtype_3": "Pimpabily",
+	"web_label_valtype_4": "Add",
+	"web_label_valtype_5": "Delete"
 }

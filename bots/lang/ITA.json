@@ -137,6 +137,7 @@
 	"web_label_user": "Utente",
 	"web_label_date": "Data",
 	"web_label_trait": "Tratto",
+	"web_label_trait_part": "Componente",
 	"web_label_oldval": "Vecchio valore",
 	"web_label_newval": "Nuovo valore",
 	"web_label_modlog_origin": "Origine",
@@ -158,5 +159,11 @@
 	"web_label_charName": "Nome personaggio",
 	"web_label_createChar": "Crea personaggio",
 	"web_label_charid_placeholder": "Nome breve (es. giorgio)",
-	"web_label_charName_placeholder": "Nome completo (es. Giorgio il Generico)"
+	"web_label_charName_placeholder": "Nome completo (es. Giorgio il Generico)",
+	"web_label_valtype_0": "Corrente",
+	"web_label_valtype_1": "Totale",
+	"web_label_valtype_2": "Testo",
+	"web_label_valtype_3": "Pimpabilità",
+	"web_label_valtype_4": "Aggiunta",
+	"web_label_valtype_5": "Rimozione"
 }
