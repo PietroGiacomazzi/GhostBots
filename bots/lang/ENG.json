@@ -80,6 +80,9 @@
 	"string_msg_trait_X_not_translated_Y": "The trait {} does not have a translation in {}",
 	"string_TRAIT_does_not_exist": "The trait {} does not exist",
 	"string_error_wrong_number_arguments": "Wrong number of arguments",
+	"string_error_character_already_exists": "The character already exists",
+
+	"db_failed_inserting_character": "Failed inserting the character {}",
 
 	"web_already_logged_as": "Already logged in as {}#{}",
 	"web_index_page_title": "Index Page",
@@ -153,5 +156,7 @@
 	"web_label_addt_character": "Add a trait",
 	"web_label_charid": "Character ID",
 	"web_label_charName": "Character name",
-	"web_label_createChar": "Create character"
+	"web_label_createChar": "Create character",
+	"web_label_charid_placeholder": "Short name (e.g. george)",
+	"web_label_charName_placeholder": "Complete name (e.g. Generic George)"
 }

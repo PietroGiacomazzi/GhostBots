@@ -15,8 +15,36 @@ class DBManager:
     def reconnect(self):
         self.db = web.database(dbn=self.cfg['type'], user=self.cfg['user'], pw=self.cfg['pw'], db=self.cfg['database'])
         # fallback
-        self.db.query("SET SESSION interactive_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])));
-        self.db.query("SET SESSION wait_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])));
+        self.db.query("SET SESSION interactive_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])))
+        self.db.query("SET SESSION wait_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])))
+    def newCharacter(self, chid, fullname, owner, player = None):
+        if player == None:
+            player = owner
+        t = self.db.transaction()
+        try:
+            self.db.insert('PlayerCharacter', id=chid, owner=owner, player=owner, fullname=fullname)
+            self.db.query("""
+insert into CharacterTrait
+    select t.id as trait, 
+    pc.id as playerchar, 
+    0 as cur_value, 
+    0 as max_value, 
+    "" as text_value,
+    case 
+    WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
+    else 0
+    end
+    as pimp_max
+    from Trait t, PlayerCharacter pc
+    where t.standard = true
+    and pc.id = $pcid;
+""", vars = dict(pcid=chid))
+        except:
+            t.rollback()
+            raise DBException(0, "db_failed_inserting_character", (chid))
+        else:
+            t.commit()
+            return
     def isValidCharacter(self, charid):
         characters = self.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
         return bool(len(characters)), (characters[0] if (len(characters)) else None)

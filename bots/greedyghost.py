@@ -1328,23 +1328,7 @@ async def pgmod_create(ctx, args):
             if not len(dbm.db.select('People', where='userid=$userid', vars=dict(userid=owner))):
                 user = await bot.fetch_user(owner)
                 dbm.db.insert('People', userid=owner, name=user.name, langId = default_language)
-            dbm.db.insert('PlayerCharacter', id=chid, owner=owner, player=owner, fullname=fullname)
-            dbm.db.query("""
-insert into CharacterTrait
-    select t.id as trait, 
-    pc.id as playerchar, 
-    0 as cur_value, 
-    0 as max_value, 
-    "" as text_value,
-    case 
-    WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
-    else 0
-    end
-    as pimp_max
-    from Trait t, PlayerCharacter pc
-    where t.standard = true
-    and pc.id = $pcid;
-""", vars = dict(pcid=chid))
+            dbm.newCharacter(chid, fullname, owner)
         except:
             t.rollback()
             raise

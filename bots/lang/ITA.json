@@ -80,6 +80,9 @@
 	"string_msg_trait_X_not_translated_Y": "Il tratto {} non ha una traduzione in {}",
 	"string_TRAIT_does_not_exist": "Il tratto {} non esiste",
 	"string_error_wrong_number_arguments": "Numero di argomenti errato",
+	"string_error_character_already_exists": "Il personaggio esiste già",
+
+	"db_failed_inserting_character": "Inserimento di {} fallito",
 
 	"web_already_logged_as": "Hai già eseguito il login come {}#{}",
 	"web_index_page_title": "Indice",
@@ -153,5 +156,7 @@
 	"web_label_addt_character": "Aggiungi un tratto",
 	"web_label_charid": "ID personaggio",
 	"web_label_charName": "Nome personaggio",
-	"web_label_createChar": "Crea personaggio"
+	"web_label_createChar": "Crea personaggio",
+	"web_label_charid_placeholder": "Nome breve (es. giorgio)",
+	"web_label_charName_placeholder": "Nome completo (es. Giorgio il Generico)"
 }

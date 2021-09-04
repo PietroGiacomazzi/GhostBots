@@ -159,6 +159,13 @@ class Log(WsgiLog): # this shit needs the config to be loaded so it can't be off
             backups = config['WebApp']['log_backups']
             )
 
+class WebExceptionLang(WebException):
+    def __init__(self, msg, langParams = (), errorcode = 0, lid = default_language):
+        super(WebExceptionLang, self).__init__(lp.get(lid, msg, *langParams), errorcode)
+
+def translate_dbexc(dbexc, lid, errorcode = 0): # errorcode from dbexc is dumped
+    return WebExceptionLang(dbexc.args[1], dbexc.args[2], errorcode = errorcode, lid = lid)
+
 class WebPageResponseLang(WebPageResponse):
     def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
         super(WebPageResponseLang, self).__init__(config, session, properties, accepted_input, min_access_level)
@@ -171,6 +178,27 @@ class WebPageResponseLang(WebPageResponse):
         return lp.get(self.getLangId(), string_id, *args)
     def getLanguageDict(self):
         return lp.languages[self.getLangId()]
+    def getLangException(self, errorcode, string_id, args = ()):
+        return WebExceptionLang(string_id, args, errorcode = errorcode, lid = self.getLangId())
+    def getLangExceptionFromBDExc(self, dbexc, errorcode = 0):
+        return translate_dbexc(dbexc, self.getLangId(), errorcode)
+
+class APIResponseLang(APIResponse):
+    def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
+        super(APIResponseLang, self).__init__(config, session, properties, accepted_input, min_access_level)
+    def getLangId(self):
+        try:
+            return self.session.language
+        except AttributeError:
+            return getLanguage(self.session, dbm)
+    def getString(self, string_id, *args):
+        return lp.get(self.getLangId(), string_id, *args)
+    def getLanguageDict(self):
+        return lp.languages[self.getLangId()]
+    def getLangException(self, errorcode, string_id, args = ()):
+        return WebExceptionLang(string_id, args, errorcode = errorcode, lid = self.getLangId())
+    def getLangExceptionFromBDExc(self, dbexc, errorcode = 0):
+        return translate_dbexc(dbexc, self.getLangId(), errorcode)
         
 class main_page:
     def GET(self):
@@ -410,7 +438,7 @@ class editTranslation(APIResponse):
             'traitId': (MUST, validator_trait),
             'type': (MUST, validator_set( ("short", "name") )),
             'langId': (MUST, validator_language),
-            'value': (MUST, validator_str_maxlen(50)),     
+            'value': (MUST, validator_str_range(1, 50)),     
         })
     def mGET(self):
         u = 0
@@ -446,7 +474,7 @@ class editCharacterTraitNumber(APIResponse): # no textbased
     def __init__(self):
         super(editCharacterTraitNumber, self).__init__(config, session, min_access_level=1, accepted_input = {
             'traitId': (MUST, validator_trait_number),
-            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
             'newValue': (MUST, validator_positive_integer),   
         })
     def mGET(self):
@@ -476,7 +504,7 @@ class editCharacterTraitNumberCurrent(APIResponse): # no textbased
     def __init__(self):
         super(editCharacterTraitNumberCurrent, self).__init__(config, session, min_access_level=1, accepted_input = {
             'traitId': (MUST, validator_trait_number),
-            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
             'newValue': (MUST, validator_positive_integer),   
         })
     def mGET(self):
@@ -513,8 +541,8 @@ class editCharacterTraitText(APIResponse): #textbased
     def __init__(self):
         super(editCharacterTraitText, self).__init__(config, session, min_access_level=1, accepted_input = {
             'traitId': (MUST, validator_trait_textbased), 
-            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
-            'newValue': (MUST, validator_str_maxlen(50)),   
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'newValue': (MUST, validator_str_range(1, 50)),   
         })
     def mGET(self):
         vl, character = dbm.isValidCharacter(self.input_data['charId'])
@@ -542,7 +570,7 @@ class editCharacterTraitRemove(APIResponse): #textbased
     def __init__(self):
         super(editCharacterTraitRemove, self).__init__(config, session, min_access_level=1, accepted_input = {
             'traitId': (MUST, validator_trait), 
-            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
         })
     def mGET(self):
         vl, character = dbm.isValidCharacter(self.input_data['charId'])
@@ -585,8 +613,8 @@ class traitList(APIResponse):
 class editCharacterTraitAdd(APIResponse): #textbased
     def __init__(self):
         super(editCharacterTraitAdd, self).__init__(config, session, min_access_level=1, accepted_input = {
-            'traitId': (MUST, validator_str_maxlen(20)), # I'm validating the trait later because I also need trait data
-            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
+            'traitId': (MUST, validator_str_range(1, 20)), # I'm validating the trait later because I also need trait data
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
         })
     def mGET(self):
         lid = getLanguage(self.session, dbm)
@@ -627,7 +655,7 @@ class editCharacterTraitAdd(APIResponse): #textbased
 class canEditCharacter(APIResponse): #textbased
     def __init__(self):
         super(canEditCharacter, self).__init__(config, session, min_access_level=1, accepted_input = {
-            'charId': (MUST, validator_str_maxlen(20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
         })
     def mGET(self):
         lid = getLanguage(self.session, dbm)
@@ -665,7 +693,7 @@ class webFunctionVisibility(APIResponse):
 class getModal(WebPageResponseLang):
     def __init__(self):
         super(getModal, self).__init__(config, session, accepted_input = {
-            'modalId': (MUST, validator_str_maxlen(30)),
+            'modalId': (MUST, validator_str_range(1, 30)),
         })
     def mGET(self):
         if self.input_data['modalId'] == 'new_char_modal':
@@ -676,48 +704,28 @@ class getModal(WebPageResponseLang):
         
         raise WebException("Invalid modal id", 400)
 
-class newCharacter(APIResponse):
+class newCharacter(APIResponseLang):
     def __init__(self):
         super(newCharacter, self).__init__(config, session, accepted_input = {
-            'charId': (MUST, validator_str_maxlen(20)),
-            'charName': (MUST, validator_str_maxlen(50)),
+            'charId': (MUST, validator_str_range(1, 20)),
+            'charName': (MUST, validator_str_range(1, 50)),
         })
     def mGET(self):
+        lid = getLanguage(self.session, dbm)
         vl, character = dbm.isValidCharacter(self.input_data['charId'])
         if vl:
-            raise WebException("Character ID already exists", 400)
+            raise self.getLangException(400, "string_error_character_already_exists")
         
         chid = self.input_data['charId']
         owner = self.session.discord_userid
         fullname = self.input_data['charName']
         
         # todo: create chars for other people
-
-        t = dbm.db.transaction()
         try:
-            dbm.db.insert('PlayerCharacter', id=chid, owner=owner, player=owner, fullname=fullname)
-            dbm.db.query("""
-insert into CharacterTrait
-    select t.id as trait, 
-    pc.id as playerchar, 
-    0 as cur_value, 
-    0 as max_value, 
-    "" as text_value,
-    case 
-    WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
-    else 0
-    end
-    as pimp_max
-    from Trait t, PlayerCharacter pc
-    where t.standard = true
-    and pc.id = $pcid;
-""", vars = dict(pcid=chid))
-        except:
-            t.rollback()
-            raise
-        else:
-            t.commit()
+            dbm.newCharacter(chid, fullname, owner)
             return self.input_data # idk
+        except ghostDB.DBException as e:
+            raise self.getLangExceptionFromBDExc(e, 400)
         
 
 if __name__ == "__main__":

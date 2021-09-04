@@ -6,9 +6,9 @@ $def with (global_params, language_strings, modal_params)
 		  <h2>$language_strings["web_label_new_character"] </h2>
 		  <form id="newchar_modal_form" action="" class="w3-container">
         <label>$language_strings["web_label_charid"]</label>
-        <input id="newchar_modal_charId" name="charId" class="w3-input" type="text">
+        <input id="newchar_modal_charId" name="charId" class="w3-input" type="text" maxlength="20" placeholder="$language_strings['web_label_charid_placeholder']">
         <label>$language_strings["web_label_charName"]</label>
-        <input id="newchar_modal_charName" name="charName" class="w3-input" type="text">
+        <input id="newchar_modal_charName" name="charName" class="w3-input" type="text" maxlength="50" placeholder="$language_strings['web_label_charName_placeholder']">
       </form>
       <button id="newchar_modal_submit" class="w3-btn w3-green">$language_strings['web_label_createChar']</button>
     </div>
