@@ -402,8 +402,10 @@ class getCharacterModLog(WebPageResponseLang):
     join People pp on (cml.userid = pp.userid)
     where cml.charid = $charid
     order by cml.logtime desc
-    """, vars=dict(charid=self.input_data['charid']))
-                return render.CharacterModLog(global_template_params, self.getLanguageDict(), log.list())
+    """, vars=dict(charid=self.input_data['charid'])).list()
+                for i in range(len(log)):
+                    log[i]["val_type"] = "web_label_valtype_{log[i]['val_type']}"
+                return render.CharacterModLog(global_template_params, self.getLanguageDict(), log)
             else:
                 self.logger.warning(f"Modlog was asked for {self.input_data['charid']} by {self.session.discord_userid}, who does not have access to it")
                 return ""
