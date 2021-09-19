@@ -194,6 +194,14 @@ insert into CharacterTrait
         """Is this character linked to a chronicle? (can return the list of chronicles)"""
         result = self.db.select('ChronicleCharacterRel', where='playerchar=$id', vars=dict(id=charid))
         return bool(len(result)), result.list() if len(result) else None
+    def isCharacterLinkedToChronicle(self, charid, chronicleid):
+        """Is this character linked to a specific chronicle? """
+        result = self.db.select('ChronicleCharacterRel', where='playerchar=$id and chronicle=$chronicleid', vars=dict(id=charid, chronicleid=chronicleid))
+        return bool(len(result)), result.list()[0] if len(result) else None
+    def isValidChronicle(self, chronicleid):
+        """Is this a valid chronicle?"""    
+        chronicles = self.db.select('Chronicle', where='id=$id', vars=dict(id=chronicleid))
+        return bool(len(chronicles)), chronicles.list()[0]
     def isSessionActiveForCharacter(self, charid, channelid): #
         """Is there a session on this channel that includes this character?"""
         result = self.db.query("""

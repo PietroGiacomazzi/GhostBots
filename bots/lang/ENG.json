@@ -83,6 +83,8 @@
 	"string_error_character_already_exists": "The character already exists",
 	"string_error_char_not_allowed": "character not allowed",
 
+	"help_gmadm_stlink": "Arguments: <@mention storyteller>, <chronicle id>",
+
 	"db_failed_inserting_character": "Failed inserting the character {}",
 
 	"web_already_logged_as": "Already logged in as {}#{}",

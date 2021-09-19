@@ -65,7 +65,10 @@ def getLanguage(userid, dbm):
     except ghostDB.DBException:
         return default_language
 
-
+def validateDiscordMention(mention : str):
+    if not (mention.startswith("<@!") and mention.endswith(">")): 
+        return False, None
+    return  True, mention[3:-1]
 
 die_emoji = {
     2: ":two:",
@@ -1301,7 +1304,6 @@ async def sql(ctx, *args):
     except MySQLdb.ProgrammingError as e:
         await atSend(ctx, f"```Errore {e.args[0]}\n{e.args[1]}```")
 
-    
 
 async def pgmod_create(ctx, args):
     helptext = "Argomenti: nome breve (senza spazi), @menzione al proprietario, nome completo del personaggio (spazi ammessi)"
@@ -1309,10 +1311,10 @@ async def pgmod_create(ctx, args):
         return helptext
     else:
         chid = args[0].lower()
-        owner = args[1]
-        if not (owner.startswith("<@!") and owner.endswith(">")):
+        v, owner = validateDiscordMention(args[1])
+        if not v:
             raise BotException("Menziona il proprietario del personaggio con @nome")
-        owner = owner[3:-1]
+
         fullname = " ".join(list(args[2:]))
 
         # permission checks
@@ -1340,27 +1342,62 @@ async def pgmod_chronicleAdd(ctx, args):
     helptext = "Argomenti: nome breve del pg, nome breve della cronaca"
     if len(args) != 2:
         return helptext
-    else:
-        charid = args[0].lower()
-        isChar, character = dbm.isValidCharacter(charid)
-        if not isChar:
-            raise BotException(f"Il personaggio {charid} non esiste!")
-        chronid = args[1].lower()
-        chronicles = dbm.db.select('Chronicle', where='id=$id', vars=dict(id=chronid))
-        if not len(chronicles):
-            raise BotException(f"La cronaca {chronid} non esiste!")
-        chronicle = chronicles[0]
+    
+    # validation
+    charid = args[0].lower()
+    isChar, character = dbm.isValidCharacter(charid)
+    if not isChar:
+        raise BotException(f"Il personaggio {charid} non esiste!")
+    
+    chronid = args[1].lower()
+    vc, chronicle = dbm.isValidChronicle(chronid)
+    if not vc:
+        raise BotException(f"La cronaca {chronid} non esiste!") 
 
-        # permission checks
-        issuer = str(ctx.message.author.id)
-        st, _ = dbm.isChronicleStoryteller(issuer, chronicle['id'])
-        ba, _ = dbm.isBotAdmin(issuer)
-        if not (st or ba):
-            raise BotException("Per associare un pg ad una cronaca necessario essere Admin o Storyteller di quella cronaca")
-        
-        # todo check link esistente
+    # permission checks
+    issuer = str(ctx.message.author.id)
+    st, _ = dbm.isChronicleStoryteller(issuer, chronicle['id'])
+    ba, _ = dbm.isBotAdmin(issuer)
+    if not (st or ba):
+        raise BotException("Per associare un pg ad una cronaca necessario essere Admin o Storyteller di quella cronaca")
+    
+    is_linked, _ = dbm.isCharacterLinkedToChronicle(charid, chronid)
+    if is_linked:
+        return f"C'è già un associazione tra {character['fullname']} e {chronicle['name']}"
+    else:
         dbm.db.insert("ChronicleCharacterRel", chronicle=chronid, playerchar=charid)
         return f"{character['fullname']} ora gioca a {chronicle['name']}"
+
+async def pgmod_chronicleRemove(ctx, args):
+    helptext = "Argomenti: nome breve del pg, nome breve della cronaca"
+    if len(args) != 2:
+        return helptext
+    
+    # validation
+    charid = args[0].lower()
+    isChar, character = dbm.isValidCharacter(charid)
+    if not isChar:
+        raise BotException(f"Il personaggio {charid} non esiste!")
+
+    chronid = args[1].lower()
+    vc, chronicle = dbm.isValidChronicle(chronid)
+    if not vc:
+        raise BotException(f"La cronaca {chronid} non esiste!")
+
+    # permission checks
+    issuer = str(ctx.message.author.id)
+    st, _ = dbm.isChronicleStoryteller(issuer, chronicle['id'])
+    ba, _ = dbm.isBotAdmin(issuer)
+    if not (st or ba):
+        raise BotException("Per rimuovere un pg da una cronaca necessario essere Admin o Storyteller di quella cronaca")
+    
+    is_linked, _ = dbm.isCharacterLinkedToChronicle(charid, chronid)
+    if is_linked:
+        dbm.db.delete("ChronicleCharacterRel", where = 'playerchar=$id and chronicle=$chronicleid', vars=dict(chronicle=chronid, playerchar=charid))
+        return f"{character['fullname']} ora gioca a {chronicle['name']}"
+    else:
+        return f"{character['fullname']} non è associato a {chronicle['name']}"
+
 
 def pgmodPermissionCheck(issuer_id, character, channel_id):
     owner_id = character['owner']
@@ -1495,10 +1532,11 @@ async def pgmod_traitRM(ctx, args):
 
 pgmod_subcommands = {
     "create": [pgmod_create, "Crea un personaggio"],
-    "link": [pgmod_chronicleAdd, "Aggiunge un personaggio ad una cronaca"],
     "addt": [pgmod_traitAdd, "Aggiunge tratto ad un personaggio"],
     "modt": [pgmod_traitMod, "Modifica un tratto di un personaggio"],
-    "rmt": [pgmod_traitRM, "Rimuovi un tratto ad un personaggio"]
+    "rmt": [pgmod_traitRM, "Rimuovi un tratto ad un personaggio"],
+    "link": [pgmod_chronicleAdd, "Aggiunge un personaggio ad una cronaca"],
+    "unlink": [pgmod_chronicleRemove, "Disassocia un personaggio da una cronaca"]
     }
 
 async def gmadm_listChronicles(ctx, args):
@@ -1536,7 +1574,7 @@ async def gmadm_listChronicles(ctx, args):
 
 async def gmadm_newChronicle(ctx, args):
     helptext = "Argomenti: <id> <nome completo> \n\nId non ammette spazi."
-    if len(args) < 2:
+    if len(args) != 2:
         return helptext
     else:
         shortname = args[0].lower()
@@ -1694,68 +1732,99 @@ async def gmadm_updateTrait(ctx, args):
     **3**: Punti senza massimo (esperienza...)
 """
         return helptext
+    
+    # permission checks
+    st, _ = dbm.isStoryteller(issuer)
+    ba, _ = dbm.isBotAdmin(issuer)
+    if not (st or ba):
+        raise BotException("Per modificare un tratto è necessario essere Admin o Storyteller")
+
+    old_traitid = args[0].lower()
+    istrait, old_trait = dbm.isValidTrait(old_traitid)
+    if not istrait:
+        raise BotException(f"Il tratto {old_traitid} non esiste!")
+    
+    new_traitid = args[1].lower()
+    istrait, new_trait = dbm.isValidTrait(new_traitid)
+    if istrait and (old_traitid!=new_traitid):
+        raise BotException(f"Il tratto {new_traitid} esiste già!")
+
+    if not validateTraitName(new_traitid):
+        raise BotException(f"'{new_traitid}' non è un id valido!")
+
+    traittypeid = args[2].lower()
+    istraittype, traittype = dbm.isValidTraitType(traittypeid)
+    if not istraittype:
+        raise BotException(f"Il tipo di tratto {traittypeid} non esiste!")
+
+    if not args[3].isdigit():
+        raise BotException(f"{args[2]} non è un intero >= 0!")
+    tracktype = int(args[3])
+    if not tracktype in [0, 1, 2, 3]: # todo dehardcode
+        raise BotException(f"{tracktype} non è tracker valido!")
+
+    stdarg = args[4].lower()
+    std = stdarg in ['y', 's', '1']
+    if not std and not stdarg in ['n', '0']:
+        raise BotException(f"{stdarg} non è un'opzione valida")
+
+    traitname = " ".join(args[5:])
+    
+    response = f'Il tratto {traitname} è stato aggiornato'
+    t = dbm.db.transaction()
+    try:
+        dbm.db.update("Trait", where= 'id = $oldid' , vars=dict(oldid = old_traitid), id = new_traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0)
+        # now we update the language description, but only of the current language
+        dbm.db.update("LangTrait", where= 'traitId = $traitid and langId = $lid' , vars=dict(traitid=new_traitid, lid = lid), traitName = traitname)
+        if std and not old_trait['standard']:
+            dbm.db.query(query_addTraitToPCs_safe, vars = dict(traitid=new_traitid))
+            response +=  f'\nIl nuovo talento standard {traitname} è stato assegnato ai personaggi!'
+        elif not std and old_trait['standard']:
+            dbm.db.query("""
+delete from CharacterTrait
+where trait = $traitid and max_value = 0 and cur_value = 0 and text_value = '';
+""", vars = dict(traitid=new_traitid))
+            response += f'\nIl talento {traitname} è stato rimosso dai personaggi che non avevano pallini'
+    except:
+        t.rollback()
+        raise
     else:
-        # permission checks
-        st, _ = dbm.isStoryteller(issuer)
-        ba, _ = dbm.isBotAdmin(issuer)
-        if not (st or ba):
-            raise BotException("Per modificare un tratto è necessario essere Admin o Storyteller")
+        t.commit()
 
-        old_traitid = args[0].lower()
-        istrait, old_trait = dbm.isValidTrait(old_traitid)
-        if not istrait:
-            raise BotException(f"Il tratto {old_traitid} non esiste!")
-        
-        new_traitid = args[1].lower()
-        istrait, new_trait = dbm.isValidTrait(new_traitid)
-        if istrait and (old_traitid!=new_traitid):
-            raise BotException(f"Il tratto {new_traitid} esiste già!")
+    return response
 
-        if not validateTraitName(new_traitid):
-            raise BotException(f"'{new_traitid}' non è un id valido!")
+async def gmadm_stlink(ctx, args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
+    helptext = lp.get(lid, "help_gmadm_stlink")
+    if len(args) != 2:
+        return helptext
+    
+    # validation
+    chronid = args[1].lower()
+    vc, _ = dbm.isValidChronicle(chronid)
+    if not vc:
+        raise BotException(f"La cronaca {chronid} non esiste!")
+    
+    vt, target_st = validateDiscordMention(args[0])
+    if not vt:
+        raise BotException(f"Menziona lo storyteller con @") 
+    t_st, _ = dbm.isStoryteller(target_st)
+    if not t_st:
+        raise BotException(f"L'utente selezionato non è uno storyteller") 
+    t_stc, _ = dbm.isChronicleStoryteller(target_st, chronid)
+    if t_stc:
+        raise BotException(f"L'utente selezionato è già Storyteller per {chronid}")  
 
-        traittypeid = args[2].lower()
-        istraittype, traittype = dbm.isValidTraitType(traittypeid)
-        if not istraittype:
-            raise BotException(f"Il tipo di tratto {traittypeid} non esiste!")
+    # permission checks
+    st, _ = dbm.isChronicleStoryteller(issuer, chronid)
+    ba, _ = dbm.isBotAdmin(issuer)
+    if not (st or ba):
+        raise BotException("Per collegare Storyteller e cronaca è necessario essere Admin o Storyteller di quella cronaca")
 
-        if not args[3].isdigit():
-            raise BotException(f"{args[2]} non è un intero >= 0!")
-        tracktype = int(args[3])
-        if not tracktype in [0, 1, 2, 3]: # todo dehardcode
-            raise BotException(f"{tracktype} non è tracker valido!")
+    # link
 
-        stdarg = args[4].lower()
-        std = stdarg in ['y', 's', '1']
-        if not std and not stdarg in ['n', '0']:
-            raise BotException(f"{stdarg} non è un'opzione valida")
-
-        traitname = " ".join(args[5:])
-        
-
-        response = f'Il tratto {traitname} è stato aggiornato'
-        t = dbm.db.transaction()
-        try:
-            dbm.db.update("Trait", where= 'id = $oldid' , vars=dict(oldid = old_traitid), id = new_traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0)
-            # now we update the language description, but only of the current language
-            dbm.db.update("LangTrait", where= 'traitId = $traitid and langId = $lid' , vars=dict(traitid=new_traitid, lid = lid), traitName = traitname)
-            if std and not old_trait['standard']:
-                dbm.db.query(query_addTraitToPCs_safe, vars = dict(traitid=new_traitid))
-                response +=  f'\nIl nuovo talento standard {traitname} è stato assegnato ai personaggi!'
-            elif not std and old_trait['standard']:
-                dbm.db.query("""
-    delete from CharacterTrait
-    where trait = $traitid and max_value = 0 and cur_value = 0 and text_value = '';
-    """, vars = dict(traitid=new_traitid))
-                response += f'\nIl talento {traitname} è stato rimosso dai personaggi che non avevano pallini'
-        except:
-            t.rollback()
-            raise
-        else:
-            t.commit()
-
-
-        return response
+    dbm.db.insert("StoryTellerChronicleRel", storyteller=target_st, chronicle=chronid)
 
 async def gmadm_deleteTrait(ctx, args):
     return "non implementato"
@@ -1765,9 +1834,11 @@ gameAdmin_subcommands = {
     "newChronicle": [gmadm_newChronicle, "Crea una nuova cronaca associata allo ST che invoca il comando"],
     "newTrait": [gmadm_newTrait, "Crea nuovo tratto"],
     "updt": [gmadm_updateTrait, "Modifica un tratto"],
-    "delet": [gmadm_deleteTrait, "Cancella un tratto"] #non implementato
-    # todo: nomina storyteller, associa storyteller a cronaca
-    # todo: dissociazioni varie
+    "delet": [gmadm_deleteTrait, "Cancella un tratto (non implementato)"], #non implementato
+    "stlink": [gmadm_stlink, "Associa uno storyteller ad una cronaca"]
+    # todo: lista storyteller
+    # todo: nomina storyteller, Nomina ST: admin
+    # todo: dissociazioni varie: de-nominastoryteller, rimuovi storyteller da cronaca (regola di disassociazione: un st può solo disassociarsi dalle sue, altrimenti admin)
     }
 
 def generateNestedCmd(cmd_name, cmd_brief, cmd_dict):
@@ -1775,6 +1846,8 @@ def generateNestedCmd(cmd_name, cmd_brief, cmd_dict):
 
     @bot.command(name=cmd_name, brief=cmd_brief, description = longdescription)
     async def generatedCommand(ctx, *args):
+        #issuer = ctx.message.author.id
+        #lid = getLanguage(issuer, dbm)
         response = 'Azioni disponibili (invoca una azione senza argomenti per conoscere il funzionamento):\n'
         if len(args) == 0:
             response += longdescription
