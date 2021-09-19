@@ -496,7 +496,7 @@ def parseRollArgs(lid, args_raw):
         i += 1
     return parsed
 
-@bot.command(name='roll', aliases=['r', 'tira', 'lancia'], brief = 'Tira dadi', description = roll_longdescription) 
+@bot.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
 async def roll(ctx, *args):
     issuer = ctx.message.author.id
     lid = getLanguage(issuer, dbm)

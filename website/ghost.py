@@ -532,7 +532,7 @@ class editCharacterTraitNumberCurrent(APIResponse): # no textbased
                 raise WebException("Value too large", 400)
             
             dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val)
-            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], "web")
+            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], "web edit")
             return dbm.getTrait_LangSafe(charId, trait_id, lid)
 
         else:
@@ -562,7 +562,7 @@ class editCharacterTraitText(APIResponse): #textbased
             trait = dbm.getTrait(charId, trait_id)
             
             dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), text_value = new_val)
-            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.TEXT_VALUE, new_val, trait['text_value'], "web")
+            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.TEXT_VALUE, new_val, trait['text_value'], "web edit")
             return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
 
         else:
@@ -721,6 +721,9 @@ class newCharacter(APIResponseLang):
         chid = self.input_data['charId']
         owner = self.session.discord_userid
         fullname = self.input_data['charName']
+
+        if " " in chid: # todo: validator
+            raise self.getLangException(400, "string_error_char_not_allowed")
         
         # todo: create chars for other people
         try:

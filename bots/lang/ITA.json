@@ -81,6 +81,7 @@
 	"string_TRAIT_does_not_exist": "Il tratto {} non esiste",
 	"string_error_wrong_number_arguments": "Numero di argomenti errato",
 	"string_error_character_already_exists": "Il personaggio esiste già",
+	"string_error_char_not_allowed": "carattere non permesso",
 
 	"db_failed_inserting_character": "Inserimento di {} fallito",
 
@@ -158,8 +159,8 @@
 	"web_label_charid": "ID personaggio",
 	"web_label_charName": "Nome personaggio",
 	"web_label_createChar": "Crea personaggio",
-	"web_label_charid_placeholder": "Nome breve (es. giorgio)",
-	"web_label_charName_placeholder": "Nome completo (es. Giorgio il Generico)",
+	"web_label_charid_placeholder": "Nome breve senza spazi (es. 'giorgio')",
+	"web_label_charName_placeholder": "Nome completo, anche con spazi (es. 'Giorgio il Generico')",
 	"web_label_valtype_0": "Corrente",
 	"web_label_valtype_1": "Totale",
 	"web_label_valtype_2": "Testo",

@@ -81,6 +81,7 @@
 	"string_TRAIT_does_not_exist": "The trait {} does not exist",
 	"string_error_wrong_number_arguments": "Wrong number of arguments",
 	"string_error_character_already_exists": "The character already exists",
+	"string_error_char_not_allowed": "character not allowed",
 
 	"db_failed_inserting_character": "Failed inserting the character {}",
 
@@ -158,8 +159,8 @@
 	"web_label_charid": "Character ID",
 	"web_label_charName": "Character name",
 	"web_label_createChar": "Create character",
-	"web_label_charid_placeholder": "Short name (e.g. george)",
-	"web_label_charName_placeholder": "Complete name (e.g. Generic George)",
+	"web_label_charid_placeholder": "Short name with no spoaces (e.g. 'george')",
+	"web_label_charName_placeholder": "Complete name, spaces are allowed (e.g. 'Generic George')",
 	"web_label_valtype_0": "Current",
 	"web_label_valtype_1": "Total",
 	"web_label_valtype_2": "Text",
