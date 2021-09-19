@@ -1393,10 +1393,10 @@ async def pgmod_chronicleRemove(ctx, args):
     
     is_linked, _ = dbm.isCharacterLinkedToChronicle(charid, chronid)
     if is_linked:
-        dbm.db.delete("ChronicleCharacterRel", where = 'playerchar=$id and chronicle=$chronicleid', vars=dict(chronicle=chronid, playerchar=charid))
-        return f"{character['fullname']} ora gioca a {chronicle['name']}"
+        dbm.db.delete("ChronicleCharacterRel", where = 'playerchar=$playerchar and chronicle=$chronicleid', vars=dict(chronicleid=chronid, playerchar=charid))
+        return f"{character['fullname']} ora non gioca più a  {chronicle['name']}"
     else:
-        return f"{character['fullname']} non è associato a {chronicle['name']}"
+        return f"Non c\'è un\'associazione tra {character['fullname']} e {chronicle['name']}"
 
 
 def pgmodPermissionCheck(issuer_id, character, channel_id):
