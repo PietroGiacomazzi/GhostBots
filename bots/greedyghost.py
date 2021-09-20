@@ -1823,8 +1823,8 @@ async def gmadm_stlink(ctx, args):
         raise BotException("Per collegare Storyteller e cronaca è necessario essere Admin o Storyteller di quella cronaca")
 
     # link
-
     dbm.db.insert("StoryTellerChronicleRel", storyteller=target_st, chronicle=chronid)
+    return f"Cronaca associata"
 
 async def gmadm_deleteTrait(ctx, args):
     return "non implementato"

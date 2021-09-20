@@ -23,6 +23,8 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 	<div id = "newchar_modal_area">
 	</div>
 	<div class="w3-bar w3-black w3-top">
+		<button class="w3-button w3-indigo w3-bar-item" onclick="w3_open()" id="openNav" style="display: inline-block;">☰</button>
+
 		<div id='user-info'>
         	<button id="loginlogout" form="loginlogoutform" class="w3-bar-item w3-btn w3-indigo w3-right">$btntext</button>
         	<span class="w3-bar-item w3-right">$username</span>
@@ -32,6 +34,7 @@ $def with (global_params, language_strings, username, btntext, action, msg)
     <div class="w3-container" id = "main"> <!-- w3-display-container-->
         
 		<div class="w3-sidebar w3-bar-block under-navbar larger-sidebar" id='side_menu'>
+			<button onclick="w3_close()" class="w3-bar-item w3-button w3-large">chiudi ×</button> <!-- TODO LANGSTRING-->>
 			<div id = "action-menu" style="display:none">
 				<h3>$language_strings['web_label_actions']:</h3>
 				<a href="editTranslations" id = "traittranslation" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_trait_translation']</a>
