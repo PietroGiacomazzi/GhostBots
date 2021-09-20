@@ -168,5 +168,6 @@
 	"web_label_valtype_2": "Testo",
 	"web_label_valtype_3": "Pimpabilità",
 	"web_label_valtype_4": "Aggiunta",
-	"web_label_valtype_5": "Rimozione"
+	"web_label_valtype_5": "Rimozione",
+	"web_label_sidebar_close": "X Chiudi"
 }

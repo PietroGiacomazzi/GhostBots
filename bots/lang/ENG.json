@@ -168,5 +168,6 @@
 	"web_label_valtype_2": "Text",
 	"web_label_valtype_3": "Pimpabily",
 	"web_label_valtype_4": "Add",
-	"web_label_valtype_5": "Delete"
+	"web_label_valtype_5": "Delete",
+	"web_label_sidebar_close": "X Close"
 }
