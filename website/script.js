@@ -761,7 +761,7 @@ function populateSheet(characterTraits, character){
 	main.appendChild(charsheet);
 
 	//enable controls
-	document.getElementById("action-menu").style.display = 'block';
+	document.getElementById("action-menu").style.display = 'block'; // do i need this?
 	document.getElementById("newchar").style.display = 'block';
 
 	const params = new URLSearchParams({
@@ -1027,8 +1027,8 @@ function populate_page(){
 	modlog.addEventListener('click', load_modlog);
     //var side_menu = document.getElementById('side_menu');
 	get_remote_resource('./webFunctionVisibility', 'json', function(data){
-		if (data.action_menu){
-			document.getElementById("action-menu").style.display = 'block';
+		if (data.side_menu){
+			document.getElementById("side_menu").style.display = 'block';
 		}
 		if (data.new_character){
 			var el = document.getElementById("newchar")
@@ -1228,32 +1228,32 @@ function autocomplete(inp, arr) {
 	  }
 	}
 	function closeAllLists(elmnt) {
-	  /*close all autocomplete lists in the document,
-	  except the one passed as an argument:*/
-	  var x = document.getElementsByClassName("autocomplete-items");
-	  for (var i = 0; i < x.length; i++) {
-		if (elmnt != x[i] && elmnt != inp) {
-		x[i].parentNode.removeChild(x[i]);
-	  }
+	    /*close all autocomplete lists in the document,
+	    except the one passed as an argument:*/
+	    var x = document.getElementsByClassName("autocomplete-items");
+	    for (var i = 0; i < x.length; i++) {
+		    if (elmnt != x[i] && elmnt != inp) {
+			    x[i].parentNode.removeChild(x[i]);
+		    }
+		}
 	}
-  }
-  /*execute a function when someone clicks in the document:*/
-  document.addEventListener("click", function (e) {
-	  closeAllLists(e.target);
-  });
-  } 
+	/*execute a function when someone clicks in the document:*/
+	document.addEventListener("click", function (e) {
+		closeAllLists(e.target);
+	});
+} 
 
 
-  // todo: 
-  function w3_open() {
+// todo: 
+function w3_open() {
 	//document.getElementById("main_content").style.marginLeft = "25%";
 	//document.getElementById("side_menu").style.width = "25%";
 	document.getElementById("side_menu").style.display = "block";
 	document.getElementById("openNav").style.display = 'none';
-  }
+}
   
-  function w3_close() {
+function w3_close() {
 	document.getElementById("main_content").style.marginLeft = "0%";
 	document.getElementById("side_menu").style.display = "none";
 	document.getElementById("openNav").style.display = "inline-block";
-  }
+}

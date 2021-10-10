@@ -687,7 +687,7 @@ class webFunctionVisibility(APIResponse):
             st, _ = dbm.isStoryteller(self.session.discord_userid)
 
         return {
-            "action_menu": self.session.access_level >= 1, # any logged user
+            "side_menu": self.session.access_level >= 1, # any logged user
             "new_character": self.session.access_level >= 1, # any logged user
             "translate_traits": ba or st, # storytellers or admins
         }
