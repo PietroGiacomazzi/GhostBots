@@ -40,7 +40,7 @@
 	"string_error_notsure_whatroll":  "Non ho capito cosa devo tirare:",
 	"string_errorpiece_valid_diff": "una difficoltà valida",
 	"string_errorpiece_integer_gt0": "un intero maggiore di zero",
-	"string_error_x_isnot_y": "{} non è {err_msg}",
+	"string_error_x_isnot_y": "{} non è {}",
 	"string_errorpiece_number_in_range": "nell'intervallo [{};{}]",
 	"string_errorpiece_validarg_multi": "un numero >= 2",
 	"string_errorpiece_positive_integer": "un intero positivo",
