@@ -85,8 +85,8 @@
 
 	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller>] (if different than self)",
 	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller>] (if different than self)",
-	"help_gmadm_stname": "Arguments: <@mention user>",
-	"help_gmadm_stunname": "Arguments: <@mention user>",
+	"help_gmadm_stname": "Arguments: <@mention user> (if different than self)",
+	"help_gmadm_stunname": "Arguments: <@mention user> (if different than self)",
 
 	"db_failed_inserting_character": "Failed inserting the character {}",
 

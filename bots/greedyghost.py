@@ -1795,7 +1795,7 @@ where trait = $traitid and max_value = 0 and cur_value = 0 and text_value = '';
     return response
 
 async def gmadm_stlink(ctx, args):
-    issuer = ctx.message.author.id
+    issuer = str(ctx.message.author.id)
     lid = getLanguage(issuer, dbm)
     helptext = lp.get(lid, "help_gmadm_stlink")
 
@@ -1807,6 +1807,13 @@ async def gmadm_stlink(ctx, args):
     vc, _ = dbm.isValidChronicle(chronid)
     if not vc:
         raise BotException(f"La cronaca {chronid} non esiste!")
+
+    # permission checks
+    st, _ = dbm.isChronicleStoryteller(issuer, chronid)
+    ba, _ = dbm.isBotAdmin(issuer)
+    if not (st or ba):
+        raise BotException("Per collegare Storyteller e cronaca è necessario essere Admin o Storyteller di quella cronaca")
+
     
     target_st = None
     if len(args) == 1:
@@ -1823,18 +1830,12 @@ async def gmadm_stlink(ctx, args):
     if t_stc:
         raise BotException(f"L'utente selezionato è già Storyteller per {chronid}")  
 
-    # permission checks
-    st, _ = dbm.isChronicleStoryteller(issuer, chronid)
-    ba, _ = dbm.isBotAdmin(issuer)
-    if not (st or ba):
-        raise BotException("Per collegare Storyteller e cronaca è necessario essere Admin o Storyteller di quella cronaca")
-
     # link
     dbm.db.insert("StoryTellerChronicleRel", storyteller=target_st, chronicle=chronid)
     return f"Cronaca associata"
 
 async def gmadm_stunlink(ctx, args):
-    issuer = ctx.message.author.id
+    issuer = str(ctx.message.author.id)
     lid = getLanguage(issuer, dbm)
     helptext = lp.get(lid, "help_gmadm_stunlink")
 
@@ -1855,14 +1856,6 @@ async def gmadm_stunlink(ctx, args):
         if not vt:
             raise BotException(f"Menziona lo storyteller con @") 
 
-    t_st, _ = dbm.isStoryteller(target_st)
-    if not t_st:
-        raise BotException(f"L'utente selezionato non è uno storyteller") 
-    
-    t_stc, _ = dbm.isChronicleStoryteller(target_st, chronid)
-    if not t_stc:
-        raise BotException(f"L'utente selezionato non è Storyteller per {chronid}")  
-
     # permission checks
     ba, _ = dbm.isBotAdmin(issuer)
     #st, _ = dbm.isChronicleStoryteller(issuer, chronid)
@@ -1870,6 +1863,14 @@ async def gmadm_stunlink(ctx, args):
     st = issuer == target_st
     if not (st or ba):
         raise BotException("Gli storyteller possono solo sganciarsi dalle proprie cronache, altrimenti è necessario essere admin")
+
+    t_st, _ = dbm.isStoryteller(target_st)
+    if not t_st:
+        raise BotException(f"L'utente selezionato non è uno storyteller") 
+    
+    t_stc, _ = dbm.isChronicleStoryteller(target_st, chronid)
+    if not t_stc:
+        raise BotException(f"L'utente selezionato non è Storyteller per {chronid}")  
 
     # link
     n = dbm.db.delete('StoryTellerChronicleRel', where='storyteller=$storyteller and chronicle=$chronicle', vars=dict(storyteller=target_st, chronicle=chronid))
@@ -1879,7 +1880,7 @@ async def gmadm_stunlink(ctx, args):
         return f"Nessuna cronaca da disassociare"
 
 async def gmadm_stname(ctx, args):
-    issuer = ctx.message.author.id
+    issuer = str(ctx.message.author.id)
     lid = getLanguage(issuer, dbm)
     helptext = lp.get(lid, "help_gmadm_stname")
 
@@ -1917,7 +1918,7 @@ async def gmadm_stname(ctx, args):
     return f"{name} ora è Storyteller"
 
 async def gmadm_stunname(ctx, args):
-    issuer = ctx.message.author.id
+    issuer = str(ctx.message.author.id)
     lid = getLanguage(issuer, dbm)
     helptext = lp.get(lid, "help_gmadm_stunname")
 
@@ -1947,7 +1948,7 @@ async def gmadm_stunname(ctx, args):
     if not t_st:
         raise BotException(f"L'utente selezionato non è uno storyteller")
     
-    n = dbm.db.delete('Storyteller', where='userid=$userid', vars=dict(userid=target_st))#todo: handle database error if the storyteller is linked to chronicles
+    n = dbm.db.delete('Storyteller', where='userid=$userid', vars=dict(userid=target_st)) #foreign key is set to cascade. this will also unlink from all chronicles
     if n:
         return f"{name} non è più Storyteller"
     else:
