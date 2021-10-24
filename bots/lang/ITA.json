@@ -83,7 +83,10 @@
 	"string_error_character_already_exists": "Il personaggio esiste già",
 	"string_error_char_not_allowed": "carattere non permesso",
 
-	"help_gmadm_stlink": "Argomenti: <@menzione storyteller>, <id cronaca>",
+	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller>]  (se diverso da se stessi)",
+	"help_gmadm_stunlink": "Argomenti: <id cronaca>, [<@menzione storyteller>]  (se diverso da se stessi)",
+	"help_gmadm_stname": "Argomenti: <@menzione utente>",
+	"help_gmadm_stunname": "Argomenti: <@menzione utente>",
 
 	"db_failed_inserting_character": "Inserimento di {} fallito",
 

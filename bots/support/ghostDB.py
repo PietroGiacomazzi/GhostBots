@@ -154,6 +154,13 @@ insert into CharacterTrait
         if len(sts) == 0:
             raise DBException(0, f'Non ci sono sessioni attive in questo canale, oppure questa cronoca non ha un storyteller')
         return sts.list()
+    def isUser(self, userid):
+        """ Gets user info if present"""
+        results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))
+        if len(results):
+            return True, results[0]
+        else:
+            return False, None
     def getUser(self, userid):
         """ Gets user info """
         results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))
@@ -161,6 +168,9 @@ insert into CharacterTrait
             return results[0]
         else:
             raise DBException(0, "Utente non trovato")
+    def registerUser(self, userid, name, langId):
+        """ Registers a user """
+        self.db.insert('People', userid=userid, name=name, langId = langId)
     def getUserLanguage(self, userid):
         """Returns the language id of the selected user"""
         results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))

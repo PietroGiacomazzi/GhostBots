@@ -19,7 +19,7 @@ if len(sys.argv) == 1:
 
 print(f"Working directory: {dname}")
 if not os.path.exists(sys.argv[1]):
-    print(f"The configuration file {sys.argv[1]}does not exist!")
+    print(f"The configuration file {sys.argv[1]} does not exist!")
     sys.exit()
 
 config = configparser.ConfigParser()
@@ -759,7 +759,7 @@ async def lang(ctx, *args):
             await atSend(ctx, lp.get(lid, "string_lang_updated_to", lid))
         except ghostDB.DBException:
             user = await bot.fetch_user(issuer)
-            dbm.db.insert('People', userid=issuer, name=user.name, langId = args[0])
+            dbm.registerUser(issuer, user.name, args[0])
             lid = args[0]
             await atSend(ctx, lp.get(lid, "string_lang_updated_to", lid))
     else:
@@ -1327,9 +1327,10 @@ async def pgmod_create(ctx, args):
         
         t = dbm.db.transaction()
         try:
-            if not len(dbm.db.select('People', where='userid=$userid', vars=dict(userid=owner))):
+            iu, _ = dbm.isUser(owner)
+            if not iu:
                 user = await bot.fetch_user(owner)
-                dbm.db.insert('People', userid=owner, name=user.name, langId = default_language)
+                dbm.registerUser(owner, user.name, default_language)
             dbm.newCharacter(chid, fullname, owner)
         except:
             t.rollback()
@@ -1797,18 +1798,24 @@ async def gmadm_stlink(ctx, args):
     issuer = ctx.message.author.id
     lid = getLanguage(issuer, dbm)
     helptext = lp.get(lid, "help_gmadm_stlink")
-    if len(args) != 2:
+
+    if len(args) == 0 or len(args) > 2:
         return helptext
     
     # validation
-    chronid = args[1].lower()
+    chronid = args[0].lower()
     vc, _ = dbm.isValidChronicle(chronid)
     if not vc:
         raise BotException(f"La cronaca {chronid} non esiste!")
     
-    vt, target_st = validateDiscordMention(args[0])
-    if not vt:
-        raise BotException(f"Menziona lo storyteller con @") 
+    target_st = None
+    if len(args) == 1:
+        target_st = issuer
+    else:
+        vt, target_st = validateDiscordMention(args[1])
+        if not vt:
+            raise BotException(f"Menziona lo storyteller con @") 
+    
     t_st, _ = dbm.isStoryteller(target_st)
     if not t_st:
         raise BotException(f"L'utente selezionato non è uno storyteller") 
@@ -1826,6 +1833,127 @@ async def gmadm_stlink(ctx, args):
     dbm.db.insert("StoryTellerChronicleRel", storyteller=target_st, chronicle=chronid)
     return f"Cronaca associata"
 
+async def gmadm_stunlink(ctx, args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
+    helptext = lp.get(lid, "help_gmadm_stunlink")
+
+    if len(args) == 0 or len(args) > 2:
+        return helptext
+    
+    # validation
+    chronid = args[0].lower()
+    vc, _ = dbm.isValidChronicle(chronid)
+    if not vc:
+        raise BotException(f"La cronaca {chronid} non esiste!")
+
+    target_st = None
+    if len(args) == 1:
+        target_st = issuer
+    else:
+        vt, target_st = validateDiscordMention(args[1])
+        if not vt:
+            raise BotException(f"Menziona lo storyteller con @") 
+
+    t_st, _ = dbm.isStoryteller(target_st)
+    if not t_st:
+        raise BotException(f"L'utente selezionato non è uno storyteller") 
+    
+    t_stc, _ = dbm.isChronicleStoryteller(target_st, chronid)
+    if not t_stc:
+        raise BotException(f"L'utente selezionato non è Storyteller per {chronid}")  
+
+    # permission checks
+    ba, _ = dbm.isBotAdmin(issuer)
+    #st, _ = dbm.isChronicleStoryteller(issuer, chronid)
+    print(type(issuer), type(target_st))
+    st = issuer == target_st
+    if not (st or ba):
+        raise BotException("Gli storyteller possono solo sganciarsi dalle proprie cronache, altrimenti è necessario essere admin")
+
+    # link
+    n = dbm.db.delete('StoryTellerChronicleRel', where='storyteller=$storyteller and chronicle=$chronicle', vars=dict(storyteller=target_st, chronicle=chronid))
+    if n:
+        return f"Cronaca disassociata"
+    else:
+        return f"Nessuna cronaca da disassociare"
+
+async def gmadm_stname(ctx, args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
+    helptext = lp.get(lid, "help_gmadm_stname")
+
+    if len(args) > 1:
+        return helptext
+    
+    target_st = None
+    if len(args) == 0:
+        target_st = issuer
+    else:
+        vt, target_st = validateDiscordMention(args[0])
+        if not vt:
+            raise BotException(f"Menziona l'utente con @") 
+
+    # permission checks
+    ba, _ = dbm.isBotAdmin(issuer)
+
+    if not ba:
+        raise BotException("Solo gli admin possono nominare gli storyteller")
+
+    t_st, _ = dbm.isStoryteller(target_st)
+    if t_st:
+        raise BotException(f"L'utente selezionato è già uno storyteller")
+    
+    iu, usr = dbm.isUser(target_st)
+    name = ""
+    if not iu:
+        user = await bot.fetch_user(target_st)
+        dbm.registerUser(target_st, user.name, default_language)
+        name = user.name
+    else:
+        name = usr['name']
+    
+    dbm.db.insert("Storyteller",  userid=target_st)
+    return f"{name} ora è Storyteller"
+
+async def gmadm_stunname(ctx, args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
+    helptext = lp.get(lid, "help_gmadm_stunname")
+
+    if len(args) > 1:
+        return helptext
+    
+    target_st = None
+    if len(args) == 0: #xd
+        target_st = issuer
+    else:
+        vt, target_st = validateDiscordMention(args[0])
+        if not vt:
+            raise BotException(f"Menziona l'utente con @") 
+
+    # permission checks
+    ba, _ = dbm.isBotAdmin(issuer)
+
+    if not ba:
+        raise BotException("Solo gli admin possono de-nominare gli storyteller")
+
+    iu, usr = dbm.isUser(target_st)
+    if not iu:
+        raise BotException("Utente non registrato")        
+    name = usr['name']
+
+    t_st, _ = dbm.isStoryteller(target_st)
+    if not t_st:
+        raise BotException(f"L'utente selezionato non è uno storyteller")
+    
+    n = dbm.db.delete('Storyteller', where='userid=$userid', vars=dict(userid=target_st))#todo: handle database error if the storyteller is linked to chronicles
+    if n:
+        return f"{name} non è più Storyteller"
+    else:
+        return f"Nessuna modifica fatta"
+    
+
 async def gmadm_deleteTrait(ctx, args):
     return "non implementato"
 
@@ -1835,10 +1963,12 @@ gameAdmin_subcommands = {
     "newTrait": [gmadm_newTrait, "Crea nuovo tratto"],
     "updt": [gmadm_updateTrait, "Modifica un tratto"],
     "delet": [gmadm_deleteTrait, "Cancella un tratto (non implementato)"], #non implementato
-    "stlink": [gmadm_stlink, "Associa uno storyteller ad una cronaca"]
+    "st_link": [gmadm_stlink, "Associa uno storyteller ad una cronaca"],
+    "st_unlink": [gmadm_stunlink, "Disassocia uno storyteller da una cronaca"],
+    "st_name": [gmadm_stname, "Nomina storyteller"],
+    "st_unname": [gmadm_stunname, "De-nomina storyteller"]
     # todo: lista storyteller
-    # todo: nomina storyteller, Nomina ST: admin
-    # todo: dissociazioni varie: de-nominastoryteller, rimuovi storyteller da cronaca (regola di disassociazione: un st può solo disassociarsi dalle sue, altrimenti admin)
+    # todo: dissociazioni varie
     }
 
 def generateNestedCmd(cmd_name, cmd_brief, cmd_dict):
