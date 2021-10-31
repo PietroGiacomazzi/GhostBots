@@ -954,7 +954,7 @@ function populate_charmenu(menuItem, chars){
         chronicle_container.appendChild(c);
 		c.addEventListener('click', function(chardata){var c = chardata; return function() {load_charSheet(c);}}(character))
 		// load the character if needed:
-		if (character.id === urlParams.get('character'))
+		if (character.id === urlParams.get('character') && !loaded)
 		{
 			load_charSheet(character);
 			loaded = true;

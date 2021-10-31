@@ -67,8 +67,20 @@ def getLanguage(userid, dbm):
 
 def validateDiscordMention(mention : str):
     if not (mention.startswith("<@!") and mention.endswith(">")): 
-        return False, None
+        return False, ""
     return  True, mention[3:-1]
+
+async def validateDiscordMentionOrID(inp: str): #, bot : commands.Bot):
+    vm, userid = validateDiscordMention(inp)
+    if vm:
+        return vm, userid
+    
+    uid = int(inp)
+    try:
+        user = await bot.fetch_user(uid)
+        return True, inp
+    except:
+        return False, ""
 
 die_emoji = {
     2: ":two:",
@@ -786,6 +798,11 @@ async def start(ctx, *args):
         return
     sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
     chronicleid = args[0].lower()
+    vc, _ = dbm.isValidChronicle(chronicleid)
+    if not vc:
+        await atSend(ctx, "Id cronaca non valido")
+        return
+        
     st, _ = dbm.isChronicleStoryteller(issuer, chronicleid)
     ba, _ = dbm.isBotAdmin(issuer)
     can_do = st or ba
@@ -803,7 +820,7 @@ async def start(ctx, *args):
 @session.command(name = 'list', brief = 'Elenca le sessioni aperte', description = 'Elenca le sessioni aperte. richiede di essere admin o storyteller')
 async def session_list(ctx):
     issuer = ctx.message.author.id
-    st, _ = dbm.isStoryteller(issuer) # todo: elenca solo le sue
+    st, _ = dbm.isStoryteller(issuer) # todo: elenca solo le sue?
     ba, _ = dbm.isBotAdmin(issuer)
     if not (st or ba):
         raise BotException("no.")
@@ -852,7 +869,7 @@ async def end(ctx):
     await atSend(ctx, response)
 
 
-@bot.command(name = 'translate', brief='Permette di aggiornare la traduzione di un tratto un unn lingua' , help = "")
+@bot.command(name = 'translate', brief='Permette di aggiornare la traduzione di un tratto in una lingua' , help = "")
 async def translate(ctx, *args):
     issuer = ctx.message.author.id
     lid = getLanguage(issuer, dbm)
