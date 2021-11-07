@@ -12,7 +12,7 @@ class LanguageStringProvider():
                 langname = fn[:-5]
                 try:
                     print(f"Loading language {langname} from  {fn}")
-                    with open(os.path.join(lang_dir, fn), "r") as f:
+                    with open(os.path.join(lang_dir, fn), "r", encoding="utf-8") as f: # website breaks without explicit encoding
                         self.languages[langname] = json.loads(f.read())
                 except json.decoder.JSONDecodeError:
                     print(f"Failed loading {langname}")
