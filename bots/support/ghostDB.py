@@ -211,7 +211,7 @@ insert into CharacterTrait
     def isValidChronicle(self, chronicleid):
         """Is this a valid chronicle?"""    
         chronicles = self.db.select('Chronicle', where='id=$id', vars=dict(id=chronicleid))
-        return bool(len(chronicles)), chronicles.list()[0]
+        return bool(len(chronicles)), chronicles.list()[0] if len(chronicles) else None
     def isSessionActiveForCharacter(self, charid, channelid): #
         """Is there a session on this channel that includes this character?"""
         result = self.db.query("""

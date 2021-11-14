@@ -835,7 +835,6 @@ async def start(ctx, *args):
     if len(args) != 1:
         await atSendLang(ctx, "string_error_wrong_number_arguments")
         return
-    sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
     chronicleid = args[0].lower()
     vc, _ = dbm.isValidChronicle(chronicleid)
     if not vc:
@@ -845,6 +844,8 @@ async def start(ctx, *args):
     st, _ = dbm.isChronicleStoryteller(issuer, chronicleid)
     ba, _ = dbm.isBotAdmin(issuer)
     can_do = st or ba
+    
+    sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
     if len(sessions):
         response = "C'è già una sessione in corso in questo canale"
     elif can_do:
