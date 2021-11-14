@@ -428,7 +428,7 @@ def parseRollArgs(ctx, lid, args_raw):
     # leggo gli argomenti scorrendo args
     i = 0
     while i < len(args):
-        if args[i].endswith('+'): # fix this immediately
+        if args[i].endswith('+') and args[i] != '+': # fix this immediately
             args = args[:i] + [args[i][:-1], '+'] + args[i+1:]
 
         if args[i] in SOMMA_CMD:
