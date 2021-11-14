@@ -191,6 +191,10 @@ def rollAndFormatVTM(lid, ndice, nfaces, diff, statusFunc = rollStatusNormal, ex
             response += f' **+{extra_succ}**'
         return response
 
+def d10check(lid, faces):
+    if faces != 10:
+        raise BotException(lp.get(lid, 'string_error_not_d10') )
+
 def atSend(ctx, msg):
     return ctx.send(f'{ctx.message.author.mention} {msg}')
 
@@ -288,39 +292,57 @@ async def coin(ctx):
     await atSend(ctx, lp.get(lid, random.choice(moneta)))
 
 roll_longdescription = """
-Comando base
-.roll <cosa> <argomento1> <argomento2>...
+Sintassi:
+.roll <cosa> <argomento1> (<parametro1> <parametro2>...) <argomento2> ...
 
-.roll 10d10                                 -> Tiro senza difficoltà
-.roll 10d10 somma                           -> Somma il numero dei tiri
-.roll 10d10 diff 6                          -> Tiro con difficoltà specifica
-.roll 10d10 danni                           -> Tiro danni
-.roll 10d10 +5 danni                        -> Tiro danni con modificatore
+    <cosa> indica il numero di dadi in forma XdY (es. ".roll 1d20")
+        "dY" equivale a "1dY" e "Xd" equivale a "Xd10"
+    <argomento> indicazioni aggiuntive che pilotano il tiro (ad esempio la difficoltà), tendenzialmente  anno anche dei <parametri>
+
+Argomenti diponibili con esempi:
+
+.roll 10d10 somma                           -> Lancia 10d10 e somma i risultati dei singoli dadi in un unico valore
+.roll 10d10 diff 6                          -> Lancia 10d10 con difficoltà 6
+.roll 10d10 danni                           -> Lancia 10d10 con il conteggio dei successi usato per i danni
+.roll 10d10 + 5                             -> Lancia 10d10 e aggiunge 5 successi automatici
 .roll 10d10 progressi                       -> Tiro per i progressi del giocatore
 .roll 10d10 lapse                           -> Tiro per i progressi in timelapse del giocatore
-.roll 10d10 multi 3 diff 6                  -> Tiro multiplo
-.roll 10d10 split 6 7                       -> Split a difficoltà separate [6, 7]
+.roll 10d10 multi 3 diff 6                  -> Lancia 10d10 per eseguire un'azione multipla con 3 mosse
+.roll 10d10 split 6 7                       -> Lancia 10d10 per un'azione splittata a difficoltà separate (6 e 7)
 .roll 10d10 diff 6 multi 3 split 2 6 7      -> Multipla [3] con split [al 2° tiro] a difficoltà separate [6,7]
 .roll 10d10 multi 3 split 2 6 7 split 3 4 5 -> Multipla [3] con split al 2° e 3° tiro
 
 A sessione attiva:
 
-.roll tratto1+tratto2   -> Si può sostituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e verranno prese le statistiche del pg rilevante
-.roll iniziativa        -> equivale a .roll 1d10 +(destrezza+prontezza+velocità)
-.roll riflessi          -> equivale a .roll volontà diff (10-prontezza)
-.roll assorbi           -> equivale a .roll costituzione+robustezza diff 6 danni
-.roll <cose> penalita   -> applica la penalità corrente derivata dalla salute
-.roll <cose> dadi N     -> modifica il numero di dadi del tiro (N può essere positivo o negativo), utile per modificare un tiro basato sui tratti
-.roll <cose> permanente -> usa i valori di scheda e non quelli potenziati/spesi (esempio: ".roll volontà permanente diff 7")
+.roll tratto1+tratto2 <argomenti>  -> Si può sostituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e verranno prese le statistiche del pg rilevante
+.roll iniziativa                   -> Equivale a .roll 1d10 +(destrezza+prontezza+velocità)
+.roll riflessi                     -> Equivale a .roll volontà diff (10-prontezza)
+.roll assorbi                      -> Equivale a .roll costituzione+robustezza diff 6 danni
+.roll <cose> penalita              -> Applica la penalità corrente derivata dalla salute al numero di dadi
+.roll <cose> dadi N                -> Modifica il numero di dadi del tiro (N può essere positivo o negativo), utile per modificare un tiro basato sui tratti
+.roll <cose> + XdY                 -> Modifica il numero di dadi del tiro (N può essere positivo o negativo), utile per modificare un tiro basato sui tratti
+.roll <cose> permanente            -> Usa i valori di scheda e non quelli potenziati/spesi (esempio: ".roll volontà permanente diff 7")
 
-Note sugli spazi in ".roll <cosa> <argomento1> <argomento2>..."
+Note sugli spazi:
 
-In <cosa> non ci vanno mai spazi (XdY, o tratto1+tratto2)
-In <come> bisogna spaziare tutto (multi 6, diff 4).
-    Il bot è in grado di leggere anche 2 argomenti attaccati (diff8, multi3) se è una coppia argomento-parametro
+In <cosa>:
+    Si può anche spaziare o meno tra i tratti, basta non mischiare tratti, espressioni XdY e numeri quando non si spazia
+    Esempi:
+        ".roll forza + potenza ..." è valido
+        ".roll forza+ potenza ..." è valido
+        ".roll forza +potenza ..." è valido
+        ".roll forza+potenza" è valido
+        ".roll forza+3d10+2" non è valido (per ora)
+
+In <argomenti>
+    Si può omettere lo spazio tra argomento e il primo parametro (e solo il primo)
+    Esempi:
+        ".roll 3d10 diff6" è valido
+        ".roll 3d10 split6 7" è valido
+        ".roll 3d10 split67" non è valido
 """
 
-def parseDiceExpression_Dice(lid, what):
+def parseDiceExpression_Dice(lid, what, forced10 = False):
     split = what.split("d")
     if len(split) > 2:
         raise BotException(lp.get(lid, "string_error_toomany_d"))
@@ -336,6 +358,8 @@ def parseDiceExpression_Dice(lid, what):
         raise BotException( lp.get(lid, "string_error_not_positive_integer", split[1]))
     n = int(split[0])
     faces = int(split[1])
+    if forced10 and faces != 10:
+        raise BotException( lp.get(lid, "string_error_not_d10", split[1]))
     if n == 0:
         raise BotException(lp.get(lid, "string_error_not_gt0", n) )
     if  faces == 0:
@@ -488,7 +512,7 @@ def parseRollArgs(ctx, lid, args_raw):
                 n_dice = 0
                 n_dice_perm = 0
                 try:
-                    _, n_dice, n_dice_perm, _, _ = parseDiceExpression_Dice(lid, args[i+1]) # XdY
+                    _, n_dice, n_dice_perm, _, _ = parseDiceExpression_Dice(lid, args[i+1], True) # XdY
                 except BotException as e_dice:
                     try:
                         _, n_dice, n_dice_perm, _, _ =  parseDiceExpression_Traits(ctx, lid, args[i+1]) # Traits
@@ -601,7 +625,8 @@ async def roll(ctx, *args):
         raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
         await atSend(ctx, repr(raw_roll))
         return
-
+        
+    d10check(lid, nfaces)
     stats = RollArg.STATS in parsed
 
     response = ''
@@ -844,7 +869,7 @@ async def start(ctx, *args):
     st, _ = dbm.isChronicleStoryteller(issuer, chronicleid)
     ba, _ = dbm.isBotAdmin(issuer)
     can_do = st or ba
-    
+
     sessions = dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
     if len(sessions):
         response = "C'è già una sessione in corso in questo canale"

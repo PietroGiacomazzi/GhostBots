@@ -82,6 +82,7 @@
 	"string_error_wrong_number_arguments": "Wrong number of arguments",
 	"string_error_character_already_exists": "The character already exists",
 	"string_error_char_not_allowed": "character not allowed",
+	"string_error_not_d10": "use d10!",
 
 	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller>] (if different than self)",
 	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller>] (if different than self)",
