@@ -31,12 +31,12 @@ TOKEN = config['Discord']['token']
 SOMMA_CMD = ["somma", "s", "lapse", "sum"]
 DIFF_CMD = ["diff", "diff.", "difficoltà", "difficolta", "d", "difficulty"]
 MULTI_CMD = ["multi", "m"]
-DANNI_CMD = ["danni", "dmg", "damage"]
+DANNI_CMD = ["danni", "danno", "dmg", "damage"]
 PROGRESSI_CMD = ["progressi", "progress"]
 SPLIT_CMD = ["split"]
 PENALITA_CMD = ["penalita", "penalità", "p", "penalty"]
 DADI_CMD = ["dadi", "dice"]
-ADDSUCC_CMD = ["+", "succ", "successi", "successes"]
+ADD_CMD = ["+"]
 
 PERMANENTE_CMD = ["permanente", "perm", "permanent"]
 SOAK_CMD = ["soak", "assorbi"]
@@ -45,7 +45,7 @@ RIFLESSI_CMD = ["riflessi", "r", "reflexes"]
 STATISTICS_CMD = ["statistica", "stats", "stat"]
 
 RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES", "SOAK") # macro categoria che divide le azioni di tiro
-RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE", "PENALITA", "DADI", "PERMANENTE", "STATS") # argomenti del tiro
+RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE", "PENALITA", "DADI", "DADI_PERMANENTI",  "PERMANENTE", "STATS") # argomenti del tiro
 RollType = utils.enum("NORMALE", "SOMMA", "DANNI", "PROGRESSI") # sottotipo dell'argomento RollType
 
 reset_aliases = ["reset"]
@@ -420,7 +420,7 @@ def validateDifficulty(lid, args, i):
 
 # input: sequenza di argomenti per .roll
 # output: dizionario popolato con gli argomenti validati
-def parseRollArgs(lid, args_raw):
+def parseRollArgs(ctx, lid, args_raw):
     parsed = {
         RollArg.ROLLTYPE: RollType.NORMALE # default
         }
@@ -428,6 +428,9 @@ def parseRollArgs(lid, args_raw):
     # leggo gli argomenti scorrendo args
     i = 0
     while i < len(args):
+        if args[i].endswith('+'): # fix this immediately
+            args = args[:i] + [args[i][:-1], '+'] + args[i+1:]
+
         if args[i] in SOMMA_CMD:
             parsed[RollArg.ROLLTYPE] = RollType.SOMMA
         elif args[i] in DIFF_CMD:
@@ -471,18 +474,44 @@ def parseRollArgs(lid, args_raw):
             i, d2 = validateIntegerGreatZero(lid, args, i+1)
             split.append( [roll_index] + list(map(int, [d1, d2])))
             parsed[RollArg.SPLIT] = split # save the new split
-        elif args[i] in ADDSUCC_CMD:
+        elif args[i] in ADD_CMD:
             if len(args) == i+1:
                 raise ValueError(lp.get(lid, "string_error_x_what", args[i]))
-            i, add = validateIntegerGreatZero(lid, args, i+1)
-            parsed[RollArg.ADD] = add    
+            # 3 options here: XdY (and variants), trait(s), integers.
+            try:
+                i, add = validateIntegerGreatZero(lid, args, i+1) # simple positive integer -> add as successes
+                if RollArg.ADD in parsed:
+                    parsed[RollArg.ADD] += add
+                else:
+                    parsed[RollArg.ADD] = add
+            except ValueError as e_add: # not an integer -> try to pase it as a dice expression
+                n_dice = 0
+                n_dice_perm = 0
+                try:
+                    _, n_dice, n_dice_perm, _, _ = parseDiceExpression_Dice(lid, args[i+1]) # XdY
+                except BotException as e_dice:
+                    try:
+                        _, n_dice, n_dice_perm, _, _ =  parseDiceExpression_Traits(ctx, lid, args[i+1]) # Traits
+                    except ghostDB.DBException as e_traits:
+                        raise BotException("\n".join([ lp.get(lid, "string_error_notsure_whatroll"), f'{e_add}', f'{e_dice}', f'{lp.formatException(lid, e_traits)}']))
+                if RollArg.DADI in parsed:
+                    parsed[RollArg.DADI] += n_dice
+                    parsed[RollArg.DADI_PERMANENTI] += n_dice_perm 
+                else:
+                    parsed[RollArg.DADI] = n_dice
+                    parsed[RollArg.DADI_PERMANENTI] = n_dice_perm
         elif args[i] in PENALITA_CMD:
             parsed[RollArg.PENALITA] = True
         elif args[i] in DADI_CMD:
             if len(args) == i+1:
                 raise ValueError(lp.get(lid, "string_error_x_what", args[i]))
-            i, val = validateBoundedInteger(lid, args, i+1, -100, +100) # lel 
-            parsed[RollArg.DADI] = val
+            i, val = validateBoundedInteger(lid, args, i+1, -100, +100) # this is also checked later on the final number
+            if RollArg.DADI in parsed:
+                parsed[RollArg.DADI] += val
+                parsed[RollArg.DADI_PERMANENTI] += val 
+            else:
+                parsed[RollArg.DADI] = val
+                parsed[RollArg.DADI_PERMANENTI] = val 
         elif args[i] in PERMANENTE_CMD:
             parsed[RollArg.PERMANENTE] = True
         elif args[i] in STATISTICS_CMD:
@@ -491,7 +520,7 @@ def parseRollArgs(lid, args_raw):
             # provo a staccare parametri attaccati
             did_split = False
             idx = 0
-            tests = DIFF_CMD+MULTI_CMD+DADI_CMD+ADDSUCC_CMD
+            tests = DIFF_CMD+MULTI_CMD+DADI_CMD+ADD_CMD
             while not did_split and idx < len(tests):
                 cmd = tests[idx]
                 if args[i].startswith(cmd):
@@ -502,6 +531,7 @@ def parseRollArgs(lid, args_raw):
                     except ValueError:
                         pass
                 idx += 1
+
             if not did_split: # F
                 width = 3
                 ht = " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
@@ -524,7 +554,7 @@ async def roll(ctx, *args):
     # leggo e imposto le varie opzioni
     parsed = None
     try:
-        parsed = parseRollArgs(lid, args[1:])
+        parsed = parseRollArgs(ctx, lid, args[1:])
     except ValueError as e:
         await atSend(ctx, str(e))
         return
@@ -541,7 +571,10 @@ async def roll(ctx, *args):
         ndice += penalty[0]
 
     if RollArg.DADI in parsed:
-        ndice += parsed[RollArg.DADI]
+        if RollArg.PERMANENTE in parsed:
+            ndice += parsed[RollArg.DADI_PERMANENTI]
+        else:
+            ndice += parsed[RollArg.DADI]
 
     if ndice > max_dice:
         raise BotException(lp.get(lid, "string_error_toomany_dice", max_dice))
