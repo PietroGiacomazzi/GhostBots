@@ -500,6 +500,7 @@ def parseRollArgs(ctx, lid, args_raw):
                 else:
                     parsed[RollArg.DADI] = n_dice
                     parsed[RollArg.DADI_PERMANENTI] = n_dice_perm
+                i += 1
         elif args[i] in PENALITA_CMD:
             parsed[RollArg.PENALITA] = True
         elif args[i] in DADI_CMD:
@@ -525,7 +526,7 @@ def parseRollArgs(ctx, lid, args_raw):
                 cmd = tests[idx]
                 if args[i].startswith(cmd):
                     try:
-                        _ = int(args[i][len(cmd):])
+                        #_ = int(args[i][len(cmd):]) # pass only if the rest of the argument is a valid integer. We don't enforce this anymore now that we can also parse traits.
                         args = args[:i] + [cmd, args[i][len(cmd):]] + args[i+1:]
                         did_split = True
                     except ValueError:
@@ -547,14 +548,19 @@ async def roll(ctx, *args):
     lid = getLanguage(issuer, dbm)
     if len(args) == 0:
         raise BotException(lp.get(lid, "string_error_x_what", "roll")+" diomadonna") #xd
+    args_list = list(args)
+    
     # capisco quanti dadi tirare
-    what = args[0].lower()
+    what = args_list[0].lower()
+    if what.endswith('+') and what != '+': # special case that needs to be handled here
+        what = what[:-1]
+        args_list = [what, '+'] + args_list[1:]
     action, ndice, ndice_perm, nfaces, character = parseRollWhat(ctx, lid, what)
     
     # leggo e imposto le varie opzioni
     parsed = None
     try:
-        parsed = parseRollArgs(ctx, lid, args[1:])
+        parsed = parseRollArgs(ctx, lid, args_list[1:])
     except ValueError as e:
         await atSend(ctx, str(e))
         return
