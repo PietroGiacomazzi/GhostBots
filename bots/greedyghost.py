@@ -291,56 +291,46 @@ async def coin(ctx):
     moneta=[ "string_heads", "string_tails" ]
     await atSend(ctx, lp.get(lid, random.choice(moneta)))
 
-roll_longdescription = """
-Sintassi:
-.roll <cosa> <argomento1> (<parametro1> <parametro2>...) <argomento2> ...
+roll_longdescription = """.roll <cosa> <argomento1> (<parametro1> <parametro2>...) <argomento2> ...
+  <cosa> è il numero di dadi in forma XdY (es. ".roll 1d20")
+  <argomento> indicazioni aggiuntive che pilotano il tiro con eventuali <parametri>
 
-    <cosa> indica il numero di dadi in forma XdY (es. ".roll 1d20")
-        "dY" equivale a "1dY" e "Xd" equivale a "Xd10"
-    <argomento> indicazioni aggiuntive che pilotano il tiro (ad esempio la difficoltà), tendenzialmente  anno anche dei <parametri>
+Argomenti diponibili:
 
-Argomenti diponibili con esempi:
-
-.roll 10d10 somma                           -> Lancia 10d10 e somma i risultati dei singoli dadi in un unico valore
-.roll 10d10 diff 6                          -> Lancia 10d10 con difficoltà 6
-.roll 10d10 danni                           -> Lancia 10d10 con il conteggio dei successi usato per i danni
-.roll 10d10 + 5                             -> Lancia 10d10 e aggiunge 5 successi automatici
-.roll 10d10 progressi                       -> Tiro per i progressi del giocatore
-.roll 10d10 lapse                           -> Tiro per i progressi in timelapse del giocatore
-.roll 10d10 multi 3 diff 6                  -> Lancia 10d10 per eseguire un'azione multipla con 3 mosse
-.roll 10d10 split 6 7                       -> Lancia 10d10 per un'azione splittata a difficoltà separate (6 e 7)
-.roll 10d10 diff 6 multi 3 split 2 6 7      -> Multipla [3] con split [al 2° tiro] a difficoltà separate [6,7]
-.roll 10d10 multi 3 split 2 6 7 split 3 4 5 -> Multipla [3] con split al 2° e 3° tiro
+.roll 7d10 somma                       -> Somma i risultati in un unico valore
+.roll 7d10 diff 6                      -> Tiro a difficoltà 6
+.roll 7d10 danni                       -> Tiro danni
+.roll 7d10 + 5                         -> Aggiunge 5 successi
+.roll 7d10 progressi                   -> Tiro per i progressi
+.roll 7d10 lapse                       -> Tiro per i progressi in timelapse
+.roll 7d10 multi 3 diff 6              -> Azione multipla con 3 mosse
+.roll 7d10 split 6 7                   -> Azione splittata a diff. separate (6 e 7)
+.roll 7d10 diff 6 multi 3 split 2 6 7  -> Multipla [3] con split [al 2° tiro] a diff. separate [6,7]
 
 A sessione attiva:
 
-.roll tratto1+tratto2 <argomenti>  -> Si può sostituire XdY con una combinazione di tratti (forza, destrezza+schivare...) e verranno prese le statistiche del pg rilevante
-.roll iniziativa                   -> Equivale a .roll 1d10 +(destrezza+prontezza+velocità)
-.roll riflessi                     -> Equivale a .roll volontà diff (10-prontezza)
-.roll assorbi                      -> Equivale a .roll costituzione+robustezza diff 6 danni
-.roll <cose> penalita              -> Applica la penalità corrente derivata dalla salute al numero di dadi
-.roll <cose> dadi N                -> Modifica il numero di dadi del tiro (N può essere positivo o negativo), utile per modificare un tiro basato sui tratti
-.roll <cose> + XdY                 -> Modifica il numero di dadi del tiro (N può essere positivo o negativo), utile per modificare un tiro basato sui tratti
-.roll <cose> permanente            -> Usa i valori di scheda e non quelli potenziati/spesi (esempio: ".roll volontà permanente diff 7")
+.roll tratto1+tratto2  -> al posto di XdY per usare le statistiche del proprio pg (es. ".roll destrezza+schivare")
+.roll iniziativa       -> .roll 1d10 +(destrezza+prontezza+velocità)
+.roll riflessi         -> .roll volontà diff (10-prontezza)
+.roll assorbi          -> .roll costituzione+robustezza diff 6 danni
+.roll <...> penalita   -> Applica la penalità derivata dalla salute
+.roll <...> dadi N     -> Modifica il numero di dadi del tiro (N può essere positivo o negativo)
+.roll <...> + XdY      -> Vedi sopra (solo +)
+.roll <...> permanente -> Usa i valori base e non quelli potenziati/spesi (es.: ".roll volontà permanente diff 7")
 
 Note sugli spazi:
 
-In <cosa>:
-    Si può anche spaziare o meno tra i tratti, basta non mischiare tratti, espressioni XdY e numeri quando non si spazia
-    Esempi:
-        ".roll forza + potenza ..." è valido
-        ".roll forza+ potenza ..." è valido
-        ".roll forza +potenza ..." è valido
-        ".roll forza+potenza" è valido
-        ".roll forza+3d10+2" non è valido (per ora)
+Si può spaziare o meno tra i tratti, basta non mischiare tratti, XdY e numeri se non si spazia:
+  ".roll forza + rissa" ok
+  ".roll forza+ rissa" ok
+  ".roll forza +rissa" ok
+  ".roll forza+rissa" ok
+  ".roll forza+3d10+2" no
 
-In <argomenti>
-    Si può omettere lo spazio tra argomento e il primo parametro (e solo il primo)
-    Esempi:
-        ".roll 3d10 diff6" è valido
-        ".roll 3d10 split6 7" è valido
-        ".roll 3d10 split67" non è valido
-"""
+Si può omettere lo spazio tra argomento e il 1° parametro:
+  ".roll 3d10 diff6" è ok
+  ".roll 3d10 split6 7" è ok
+  ".roll 3d10 split67" non è ok"""
 
 def parseDiceExpression_Dice(lid, what, forced10 = False):
     split = what.split("d")
@@ -625,7 +615,7 @@ async def roll(ctx, *args):
         raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
         await atSend(ctx, repr(raw_roll))
         return
-        
+
     d10check(lid, nfaces)
     stats = RollArg.STATS in parsed
 
