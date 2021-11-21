@@ -85,10 +85,10 @@
 	"string_error_not_d10": "Only d10s are allowed on this roll",
 	"string_error_face_mixing": "Mixing different dice types is not supported",
 
-	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller>] (if different than self)",
-	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller>] (if different than self)",
-	"help_gmadm_stname": "Arguments: <@mention user> (if different than self)",
-	"help_gmadm_stunname": "Arguments: <@mention user> (if different than self)",
+	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
+	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
+	"help_gmadm_stname": "Arguments: <@mention user/Discord ID> (if different than self)",
+	"help_gmadm_stunname": "Arguments: <@mention user/Discord ID> (if different than self)",
 
 	"db_failed_inserting_character": "Failed inserting the character {}",
 

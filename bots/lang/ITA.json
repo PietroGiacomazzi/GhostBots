@@ -85,10 +85,10 @@
 	"string_error_not_d10": "Solo i d10 sono amamessi in questo tiro",
 	"string_error_face_mixing": "Mischiare dadi di tipo diverso non è supportato",
 
-	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller>] (se diverso da se stessi)",
-	"help_gmadm_stunlink": "Argomenti: <id cronaca>, [<@menzione storyteller>] (se diverso da se stessi)",
-	"help_gmadm_stname": "Argomenti: <@menzione utente> (se diverso da se stessi)",
-	"help_gmadm_stunname": "Argomenti: <@menzione utente> (se diverso da se stessi)",
+	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
+	"help_gmadm_stunlink": "Argomenti: <id cronaca>, [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
+	"help_gmadm_stname": "Argomenti: <@menzione utente/Discord ID> (se diverso da se stessi)",
+	"help_gmadm_stunname": "Argomenti: <@menzione utente/Discord ID> (se diverso da se stessi)",
 
 	"db_failed_inserting_character": "Inserimento di {} fallito",
 

@@ -1447,7 +1447,7 @@ async def sql(ctx, *args):
 
 
 async def pgmod_create(ctx, args):
-    helptext = "Argomenti: nome breve (senza spazi), @menzione al proprietario, nome completo del personaggio (spazi ammessi)"
+    helptext = "Argomenti: nome breve (senza spazi), @menzione al proprietario (oppure Discord ID), nome completo del personaggio (spazi ammessi)"
     if len(args) < 3:
         return helptext
     else:
