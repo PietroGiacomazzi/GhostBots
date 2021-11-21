@@ -17,7 +17,6 @@ class LanguageStringProvider():
                 except json.decoder.JSONDecodeError:
                     print(f"Failed loading {langname}")
     def get(self, lang_id, string_name, *args):
-        print(args)
         try:
             return self.languages[lang_id][string_name].format(*args)
         except KeyError:

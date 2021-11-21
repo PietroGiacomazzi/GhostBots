@@ -2,8 +2,6 @@
 
 import os, urllib
 
-from web.application import auto_application
-
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
@@ -2000,7 +1998,6 @@ async def gmadm_stunlink(ctx, args):
     # permission checks
     ba, _ = dbm.isBotAdmin(issuer)
     #st, _ = dbm.isChronicleStoryteller(issuer, chronid)
-    print(type(issuer), type(target_st))
     st = issuer == target_st
     if not (st or ba):
         raise BotException("Gli storyteller possono solo sganciarsi dalle proprie cronache, altrimenti è necessario essere admin")
