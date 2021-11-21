@@ -2,6 +2,8 @@
 
 import os, urllib
 
+from web.application import auto_application
+
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
@@ -36,7 +38,8 @@ PROGRESSI_CMD = ["progressi", "progress"]
 SPLIT_CMD = ["split"]
 PENALITA_CMD = ["penalita", "penalità", "p", "penalty"]
 DADI_CMD = ["dadi", "dice"]
-ADD_CMD = ["+"]
+ADD_CMD = "+"
+SUB_CMD = "-"
 
 PERMANENTE_CMD = ["permanente", "perm", "permanent"]
 SOAK_CMD = ["soak", "assorbi"]
@@ -184,11 +187,20 @@ def rollAndFormatVTM(lid, ndice, nfaces, diff, statusFunc = rollStatusNormal, ex
     else:        
         successi, tiro, cancels = vtm_res.roller(ndice, nfaces, diff, canceling, spec)
         pretty = prettyRoll(tiro, diff, cancels)
-        successi += extra_succ # posso fare sta roba solo perchè i successi extra vengono usati solo in casi in cui il canceling è spento
+        # TODO: define how extra successes (bopth positive and negative) invfluende critfail situations
+        if (extra_succ > 0): 
+            if successi < 0: # adding auto successes means we ignore critfail situations, the roll is always a success.
+                successi = 0
+            successi += extra_succ
+        if (extra_succ < 0): 
+            if successi > 0: # the idea here is that we only act if there are successes to remove in the first place, and at max we shift to a fail (?)
+                successi = max(0, successi + extra_succ)
         status = statusFunc(lid, successi)
         response = status + f' (diff {diff}): {pretty}'
-        if extra_succ:
+        if extra_succ > 0:
             response += f' **+{extra_succ}**'
+        if extra_succ < 0:
+            response += f' **{extra_succ}**'
         return response
 
 def d10check(lid, faces):
@@ -320,17 +332,17 @@ A sessione attiva:
 
 Note sugli spazi:
 
-Si può spaziare o meno tra i tratti, basta non mischiare tratti, XdY e numeri se non si spazia:
+Si può spaziare o meno tra i tratti, basta non mischiare dadi e successi automatici se non si spazia:
   ".roll forza + rissa" ok
-  ".roll forza+ rissa" ok
+  ".roll 2d10+ rissa" ok
   ".roll forza +rissa" ok
-  ".roll forza+rissa" ok
-  ".roll forza+3d10+2" no
+  ".roll forza+2d10" ok
+  ".roll forza+2" no
 
 Si può omettere lo spazio tra argomento e il 1° parametro:
-  ".roll 3d10 diff6" è ok
-  ".roll 3d10 split6 7" è ok
-  ".roll 3d10 split67" non è ok"""
+  ".roll 3d10 diff6" ok
+  ".roll 3d10 split6 7" ok
+  ".roll 3d10 split67" no"""
 
 def parseDiceExpression_Dice(lid, what, forced10 = False):
     split = what.split("d")
@@ -372,6 +384,63 @@ def parseDiceExpression_Traits(ctx, lid, what):
         n_perm += temp['max_value']
     return RollCat.DICE, n, n_perm, faces, character
 
+def parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = True):
+    character = dbm.getActiveChar(ctx) # can raise
+
+    saw_trait = False
+    saw_notd10 = False
+
+    faces = 0
+    n = 0
+    n_perm = 0
+
+    split_add_list = what.split(ADD_CMD) # split on "+", so each of the results STARTS with something to add
+    for i in range(0, len(split_add_list)):
+        split_add = split_add_list[i]
+        split_sub_list = split_add.split(SUB_CMD) # split on "-", so the first element will be an addition (unless firstNegative is true and i == 0), and everything else is a subtraction
+
+        for j in range(0, len(split_sub_list)):
+            term = split_sub_list[j]
+            n_term = 0
+            n_term_perm = 0
+            try: # either a dice
+                _, n_term, n_term_perm, nf, _ =  parseDiceExpression_Dice(lid, term, forced10)    
+                saw_notd10 = saw_notd10 or (nf != 10)
+                if faces and (faces != nf): # we do not support mixing different face numbers for now
+                    raise BotException( lp.get(lid, "string_error_face_mixing"))
+                faces = nf
+            except BotException as e: # or a SINGLE trait
+                try:
+                    temp = dbm.getTrait_LangSafe(character['id'], term, lid) 
+                    n_term = temp['cur_value']
+                    n_term_perm = temp['max_value']
+                    saw_trait = True
+                    faces = 10
+                except ghostDB.DBException as edb:
+                    raise BotException("\n".join([ lp.get(lid, "string_error_notsure_whatroll"), f'{e}', f'{lp.formatException(lid, edb)}']) )
+            
+            if j > 0 or (i == 0 and firstNegative):
+                n -= n_term
+                n_perm -= n_term_perm
+            else:
+                n += n_term
+                n_perm += n_term_perm
+
+    if saw_trait and saw_notd10: # forced10 = false only lets through non d10 expressions that DO NOT use traits
+        raise BotException( lp.get(lid, "string_error_not_d10"))
+
+    return RollCat.DICE, n, n_perm, faces, character
+
+"""
+def parseDiceExpression(ctx, lid, what, forced10 = False):
+    try:
+        return parseDiceExpression_Dice(lid, what, forced10)    
+    except BotException as e:
+        try:
+            return parseDiceExpression_Traits(ctx, lid, what)
+        except ghostDB.DBException as edb:
+            raise BotException("\n".join([ lp.get(lid, "string_error_notsure_whatroll"), f'{e}', f'{lp.formatException(lid, edb)}']) )"""
+
 # input: l'espressione <what> in .roll <what> [<args>]
 # output: tipo di tiro, numero di dadi, numero di dadi (permanente), numero di facce, personaggio
 def parseRollWhat(ctx, lid, what):
@@ -387,13 +456,7 @@ def parseRollWhat(ctx, lid, what):
     if what in SOAK_CMD:
         return RollCat.SOAK, 1, 1, 10, character
 
-    try:
-        return parseDiceExpression_Dice(lid, what)    
-    except BotException as e:
-        try:
-            return parseDiceExpression_Traits(ctx, lid, what)
-        except ghostDB.DBException as edb:
-            raise BotException("\n".join([ lp.get(lid, "string_error_notsure_whatroll"), f'{e}', f'{lp.formatException(lid, edb)}']) )
+    return parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = False)
         
 def validateInteger(lid, args, i, err_msg = None):
     if err_msg == None:
@@ -432,6 +495,10 @@ def validateIntegerGreatZero(lid, args, i):
 def validateDifficulty(lid, args, i):
     return validateBoundedNumber(lid, args, i, 2, 10, lp.get(lid, "string_errorpiece_valid_diff") )
 
+
+def prettyHighlightError(args, i, width = 3):
+    return " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
+
 # input: sequenza di argomenti per .roll
 # output: dizionario popolato con gli argomenti validati
 def parseRollArgs(ctx, lid, args_raw):
@@ -440,10 +507,25 @@ def parseRollArgs(ctx, lid, args_raw):
         }
     args = list(args_raw)
     # leggo gli argomenti scorrendo args
+
     i = 0
+    last_i = -1
+    repeats = 0
     while i < len(args):
-        if args[i].endswith('+') and args[i] != '+': # fix this immediately
-            args = args[:i] + [args[i][:-1], '+'] + args[i+1:]
+        # bit of safety code due to the fact that we decrement i sometimes
+        if i == last_i:
+            repeats += 1
+        else:
+            repeats = 0
+        if repeats >= 2:
+            raise ValueError(lp.get(lid, "string_arg_X_in_Y_notclear", args[i], prettyHighlightError(args, i)) )
+        last_i = i
+        
+        # detaching + or - from the end of an expression needs to be done immediately
+        if args[i].endswith(ADD_CMD) and args[i] != ADD_CMD: 
+            args = args[:i] + [args[i][:-1], ADD_CMD] + args[i+1:]
+        if args[i].endswith(SUB_CMD) and args[i] != SUB_CMD: 
+            args = args[:i] + [args[i][:-1], SUB_CMD] + args[i+1:]
 
         if args[i] in SOMMA_CMD:
             parsed[RollArg.ROLLTYPE] = RollType.SOMMA
@@ -488,26 +570,19 @@ def parseRollArgs(ctx, lid, args_raw):
             i, d2 = validateIntegerGreatZero(lid, args, i+1)
             split.append( [roll_index] + list(map(int, [d1, d2])))
             parsed[RollArg.SPLIT] = split # save the new split
-        elif args[i] in ADD_CMD:
+        elif args[i] in [ADD_CMD, SUB_CMD]:
             if len(args) == i+1:
                 raise ValueError(lp.get(lid, "string_error_x_what", args[i]))
             # 3 options here: XdY (and variants), trait(s), integers.
             try:
+                sign = ( 1 - 2 * ( args[i] == SUB_CMD)) # 1 or -1 depenging on args[i]
                 i, add = validateIntegerGreatZero(lid, args, i+1) # simple positive integer -> add as successes
                 if RollArg.ADD in parsed:
-                    parsed[RollArg.ADD] += add
+                    parsed[RollArg.ADD] += add * sign
                 else:
-                    parsed[RollArg.ADD] = add
+                    parsed[RollArg.ADD] = add * sign
             except ValueError as e_add: # not an integer -> try to pase it as a dice expression
-                n_dice = 0
-                n_dice_perm = 0
-                try:
-                    _, n_dice, n_dice_perm, _, _ = parseDiceExpression_Dice(lid, args[i+1], True) # XdY
-                except BotException as e_dice:
-                    try:
-                        _, n_dice, n_dice_perm, _, _ =  parseDiceExpression_Traits(ctx, lid, args[i+1]) # Traits
-                    except ghostDB.DBException as e_traits:
-                        raise BotException("\n".join([ lp.get(lid, "string_error_notsure_whatroll"), f'{e_add}', f'{e_dice}', f'{lp.formatException(lid, e_traits)}']))
+                _, n_dice, n_dice_perm, _, _ = parseDiceExpression_Mixed(ctx, lid, args[i+1], firstNegative = args[i] == SUB_CMD, forced10 = True)
                 if RollArg.DADI in parsed:
                     parsed[RollArg.DADI] += n_dice
                     parsed[RollArg.DADI_PERMANENTI] += n_dice_perm 
@@ -535,7 +610,7 @@ def parseRollArgs(ctx, lid, args_raw):
             # provo a staccare parametri attaccati
             did_split = False
             idx = 0
-            tests = DIFF_CMD+MULTI_CMD+DADI_CMD+ADD_CMD
+            tests = DIFF_CMD+MULTI_CMD+DADI_CMD+[ADD_CMD, SUB_CMD]
             while not did_split and idx < len(tests):
                 cmd = tests[idx]
                 if args[i].startswith(cmd):
@@ -548,9 +623,7 @@ def parseRollArgs(ctx, lid, args_raw):
                 idx += 1
 
             if not did_split: # F
-                width = 3
-                ht = " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
-                raise ValueError(lp.get(lid, "string_arg_X_in_Y_notclear", args[i], ht) )
+                raise ValueError(lp.get(lid, "string_arg_X_in_Y_notclear", args[i], prettyHighlightError(args, i)) )
             else:
                 i -= 1 # forzo rilettura
         i += 1
