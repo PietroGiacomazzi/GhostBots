@@ -327,7 +327,7 @@ A sessione attiva:
 .roll assorbi          -> .roll costituzione+robustezza diff 6 danni
 .roll <...> penalita   -> Applica la penalità derivata dalla salute
 .roll <...> dadi N     -> Modifica il numero di dadi del tiro (N può essere positivo o negativo)
-.roll <...> + XdY      -> Vedi sopra (solo +)
+.roll <...> +/- XdY    -> Vedi sopra
 .roll <...> permanente -> Usa i valori base e non quelli potenziati/spesi (es.: ".roll volontà permanente diff 7")
 
 Note sugli spazi:
@@ -385,7 +385,7 @@ def parseDiceExpression_Traits(ctx, lid, what):
     return RollCat.DICE, n, n_perm, faces, character
 
 def parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = True):
-    character = dbm.getActiveChar(ctx) # can raise
+    character = None
 
     saw_trait = False
     saw_notd10 = False
@@ -403,14 +403,16 @@ def parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = 
             term = split_sub_list[j]
             n_term = 0
             n_term_perm = 0
-            try: # either a dice
+            try: # either a xdy expr
                 _, n_term, n_term_perm, nf, _ =  parseDiceExpression_Dice(lid, term, forced10)    
                 saw_notd10 = saw_notd10 or (nf != 10)
                 if faces and (faces != nf): # we do not support mixing different face numbers for now
                     raise BotException( lp.get(lid, "string_error_face_mixing"))
                 faces = nf
-            except BotException as e: # or a SINGLE trait
+            except BotException as e: # or a trait
                 try:
+                    if not character:
+                        character = dbm.getActiveChar(ctx) # can raise
                     temp = dbm.getTrait_LangSafe(character['id'], term, lid) 
                     n_term = temp['cur_value']
                     n_term_perm = temp['max_value']
@@ -431,15 +433,6 @@ def parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = 
 
     return RollCat.DICE, n, n_perm, faces, character
 
-"""
-def parseDiceExpression(ctx, lid, what, forced10 = False):
-    try:
-        return parseDiceExpression_Dice(lid, what, forced10)    
-    except BotException as e:
-        try:
-            return parseDiceExpression_Traits(ctx, lid, what)
-        except ghostDB.DBException as edb:
-            raise BotException("\n".join([ lp.get(lid, "string_error_notsure_whatroll"), f'{e}', f'{lp.formatException(lid, edb)}']) )"""
 
 # input: l'espressione <what> in .roll <what> [<args>]
 # output: tipo di tiro, numero di dadi, numero di dadi (permanente), numero di facce, personaggio
@@ -582,7 +575,7 @@ def parseRollArgs(ctx, lid, args_raw):
                 else:
                     parsed[RollArg.ADD] = add * sign
             except ValueError as e_add: # not an integer -> try to pase it as a dice expression
-                _, n_dice, n_dice_perm, _, _ = parseDiceExpression_Mixed(ctx, lid, args[i+1], firstNegative = args[i] == SUB_CMD, forced10 = True)
+                _, n_dice, n_dice_perm, _, character = parseDiceExpression_Mixed(ctx, lid, args[i+1], firstNegative = args[i] == SUB_CMD, forced10 = True) # TODO: we're locked into d10s by this point, non-vtm dice rolls are limited to the first argument for .roll
                 if RollArg.DADI in parsed:
                     parsed[RollArg.DADI] += n_dice
                     parsed[RollArg.DADI_PERMANENTI] += n_dice_perm 
@@ -639,9 +632,12 @@ async def roll(ctx, *args):
     
     # capisco quanti dadi tirare
     what = args_list[0].lower()
-    if what.endswith('+') and what != '+': # special case that needs to be handled here
+    if what.endswith(ADD_CMD) and what != ADD_CMD: # special cases that needs to be handled here
         what = what[:-1]
-        args_list = [what, '+'] + args_list[1:]
+        args_list = [what, ADD_CMD] + args_list[1:]
+    if what.endswith(SUB_CMD) and what != SUB_CMD:
+        what = what[:-1]
+        args_list = [what, SUB_CMD] + args_list[1:]
     action, ndice, ndice_perm, nfaces, character = parseRollWhat(ctx, lid, what)
     
     # leggo e imposto le varie opzioni
@@ -1456,9 +1452,9 @@ async def pgmod_create(ctx, args):
         return helptext
     else:
         chid = args[0].lower()
-        v, owner = validateDiscordMention(args[1])
+        v, owner = validateDiscordMentionOrID(args[1])
         if not v:
-            raise BotException("Menziona il proprietario del personaggio con @nome")
+            raise BotException("Menziona il proprietario del personaggio con @nome on con il suo discord ID")
 
         fullname = " ".join(list(args[2:]))
 
@@ -1964,9 +1960,9 @@ async def gmadm_stlink(ctx, args):
     if len(args) == 1:
         target_st = issuer
     else:
-        vt, target_st = validateDiscordMention(args[1])
+        vt, target_st = validateDiscordMentionOrID(args[1])
         if not vt:
-            raise BotException(f"Menziona lo storyteller con @") 
+            raise BotException(f"Menziona lo storyteller con @ o inserisci il suo Discord ID") 
     
     t_st, _ = dbm.isStoryteller(target_st)
     if not t_st:
@@ -2036,9 +2032,9 @@ async def gmadm_stname(ctx, args):
     if len(args) == 0:
         target_st = issuer
     else:
-        vt, target_st = validateDiscordMention(args[0])
+        vt, target_st = validateDiscordMentionOrID(args[0])
         if not vt:
-            raise BotException(f"Menziona l'utente con @") 
+            raise BotException(f"Menziona l'utente con @ o inserisci il suo Discord ID") 
 
     # permission checks
     ba, _ = dbm.isBotAdmin(issuer)
@@ -2074,9 +2070,9 @@ async def gmadm_stunname(ctx, args):
     if len(args) == 0: #xd
         target_st = issuer
     else:
-        vt, target_st = validateDiscordMention(args[0])
+        vt, target_st = validateDiscordMentionOrID(args[0])
         if not vt:
-            raise BotException(f"Menziona l'utente con @") 
+            raise BotException(f"Menziona l'utente con @ o inserisci il suo Discord ID") 
 
     # permission checks
     ba, _ = dbm.isBotAdmin(issuer)
