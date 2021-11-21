@@ -833,7 +833,7 @@ async def search_trait(ctx, *args):
     else:
         searchstring = "%" + (" ".join(args)) + "%"
         lower_version = searchstring.lower()
-        traits = dbm.db.select("LangTrait", where="traitId like $search_lower or traitShort like $search_lower or traitName like $search_string", vars=dict(search_lower=lower_version, search_string = searchstring))
+        traits = dbm.db.select("LangTrait", where="langId=$langid and (traitId like $search_lower or traitShort like $search_lower or traitName like $search_string)", vars=dict(search_lower=lower_version, search_string = searchstring, langid=lid))
         if not len(traits):
             response =  lp.get(lid, "string_msg_no_match") 
         else:
