@@ -1452,7 +1452,7 @@ async def pgmod_create(ctx, args):
         return helptext
     else:
         chid = args[0].lower()
-        v, owner = validateDiscordMentionOrID(args[1])
+        v, owner = await validateDiscordMentionOrID(args[1])
         if not v:
             raise BotException("Menziona il proprietario del personaggio con @nome on con il suo discord ID")
 
@@ -1960,7 +1960,7 @@ async def gmadm_stlink(ctx, args):
     if len(args) == 1:
         target_st = issuer
     else:
-        vt, target_st = validateDiscordMentionOrID(args[1])
+        vt, target_st = await validateDiscordMentionOrID(args[1])
         if not vt:
             raise BotException(f"Menziona lo storyteller con @ o inserisci il suo Discord ID") 
     
@@ -2032,7 +2032,7 @@ async def gmadm_stname(ctx, args):
     if len(args) == 0:
         target_st = issuer
     else:
-        vt, target_st = validateDiscordMentionOrID(args[0])
+        vt, target_st = await validateDiscordMentionOrID(args[0])
         if not vt:
             raise BotException(f"Menziona l'utente con @ o inserisci il suo Discord ID") 
 
@@ -2070,7 +2070,7 @@ async def gmadm_stunname(ctx, args):
     if len(args) == 0: #xd
         target_st = issuer
     else:
-        vt, target_st = validateDiscordMentionOrID(args[0])
+        vt, target_st = await validateDiscordMentionOrID(args[0])
         if not vt:
             raise BotException(f"Menziona l'utente con @ o inserisci il suo Discord ID") 
 
