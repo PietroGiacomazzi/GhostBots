@@ -581,6 +581,8 @@ def parseRollArgs(ctx, lid, args_raw):
                     parsed[RollArg.DADI_PERMANENTI] = n_dice_perm
                 if character != None:
                     parsed[RollArg.CHARACTER] = character
+                if RollArg.NFACES in parsed[RollArg.NFACES] and parsed[RollArg.NFACES] != nfaces:
+                    raise BotException( lp.get(lid, "string_error_face_mixing"))
                 parsed[RollArg.NFACES] = nfaces
                 i += 1
         elif args[i] in PENALITA_CMD:
@@ -611,6 +613,8 @@ def parseRollArgs(ctx, lid, args_raw):
                     parsed[RollArg.DADI_PERMANENTI] = n_dice_perm
                 if character != None:
                     parsed[RollArg.CHARACTER] = character
+                if RollArg.NFACES in parsed[RollArg.NFACES] and parsed[RollArg.NFACES] != nfaces:
+                    raise BotException( lp.get(lid, "string_error_face_mixing"))
                 parsed[RollArg.NFACES] = nfaces
             except BotException as e:
                 # provo a staccare parametri attaccati
@@ -785,7 +789,6 @@ async def roll_dice(ctx, lid, parsed):
             else:
                 raise BotException(lp.get(lid, "string_error_unknown_rolltype", RollArg.ROLLTYPE))
     return response
-
 
 @bot.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
 async def roll(ctx, *args):
