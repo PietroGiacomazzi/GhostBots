@@ -492,8 +492,18 @@ def parseRollArgs(ctx, lid, args_raw):
         RollArg.CHARACTER: None
         }
     args = list(args_raw)
-    # leggo gli argomenti scorrendo args
 
+    # detaching + or - from the end of an expression needs to be done immediately
+    i = 0
+    while i < len(args):
+        if args[i].endswith(ADD_CMD) and args[i] != ADD_CMD: 
+            args = args[:i] + [args[i][:-1], ADD_CMD] + args[i+1:]
+        if args[i].endswith(SUB_CMD) and args[i] != SUB_CMD: 
+            args = args[:i] + [args[i][:-1], SUB_CMD] + args[i+1:]
+        i += 1
+
+    # do the actual parsing
+ 
     i = 0
     last_i = -1
     repeats = 0
@@ -507,12 +517,6 @@ def parseRollArgs(ctx, lid, args_raw):
             raise ValueError(lp.get(lid, "string_arg_X_in_Y_notclear", args[i], prettyHighlightError(args, i)) )
         last_i = i
         
-        # detaching + or - from the end of an expression needs to be done immediately
-        if args[i].endswith(ADD_CMD) and args[i] != ADD_CMD: 
-            args = args[:i] + [args[i][:-1], ADD_CMD] + args[i+1:]
-        if args[i].endswith(SUB_CMD) and args[i] != SUB_CMD: 
-            args = args[:i] + [args[i][:-1], SUB_CMD] + args[i+1:]
-
         if args[i] in SOMMA_CMD:
             parsed[RollArg.ROLLTYPE] = RollType.SOMMA
         elif args[i] in DIFF_CMD:
@@ -608,7 +612,7 @@ def parseRollArgs(ctx, lid, args_raw):
                 if character != None:
                     parsed[RollArg.CHARACTER] = character
                 parsed[RollArg.NFACES] = nfaces
-            except:
+            except BotException as e:
                 # provo a staccare parametri attaccati
                 did_split = False
                 idx = 0
@@ -724,7 +728,7 @@ async def roll_dice(ctx, lid, parsed):
         raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
         if add != 0 or parsed[RollArg.ROLLTYPE] == RollType.SOMMA:
             roll_sum = sum(raw_roll) + add
-            return f'{repr(raw_roll)} {"+" if add > 0 else "" }{add} = **{roll_sum}**'
+            return f'{repr(raw_roll)} {"+" if add >= 0 else "" }{add} = **{roll_sum}**'
         else:
             return repr(raw_roll)
         
