@@ -27,7 +27,6 @@ config.read(sys.argv[1])
 
 TOKEN = config['Discord']['token']
 
-
 SOMMA_CMD = ["somma", "s", "lapse", "sum"]
 DIFF_CMD = ["diff", "diff.", "difficoltà", "difficolta", "d", "difficulty"]
 MULTI_CMD = ["multi", "m"]
@@ -46,8 +45,8 @@ RIFLESSI_CMD = ["riflessi", "r", "reflexes"]
 STATISTICS_CMD = ["statistica", "stats", "stat"]
 
 RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES", "SOAK") # macro categoria che divide le azioni di tiro
-RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE", "PENALITA", "DADI", "DADI_PERMANENTI",  "PERMANENTE", "STATS") # argomenti del tiro
-RollType = utils.enum("NORMALE", "SOMMA", "DANNI", "PROGRESSI") # sottotipo dell'argomento RollType
+RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE", "PENALITA", "DADI", "DADI_PERMANENTI",  "PERMANENTE", "STATS", "CHARACTER", "NFACES") # argomenti del tiro
+RollType = utils.enum("NORMALE", "SOMMA", "DANNI", "PROGRESSI") # valori dell'argomento RollType
 
 reset_aliases = ["reset"]
 
@@ -368,7 +367,7 @@ def parseDiceExpression_Dice(lid, what, forced10 = False):
         raise BotException(lp.get(lid, "string_error_toomany_dice", n) )
     if faces > max_faces:
         raise BotException(lp.get(lid, "string_error_toomany_faces", faces))
-    return RollCat.DICE, n, n, faces, None
+    return n, n, faces, None
 
 def parseDiceExpression_Traits(ctx, lid, what):
     character = dbm.getActiveChar(ctx) # can raise
@@ -380,10 +379,10 @@ def parseDiceExpression_Traits(ctx, lid, what):
         temp = dbm.getTrait_LangSafe(character['id'], trait, lid) 
         n += temp['cur_value']
         n_perm += temp['max_value']
-    return RollCat.DICE, n, n_perm, faces, character
+    return n, n_perm, faces, character
 
-def parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = True):
-    character = None
+def parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = True, character = None):
+    #character = None
 
     saw_trait = False
     saw_notd10 = False
@@ -402,7 +401,7 @@ def parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = 
             n_term = 0
             n_term_perm = 0
             try: # either a xdy expr
-                _, n_term, n_term_perm, nf, _ =  parseDiceExpression_Dice(lid, term, forced10)    
+                n_term, n_term_perm, nf, _ =  parseDiceExpression_Dice(lid, term, forced10)    
                 saw_notd10 = saw_notd10 or (nf != 10)
                 if faces and (faces != nf): # we do not support mixing different face numbers for now
                     raise BotException( lp.get(lid, "string_error_face_mixing"))
@@ -429,25 +428,20 @@ def parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = 
     if saw_trait and saw_notd10: # forced10 = false only lets through non d10 expressions that DO NOT use traits
         raise BotException( lp.get(lid, "string_error_not_d10"))
 
-    return RollCat.DICE, n, n_perm, faces, character
+    return n, n_perm, faces, character
 
 
 # input: l'espressione <what> in .roll <what> [<args>]
-# output: tipo di tiro, numero di dadi, numero di dadi (permanente), numero di facce, personaggio
+# output: tipo di tiro
 def parseRollWhat(ctx, lid, what):
-    n = -1
-    faces = -1
-    character = None
-
-    # tiri custom 
     if what in INIZIATIVA_CMD:
-        return RollCat.INITIATIVE, 1, 1, 10, character
+        return RollCat.INITIATIVE
     if what in RIFLESSI_CMD:
-        return RollCat.REFLEXES, 1, 1, 10, character
+        return RollCat.REFLEXES
     if what in SOAK_CMD:
-        return RollCat.SOAK, 1, 1, 10, character
-
-    return parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = False)
+        return RollCat.SOAK
+    else:
+        return RollCat.DICE
         
 def validateInteger(lid, args, i, err_msg = None):
     if err_msg == None:
@@ -494,7 +488,8 @@ def prettyHighlightError(args, i, width = 3):
 # output: dizionario popolato con gli argomenti validati
 def parseRollArgs(ctx, lid, args_raw):
     parsed = {
-        RollArg.ROLLTYPE: RollType.NORMALE # default
+        RollArg.ROLLTYPE: RollType.NORMALE, # default
+        RollArg.CHARACTER: None
         }
     args = list(args_raw)
     # leggo gli argomenti scorrendo args
@@ -572,14 +567,17 @@ def parseRollArgs(ctx, lid, args_raw):
                     parsed[RollArg.ADD] += add * sign
                 else:
                     parsed[RollArg.ADD] = add * sign
-            except ValueError as e_add: # not an integer -> try to pase it as a dice expression
-                _, n_dice, n_dice_perm, _, character = parseDiceExpression_Mixed(ctx, lid, args[i+1], firstNegative = args[i] == SUB_CMD, forced10 = True) # TODO: we're locked into d10s by this point, non-vtm dice rolls are limited to the first argument for .roll
+            except ValueError as e_add: # not an integer -> try to parse it as a dice expression
+                n_dice, n_dice_perm, nfaces, character = parseDiceExpression_Mixed(ctx, lid, args[i+1], firstNegative = args[i] == SUB_CMD, forced10 = (i != 0), character = parsed[RollArg.CHARACTER]) # TODO: we're locked into d10s by this point, non-vtm dice rolls are limited to the first argument for .roll
                 if RollArg.DADI in parsed:
                     parsed[RollArg.DADI] += n_dice
                     parsed[RollArg.DADI_PERMANENTI] += n_dice_perm 
                 else:
                     parsed[RollArg.DADI] = n_dice
                     parsed[RollArg.DADI_PERMANENTI] = n_dice_perm
+                if character != None:
+                    parsed[RollArg.CHARACTER] = character
+                parsed[RollArg.NFACES] = nfaces
                 i += 1
         elif args[i] in PENALITA_CMD:
             parsed[RollArg.PENALITA] = True
@@ -598,57 +596,103 @@ def parseRollArgs(ctx, lid, args_raw):
         elif args[i] in STATISTICS_CMD:
             parsed[RollArg.STATS] = True
         else:
-            # provo a staccare parametri attaccati
-            did_split = False
-            idx = 0
-            tests = DIFF_CMD+MULTI_CMD+DADI_CMD+[ADD_CMD, SUB_CMD]
-            while not did_split and idx < len(tests):
-                cmd = tests[idx]
-                if args[i].startswith(cmd):
-                    try:
-                        #_ = int(args[i][len(cmd):]) # pass only if the rest of the argument is a valid integer. We don't enforce this anymore now that we can also parse traits.
-                        args = args[:i] + [cmd, args[i][len(cmd):]] + args[i+1:]
-                        did_split = True
-                    except ValueError:
-                        pass
-                idx += 1
+            #try parsing a dice expr
+            try:
+                n_dice, n_dice_perm, nfaces, character = parseDiceExpression_Mixed(ctx, lid, args[i], firstNegative = False, forced10 = (i != 0), character = parsed[RollArg.CHARACTER])
+                if RollArg.DADI in parsed:
+                    parsed[RollArg.DADI] += n_dice
+                    parsed[RollArg.DADI_PERMANENTI] += n_dice_perm 
+                else:
+                    parsed[RollArg.DADI] = n_dice
+                    parsed[RollArg.DADI_PERMANENTI] = n_dice_perm
+                if character != None:
+                    parsed[RollArg.CHARACTER] = character
+                parsed[RollArg.NFACES] = nfaces
+            except:
+                # provo a staccare parametri attaccati
+                did_split = False
+                idx = 0
+                tests = DIFF_CMD+MULTI_CMD+DADI_CMD+[ADD_CMD, SUB_CMD]
+                while not did_split and idx < len(tests):
+                    cmd = tests[idx]
+                    if args[i].startswith(cmd):
+                        try:
+                            #_ = int(args[i][len(cmd):]) # pass only if the rest of the argument is a valid integer. We don't enforce this anymore now that we can also parse traits.
+                            args = args[:i] + [cmd, args[i][len(cmd):]] + args[i+1:]
+                            did_split = True
+                        except ValueError:
+                            pass
+                    idx += 1
 
-            if not did_split: # F
-                raise ValueError(lp.get(lid, "string_arg_X_in_Y_notclear", args[i], prettyHighlightError(args, i)) )
-            else:
-                i -= 1 # forzo rilettura
+                if not did_split: # F
+                    raise ValueError(lp.get(lid, "string_arg_X_in_Y_notclear", args[i], prettyHighlightError(args, i)) )
+                else:
+                    i -= 1 # forzo rilettura
         i += 1
     return parsed
 
-@bot.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
-async def roll(ctx, *args):
-    issuer = ctx.message.author.id
-    lid = getLanguage(issuer, dbm)
-    if len(args) == 0:
-        raise BotException(lp.get(lid, "string_error_x_what", "roll")+" diomadonna") #xd
-    args_list = list(args)
-    
-    # capisco quanti dadi tirare
-    what = args_list[0].lower()
-    if what.endswith(ADD_CMD) and what != ADD_CMD: # special cases that needs to be handled here
-        what = what[:-1]
-        args_list = [what, ADD_CMD] + args_list[1:]
-    if what.endswith(SUB_CMD) and what != SUB_CMD:
-        what = what[:-1]
-        args_list = [what, SUB_CMD] + args_list[1:]
-    action, ndice, ndice_perm, nfaces, character = parseRollWhat(ctx, lid, what)
-    
-    # leggo e imposto le varie opzioni
-    parsed = None
+async def roll_initiative(ctx, lid, parsed):
+    if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
+        raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination") )
+    add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
+    raw_roll = random.randint(1, 10)
+    bonuses_log = []
+    bonus = add
+    if add:
+        bonuses_log.append(lp.get(lid, "string_bonus_X", add))
     try:
-        parsed = parseRollArgs(ctx, lid, args_list[1:])
-    except ValueError as e:
-        await atSend(ctx, str(e))
-        return
-    
-    # modifico il numero di dadi
+        character = dbm.getActiveChar(ctx)
+        for traitid in ['prontezza', 'destrezza', 'velocità']:
+            try:
+                val = dbm.getTrait_LangSafe(character['id'], traitid, lid)
+                bonus += val["cur_value"]
+                bonuses_log.append( f'{val["traitName"]}: {val["cur_value"]}' )
+            except ghostDB.DBException:
+                pass
+    except ghostDB.DBException:
+        bonuses_log.append(lp.get(lid, "string_comment_no_pc"))
+    details = ""
+    if len(bonuses_log):
+        details = ", ".join(bonuses_log)
+    final_val = raw_roll+bonus
+    return f'{lp.get(lid, "string_initiative")}: **{final_val}**\n{lp.get(lid, "string_roll")}: [{raw_roll}] + {bonus if bonus else 0} ({details})'
+
+async def roll_reflexes(ctx, lid, parsed):
+    if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:    
+        raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination"))
+    add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
+    character = dbm.getActiveChar(ctx)
+    volonta = dbm.getTrait_LangSafe(character['id'], 'volonta', lid)#['cur_value']
+    prontezza = dbm.getTrait_LangSafe(character['id'], 'prontezza', lid)#['cur_value']
+    diff = 10 - prontezza['cur_value']
+    response = f'{volonta["traitName"]}: {volonta["cur_value"]}, {prontezza["traitName"]}: {prontezza["cur_value"]} -> {volonta["cur_value"]}d{10} {lp.get(lid, "string_diff")} ({diff} = {10}-{prontezza["cur_value"]})\n'
+    response += rollAndFormatVTM(lid, volonta['cur_value'], 10, diff, rollStatusReflexes, add, statistics = RollArg.STATS in parsed)
+    return response
+
+async def roll_soak(ctx, lid, parsed):
+    if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or RollArg.ADD in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE:
+        raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination"))
+    diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
+    character = dbm.getActiveChar(ctx)
+    pool = dbm.getTrait_LangSafe(character['id'], 'costituzione', lid)['cur_value']
+    try:
+        pool += dbm.getTrait_LangSafe(character['id'], 'robustezza', lid)['cur_value']
+    except ghostDB.DBException:
+        pass
+    return rollAndFormatVTM(lid, pool, 10, diff, rollStatusSoak, 0, False, statistics = RollArg.STATS in parsed)
+
+async def roll_dice(ctx, lid, parsed):
+    ndice = 0
     if RollArg.PERMANENTE in parsed:
-        ndice = ndice_perm
+        ndice = parsed[RollArg.DADI_PERMANENTI]
+    else:
+        ndice = parsed[RollArg.DADI]
+
+    nfaces = parsed[RollArg.NFACES]
+
+    character = parsed[RollArg.CHARACTER] # might be None
+
+    # modifico il numero di dadi
     
     if RollArg.PENALITA in parsed:
         if not character:
@@ -656,12 +700,6 @@ async def roll(ctx, *args):
         health = dbm.getTrait_LangSafe(character['id'], 'salute', lid)
         penalty, _ = parseHealth(health)
         ndice += penalty[0]
-
-    if RollArg.DADI in parsed:
-        if RollArg.PERMANENTE in parsed:
-            ndice += parsed[RollArg.DADI_PERMANENTI]
-        else:
-            ndice += parsed[RollArg.DADI]
 
     if ndice > max_dice:
         raise BotException(lp.get(lid, "string_error_toomany_dice", max_dice))
@@ -678,63 +716,25 @@ async def roll(ctx, *args):
             raise BotException(lp.get(lid, "string_error_not_enough_dice_multi_MAX_REQUESTED", max_moves, ndice) )
 
     # decido cosa fare
-    if len(args) == 1 and action == RollCat.DICE : #simple roll
+
+    add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
+
+    # simple roll
+    if not (RollArg.MULTI in parsed) and not (RollArg.DIFF in parsed) and not (RollArg.SPLIT in parsed) and (parsed[RollArg.ROLLTYPE] == RollType.NORMALE or parsed[RollArg.ROLLTYPE] == RollType.SOMMA):
         raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
-        await atSend(ctx, repr(raw_roll))
+        if add != 0 or parsed[RollArg.ROLLTYPE] == RollType.SOMMA:
+            roll_sum = sum(raw_roll) + add
+            await atSend(ctx, f'{repr(raw_roll)} {"+" if add > 0 else "" }{add} = **{roll_sum}**')
+        else:
+            await atSend(ctx, repr(raw_roll))
         return
 
-    d10check(lid, nfaces)
+    d10check(lid, nfaces) # past this point, we are in d10 territory
+    
     stats = RollArg.STATS in parsed
-
     response = ''
-    if action == RollCat.DICE and parsed[RollArg.ROLLTYPE] == RollType.NORMALE and not RollArg.DIFF in parsed and RollArg.ADD in parsed: #se non c'è difficoltà tramuta un tiro in un tiro somma in stile dnd
-        parsed[RollArg.ROLLTYPE] = RollType.SOMMA
-    add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
-    if action == RollCat.INITIATIVE:
-        if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
-            raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination") )
-        raw_roll = random.randint(1, nfaces)
-        bonuses_log = []
-        bonus = add
-        if add:
-            bonuses_log.append(lp.get(lid, "string_bonus_X", add))
-        try:
-            character = dbm.getActiveChar(ctx)
-            for traitid in ['prontezza', 'destrezza', 'velocità']:
-                try:
-                    val = dbm.getTrait_LangSafe(character['id'], traitid, lid)
-                    bonus += val["cur_value"]
-                    bonuses_log.append( f'{val["traitName"]}: {val["cur_value"]}' )
-                except ghostDB.DBException:
-                    pass
-        except ghostDB.DBException:
-            bonuses_log.append(lp.get(lid, "string_comment_no_pc"))
-        details = ""
-        if len(bonuses_log):
-            details = ", ".join(bonuses_log)
-        final_val = raw_roll+bonus
-        response += f'{lp.get(lid, "string_initiative")}: **{final_val}**\n{lp.get(lid, "string_roll")}: [{raw_roll}] + {bonus if bonus else 0} ({details})'
-    elif action == RollCat.REFLEXES:
-        if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
-            raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination"))
-        character = dbm.getActiveChar(ctx)
-        volonta = dbm.getTrait_LangSafe(character['id'], 'volonta', lid)#['cur_value']
-        prontezza = dbm.getTrait_LangSafe(character['id'], 'prontezza', lid)#['cur_value']
-        diff = 10 - prontezza['cur_value']
-        response = f'{volonta["traitName"]}: {volonta["cur_value"]}, {prontezza["traitName"]}: {prontezza["cur_value"]} -> {volonta["cur_value"]}d{nfaces} {lp.get(lid, "string_diff")} ({diff} = {nfaces}-{prontezza["cur_value"]})\n'
-        response += rollAndFormatVTM(lid, volonta['cur_value'], nfaces, diff, rollStatusReflexes, add, statistics = stats)
-    elif action == RollCat.SOAK:
-        if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or RollArg.ADD in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE:
-            raise BotException(lp.get(lid, "string_error_roll_invalid_param_combination"))
-        diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
-        character = dbm.getActiveChar(ctx)
-        pool = dbm.getTrait_LangSafe(character['id'], 'costituzione', lid)['cur_value']
-        try:
-            pool += dbm.getTrait_LangSafe(character['id'], 'robustezza', lid)['cur_value']
-        except ghostDB.DBException:
-            pass
-        response = rollAndFormatVTM(lid, pool, nfaces, diff, rollStatusSoak, 0, False, statistics = stats)
-    elif RollArg.MULTI in parsed:
+    
+    if RollArg.MULTI in parsed:
         multi = parsed[RollArg.MULTI]
         split = []
         if RollArg.SPLIT in parsed:
@@ -772,10 +772,6 @@ async def roll(ctx, *args):
                 if not RollArg.DIFF in parsed:
                     raise BotException(lp.get(lid, "string_error_missing_diff"))
                 response = rollAndFormatVTM(lid, ndice, nfaces, parsed[RollArg.DIFF], rollStatusNormal, add, statistics = stats)
-            elif parsed[RollArg.ROLLTYPE] == RollType.SOMMA:
-                raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
-                somma = sum(raw_roll)+add
-                response = f'{lp.get(lid, "string_sum")}: **{somma}**, {lp.get(lid, "string_roll")}: {raw_roll}' + (f'+{add}' if add else '')
             elif parsed[RollArg.ROLLTYPE] == RollType.DANNI:
                 diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
                 response = rollAndFormatVTM(lid, ndice, nfaces, diff, rollStatusDMG, add, False, statistics = stats)
@@ -784,6 +780,40 @@ async def roll(ctx, *args):
                 response = rollAndFormatVTM(lid, ndice, nfaces, diff, rollStatusProgress, add, False, True, statistics = stats)
             else:
                 raise BotException(lp.get(lid, "string_error_unknown_rolltype", RollArg.ROLLTYPE))
+    await atSend(ctx, response)
+
+
+@bot.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
+async def roll(ctx, *args):
+    issuer = ctx.message.author.id
+    lid = getLanguage(issuer, dbm)
+    if len(args) == 0:
+        raise BotException(lp.get(lid, "string_error_x_what", "roll")+" diomadonna") #xd
+    args_list = list(args)
+    
+    # capisco che tipo di tiro ho di fronte
+    what = args_list[0].lower()
+
+    action = parseRollWhat(ctx, lid, what)
+    
+    # leggo e imposto le varie opzioni
+    parsed = None
+    start_arg = 0 if action == RollCat.DADI else 1
+    try:
+        parsed = parseRollArgs(ctx, lid, args_list[start_arg:])
+    except ValueError as e:
+        await atSend(ctx, str(e))
+        return
+
+    # gestisco i tiri specifici
+    if action == RollCat.INITIATIVE:
+        response = await roll_initiative(ctx, lid, parsed)
+    elif action == RollCat.REFLEXES:
+        response = await roll_reflexes(ctx, lid, parsed)
+    elif action == RollCat.SOAK:
+        response = await roll_soak(ctx, lid, parsed)
+    else:
+        response = await roll_dice(ctx, lid, parsed)
     await atSend(ctx, response)
        
 @bot.command(brief='Lascia che il Greedy Ghost ti saluti.')
