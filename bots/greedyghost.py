@@ -724,10 +724,10 @@ async def roll_dice(ctx, lid, parsed):
         raw_roll = list(map(lambda x: random.randint(1, nfaces), range(ndice)))
         if add != 0 or parsed[RollArg.ROLLTYPE] == RollType.SOMMA:
             roll_sum = sum(raw_roll) + add
-            await atSend(ctx, f'{repr(raw_roll)} {"+" if add > 0 else "" }{add} = **{roll_sum}**')
+            return f'{repr(raw_roll)} {"+" if add > 0 else "" }{add} = **{roll_sum}**'
         else:
-            await atSend(ctx, repr(raw_roll))
-        return
+            return repr(raw_roll)
+        
 
     d10check(lid, nfaces) # past this point, we are in d10 territory
     
@@ -780,7 +780,7 @@ async def roll_dice(ctx, lid, parsed):
                 response = rollAndFormatVTM(lid, ndice, nfaces, diff, rollStatusProgress, add, False, True, statistics = stats)
             else:
                 raise BotException(lp.get(lid, "string_error_unknown_rolltype", RollArg.ROLLTYPE))
-    await atSend(ctx, response)
+    return response
 
 
 @bot.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
@@ -798,7 +798,7 @@ async def roll(ctx, *args):
     
     # leggo e imposto le varie opzioni
     parsed = None
-    start_arg = 0 if action == RollCat.DADI else 1
+    start_arg = 0 if action == RollCat.DICE else 1
     try:
         parsed = parseRollArgs(ctx, lid, args_list[start_arg:])
     except ValueError as e:
@@ -806,6 +806,7 @@ async def roll(ctx, *args):
         return
 
     # gestisco i tiri specifici
+    response = ''
     if action == RollCat.INITIATIVE:
         response = await roll_initiative(ctx, lid, parsed)
     elif action == RollCat.REFLEXES:
