@@ -581,7 +581,7 @@ def parseRollArgs(ctx, lid, args_raw):
                     parsed[RollArg.DADI_PERMANENTI] = n_dice_perm
                 if character != None:
                     parsed[RollArg.CHARACTER] = character
-                if RollArg.NFACES in parsed[RollArg.NFACES] and parsed[RollArg.NFACES] != nfaces:
+                if RollArg.NFACES in parsed and parsed[RollArg.NFACES] != nfaces:
                     raise BotException( lp.get(lid, "string_error_face_mixing"))
                 parsed[RollArg.NFACES] = nfaces
                 i += 1
@@ -613,7 +613,7 @@ def parseRollArgs(ctx, lid, args_raw):
                     parsed[RollArg.DADI_PERMANENTI] = n_dice_perm
                 if character != None:
                     parsed[RollArg.CHARACTER] = character
-                if RollArg.NFACES in parsed[RollArg.NFACES] and parsed[RollArg.NFACES] != nfaces:
+                if RollArg.NFACES in parsed and parsed[RollArg.NFACES] != nfaces:
                     raise BotException( lp.get(lid, "string_error_face_mixing"))
                 parsed[RollArg.NFACES] = nfaces
             except BotException as e:
