@@ -7,7 +7,7 @@ dname = os.path.dirname(abspath)
 os.chdir(dname)
 
 from discord.ext import commands
-import random, sys, configparser, web, traceback, MySQLdb, discord
+import random, sys, configparser, MySQLdb, discord
 import support.vtm_res as vtm_res
 import support.ghostDB as ghostDB
 import support.utils as utils
@@ -184,7 +184,7 @@ def rollAndFormatVTM(lid, ndice, nfaces, diff, statusFunc = rollStatusNormal, ex
     else:        
         successi, tiro, cancels = vtm_res.roller(ndice, nfaces, diff, canceling, spec)
         pretty = prettyRoll(tiro, diff, cancels)
-        # TODO: define how extra successes (bopth positive and negative) invfluende critfail situations
+        # TODO: define how extra successes (both positive and negative) influence critfail situations
         if (extra_succ > 0): 
             if successi < 0: # adding auto successes means we ignore critfail situations, the roll is always a success.
                 successi = 0
@@ -220,7 +220,7 @@ def findSplit(idx, splits):
     return []
 
 def validateTraitName(traitid):
-    forbidden_chars = [" ", "+"]
+    forbidden_chars = [" ", "+", "-"]
     return sum(map(lambda x: traitid.count(x), forbidden_chars)) == 0
 
 class BotException(Exception): # use this for 'known' error situations
@@ -250,11 +250,8 @@ async def on_ready():
 async def on_command_error(ctx, error):
     issuer = ctx.message.author.id
     lid = getLanguage(issuer, dbm)
-    ftb = traceback.format_exception(*sys.exc_info()) # broken, because the exception has already been handled
-    #print(ftb)
-    #logging.warning(traceback.format_exc()) #logs the error
-    #ignored = (commands.CommandNotFound, )
     error = getattr(error, 'original', error)
+    #ignored = (commands.CommandNotFound, )
     #if isinstance(error, ignored):
     #    print(error)
     if isinstance(error, commands.CommandNotFound):
@@ -289,7 +286,7 @@ async def on_command_error(ctx, error):
             await atSend(ctx, lp.get(lid, "string_error_unhandled_exception") )
         #print("debug user:", int(config['Discord']['debuguser']))
         debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
-        await debug_user.send( lp.get(lid, "string_error_details", ctx.message.content, type(error), error, ftb) )
+        await debug_user.send( lp.get(lid, "string_error_details", ctx.message.content, type(error), error) )
 
 
 @bot.command(name='coin', help = 'Testa o Croce.')
@@ -633,7 +630,7 @@ def parseRollArgs(ctx, lid, args_raw):
                     idx += 1
 
                 if not did_split: # F
-                    raise ValueError(lp.get(lid, "string_arg_X_in_Y_notclear", args[i], prettyHighlightError(args, i)) )
+                    raise BotException("\n".join([ lp.get(lid, "string_arg_X_in_Y_notclear", args[i], prettyHighlightError(args, i)), f'{e}']) )
                 else:
                     i -= 1 # forzo rilettura
         i += 1
