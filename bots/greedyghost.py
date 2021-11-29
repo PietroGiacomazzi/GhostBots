@@ -27,21 +27,25 @@ config.read(sys.argv[1])
 
 TOKEN = config['Discord']['token']
 
-SOMMA_CMD = ["somma", "s", "lapse", "sum"]
-DIFF_CMD = ["diff", "diff.", "difficoltà", "difficolta", "d", "difficulty"]
+#IMPORTANT: 
+# longer versions first. DO NOT put a variant before one that contains it -> it will break the emergency splitting
+# do NOT have variants that are contained in OTHER command lists, otherwise it will break the emergency splitting in a wai that is VERY hard to debug
+# TODO: prevent startup if above conditions are not met
+SOMMA_CMD = ["somma", "lapse", "sum"]
+DIFF_CMD = ["difficoltà", "difficolta", "difficulty", "diff", "diff."]
 MULTI_CMD = ["multi", "m"]
 DANNI_CMD = ["danni", "danno", "dmg", "damage"]
 PROGRESSI_CMD = ["progressi", "progress"]
 SPLIT_CMD = ["split"]
-PENALITA_CMD = ["penalita", "penalità", "p", "penalty"]
+PENALITA_CMD = ["penalita", "penalità", "penalty"]
 DADI_CMD = ["dadi", "dice"]
 ADD_CMD = "+"
 SUB_CMD = "-"
 
-PERMANENTE_CMD = ["permanente", "perm", "permanent"]
+PERMANENTE_CMD = ["permanente", "permanent", "perm"]
 SOAK_CMD = ["soak", "assorbi"]
-INIZIATIVA_CMD = ["iniziativa", "iniz", "initiative"]
-RIFLESSI_CMD = ["riflessi", "r", "reflexes"]
+INIZIATIVA_CMD = ["iniziativa", "initiative", "iniz"]
+RIFLESSI_CMD = ["riflessi", "reflexes", "r"]
 STATISTICS_CMD = ["statistica", "stats", "stat"]
 
 RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES", "SOAK") # macro categoria che divide le azioni di tiro
@@ -229,7 +233,7 @@ class BotException(Exception): # use this for 'known' error situations
     
 dbm = ghostDB.DBManager(config['Database'])
 
-botcmd_prefixes = ['.']
+botcmd_prefixes = ['.'] # all prefixes needs to be length 1, some code below relies on it (on_command_error ...)
 bot = commands.Bot(botcmd_prefixes)
 
 #executed once on bot boot
@@ -259,7 +263,7 @@ async def on_command_error(ctx, error):
             msgsplit = ctx.message.content.split(" ")
             msgsplit[0] = msgsplit[0][1:] # toglie prefisso
             charid = msgsplit[0]
-            ic, character = dbm.isValidCharacter(charid)
+            ic, _ = dbm.isValidCharacter(charid)
             if ic:
                 await pgmanage(ctx, *msgsplit)
             else:
@@ -365,18 +369,6 @@ def parseDiceExpression_Dice(lid, what, forced10 = False):
     if faces > max_faces:
         raise BotException(lp.get(lid, "string_error_toomany_faces", faces))
     return n, n, faces, None
-
-def parseDiceExpression_Traits(ctx, lid, what):
-    character = dbm.getActiveChar(ctx) # can raise
-    split = what.split("+")
-    faces = 10
-    n = 0
-    n_perm = 0
-    for trait in split:
-        temp = dbm.getTrait_LangSafe(character['id'], trait, lid) 
-        n += temp['cur_value']
-        n_perm += temp['max_value']
-    return n, n_perm, faces, character
 
 def parseDiceExpression_Mixed(ctx, lid, what, firstNegative = False, forced10 = True, character = None):
     #character = None
@@ -1186,12 +1178,9 @@ async def pc_interact(ctx, pc, can_edit, *args):
 
     trait_id = args[0].lower()
     if len(args) == 1:
-        if trait_id.count("+"):
-            _, count, _, _, _ = parseDiceExpression_Traits(ctx, lid, trait_id)
-            #count = 0
-            #for tid in trait_id.split("+"):
-            #    count += dbm.getTrait(pc['id'], tid)['cur_value']
-            return f"{args[0]}: {count}"
+        if trait_id.count("+") or trait_id.count("-"):
+            count, count_perm, _, _ =  parseDiceExpression_Mixed(ctx, lid, trait_id, firstNegative = False, forced10 = True, character = pc)
+            return f"{args[0]}: {count}\npermanente: {count_perm}"
         else:
             trait = dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
             prettyFormatter = getTraitFormatter(trait)
@@ -1253,7 +1242,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
 
     # salute
     response = ''
-    n = param[1:-1]
+    n = param[1:-1] # 1st char is the operation, last char is the damaage type
     if n == '':
         n = 1
     elif n.isdigit():
@@ -1269,7 +1258,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
     if operazione == "r":
         new_health = ""
         
-        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=pc['id']), text_value = new_health, cur_value = trait['cur_value'])
+        u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=pc['id']), text_value = new_health, cur_value = trait['max_value'])
         dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_health, trait['text_value'], ctx.message.content)
         if u != 1:
             raise BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
@@ -1296,7 +1285,7 @@ async def pc_interact(ctx, pc, can_edit, *args):
                             trait['cur_value'] = 0
                         else:
                             convert = True
-                            trait['cur_value'] = 1
+                            trait['cur_value'] = trait['max_value']
                     elif dmgtype == 'l':
                         convert = True
                     else:
@@ -1334,11 +1323,11 @@ async def pc_interact(ctx, pc, can_edit, *args):
                 fl = new_health.find(dmgtype)
                 new_health = new_health[:fl]+new_health[fl+n:]
         else: # dio can
-            if (int(trait['cur_value']) == 0 + new_health.count(dmgtype)+new_health.count("l")*2) < n:
+            if ( (int(trait['cur_value']) == 0) + new_health.count(dmgtype)+new_health.count("l")*2) < n:
                 raise BotException("Non hai tutti quei danni contundenti")
             for i in range(n):
                 if trait['cur_value'] == 0:
-                    trait['cur_value'] = 1 # togli il mezzo aggravato
+                    trait['cur_value'] = trait['max_value'] # togli il mezzo aggravato
                 else:
                     if new_health[-1] == 'c':
                         new_health = new_health[:-1]
