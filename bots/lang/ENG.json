@@ -28,7 +28,7 @@
 	"string_error_database_generic": "Database error :(",
 	"string_error_database_dataviolation": "The operation violates a data constraint, I can't do this",
 	"string_error_unhandled_exception": "Oops! Something broke, congratulations!",
-	"string_error_details": "The message:\n\n{}\n\n caused an error of type {}:\n\n{}\n\n{}",
+	"string_error_details": "The message:\n\n{}\n\n caused an error of type {}:\n\n{}",
 	"string_heads": "Heads",
 	"string_tails": "Tails",
 	"string_error_toomany_d": "Too many 'd's",

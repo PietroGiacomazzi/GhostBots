@@ -1,3 +1,4 @@
+from discord.ext import commands
 import web
 from .utils import *
 
@@ -48,7 +49,7 @@ insert into CharacterTrait
     def isValidCharacter(self, charid):
         characters = self.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
         return bool(len(characters)), (characters[0] if (len(characters)) else None)
-    def getActiveChar(self, ctx): # dato un canale e un utente, trova il pg interpretato
+    def getActiveChar(self, ctx: commands.Context): # dato un canale e un utente, trova il pg interpretato
         playercharacters = self.db.query("""
     SELECT pc.*
     FROM GameSession gs
@@ -242,7 +243,7 @@ where cc.playerchar = $charid
         """Does this trait type exist?"""
         traittypes = self.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
         return bool(len(traittypes)), (traittypes[0] if (len(traittypes)) else None)
-    def isValidLanguage(self, langId):
+    def isValidLanguage(self, langId: str) -> tuple:
         """ does this language exist? """
         langs = self.db.select('Languages', where='langId=$id', vars=dict(id=langId))
         return bool(len(langs)), (langs[0] if (len(langs)) else None)

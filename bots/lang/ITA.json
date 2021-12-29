@@ -28,7 +28,7 @@
 	"string_error_database_generic": "Errore di database :(",
 	"string_error_database_dataviolation": "L'operazione viola dei vincoli sui dati, non posso farlo",
 	"string_error_unhandled_exception": "Congratulazioni! Hai trovato un modo per rompere il comando!",
-	"string_error_details": "Il messaggio:\n\n{}\n\n ha causato l'errore di tipo {}:\n\n{}\n\n{}",
+	"string_error_details": "Il messaggio:\n\n{}\n\n ha causato l'errore di tipo {}:\n\n{}",
 	"string_heads": "Testa",
 	"string_tails": "Croce",
 	"string_error_toomany_d": "Troppe 'd' b0ss",

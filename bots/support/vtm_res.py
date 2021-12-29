@@ -13,6 +13,7 @@ import random
 # cancel_high: cancel successes from lowest (false), or highest (True). only matters when specializations apply. DEFAULT ?
 # spec_reroll: true: reroll dei 10, false: doppio successo DEFAULT FALSE
 
+# unused
 def decider(roll_sorted, difficulty, failcancel = 2, spec = False, cancel_high = True, spec_reroll = False):
     md = -1 # will contain the index of the first success
     for i in range(0, len(roll_sorted)):
