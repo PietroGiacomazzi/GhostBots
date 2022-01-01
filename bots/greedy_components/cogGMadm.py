@@ -124,7 +124,7 @@ class GreedyGhostCog_GMadm(commands.Cog):
 
     @gmadm.command(brief = "Crea una nuova cronaca associata allo ST che invoca il comando", description = newChronicle_description)
     async def newChronicle(self, ctx: commands.Context, *args):
-        if len(args) != 2:
+        if len(args) < 2:
             self.bot.atSend(newChronicle_description)
             return 
 
