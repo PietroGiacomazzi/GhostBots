@@ -804,13 +804,15 @@ function populateSheet(characterTraits, character){
 	   ['combinata', true],
 	   ['talento', true]	
 	]);
+	// TODO: make it a flag somewhere
 	var switchesVie = new Map([
 	   ['viataum', true],
 	   ['vianecro', true],
 	   ['viaduranki', true],
 	   ['viaahku', true],
 	   ['viadarktaum', true],
-	   ['brujerizmo', true]
+	   ['brujerizmo', true],
+	   ['viawanga', true]
 	]);
 	var global_switches_vie = true;
 	
