@@ -32,9 +32,8 @@ class GreedyGhost(commands.Bot):
         vm, userid = utils.validateDiscordMention(inp)
         if vm:
             return vm, userid
-        
-        uid = int(inp)
         try:
+            uid = int(inp)
             _ = await self.fetch_user(uid)
             return True, inp
         except:
