@@ -101,6 +101,8 @@ class GreedyGhostCog_PCMod(commands.Cog):
             self.bot.dbm.db.insert("ChronicleCharacterRel", chronicle=chronid, playerchar=charid)
             await self.bot.atSend(ctx, f"{character['fullname']} ora gioca a {chronicle['name']}")
 
+
+    @pgmod.command(brief = "Disassocia un personaggio da una cronaca", description = unlink_description)
     async def unlink(self, ctx: commands.Context, *args):
         if len(args) != 2:
             await self.bot.atSend(ctx, unlink_description)
