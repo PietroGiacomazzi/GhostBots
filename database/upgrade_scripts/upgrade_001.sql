@@ -1,0 +1,1 @@
+update ClanInfo set clanimgurl = 'SymbolClanRavnosV5.webp' where clanid = 'Ravnos';
