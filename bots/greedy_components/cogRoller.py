@@ -555,7 +555,7 @@ class GreedyGhostCog_Roller(commands.Cog):
         prontezza = self.bot.dbm.getTrait_LangSafe(character['id'], 'prontezza', lid)#['cur_value']
         diff = 10 - prontezza['cur_value']
         response = f'{volonta["traitName"]}: {volonta["cur_value"]}, {prontezza["traitName"]}: {prontezza["cur_value"]} -> {volonta["cur_value"]}d{10} {self.bot.getStringForUser(ctx, "string_diff")} ({diff} = {10}-{prontezza["cur_value"]})\n'
-        response += self.rollAndFormatVTM(lid, volonta['cur_value'], 10, diff, rollStatusReflexes, add, statistics = RollArg.STATS in parsed)
+        response += self.rollAndFormatVTM(ctx, volonta['cur_value'], 10, diff, rollStatusReflexes, add, statistics = RollArg.STATS in parsed)
         return response
 
     async def roll_soak(self, ctx: commands.Context, parsed: dict) -> str:
@@ -569,7 +569,7 @@ class GreedyGhostCog_Roller(commands.Cog):
             pool += self.bot.dbm.getTrait_LangSafe(character['id'], 'robustezza', lid)['cur_value']
         except ghostDB.DBException:
             pass
-        return self.rollAndFormatVTM(lid, pool, 10, diff, rollStatusSoak, 0, False, statistics = RollArg.STATS in parsed)
+        return self.rollAndFormatVTM(ctx, pool, 10, diff, rollStatusSoak, 0, False, statistics = RollArg.STATS in parsed)
 
     async def roll_dice(self, ctx: commands.Context, parsed: dict) -> str:
         ndice = 0
@@ -676,8 +676,6 @@ class GreedyGhostCog_Roller(commands.Cog):
 
     @commands.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
     async def roll(self, ctx: commands.Context, *args):
-        issuer = ctx.message.author.id
-        #lid = getLanguage(issuer, dbm)
         if len(args) == 0:
             raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_x_what", "roll")+" diomadonna") #xd
         args_list = list(args)
@@ -688,9 +686,9 @@ class GreedyGhostCog_Roller(commands.Cog):
         action = None
         if what in INIZIATIVA_CMD:
             action = RollCat.INITIATIVE
-        if what in RIFLESSI_CMD:
+        elif what in RIFLESSI_CMD:
             action = RollCat.REFLEXES
-        if what in SOAK_CMD:
+        elif what in SOAK_CMD:
             action = RollCat.SOAK
         else:
             action = RollCat.DICE
