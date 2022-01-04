@@ -49,7 +49,7 @@
 	"string_error_x_what": "{} what",
 	"string_error_split_before_multi": "**multi** needs to be specified before **split**",
 	"string_error_multiple_multi": "you specified **multi** more than once",
-	"string_error_X_takes_atleast_Y_params": "{} takes at least {} parameters",
+	"string_error_X_takes_Y_params": "{} takes {} parameters",
 	"string_errorpiece_with_multi": "with **multi**",
 	"string_error_split_X_higherthan_multi_Y": "You can't split roll {} with **multi** {}",
 	"string_error_already_splitting_X": "You can't split roll {} multiple times",

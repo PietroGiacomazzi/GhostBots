@@ -49,7 +49,7 @@
 	"string_error_x_what": "{} cosa",
 	"string_error_split_before_multi": "**multi** va specificato prima di **split**",
 	"string_error_multiple_multi": "Stai tentando di innestare 2 multiple?",
-	"string_error_X_takes_atleast_Y_params": "{} prende almeno {} parametri",
+	"string_error_X_takes_Y_params": "{} prende {} parametri",
 	"string_errorpiece_with_multi": "con **multi**",
 	"string_error_split_X_higherthan_multi_Y": "Non puoi splittare il tiro {} con **multi** {}",
 	"string_error_already_splitting_X": "Stai già splittando il tiro {}",

@@ -420,7 +420,7 @@ class GreedyGhostCog_Roller(commands.Cog):
                     split = parsed[RollArg.SPLIT]
                 if RollArg.MULTI in parsed:
                     if len(args) < i+4:
-                        raise ValueError(self.bot.getStringForUser(ctx, "string_error_X_takes_atleast_Y_params", args[i], 3) +" "+ self.bot.getStringForUser(ctx, "string_errorpiece_with_multi") )
+                        raise ValueError(self.bot.getStringForUser(ctx, "string_error_X_takes_Y_params", args[i], 3) +" "+ self.bot.getStringForUser(ctx, "string_errorpiece_with_multi") )
                     i, temp = self.validateIntegerGreatZero(ctx, args, i+1)
                     roll_index = temp-1
                     if roll_index >= parsed[RollArg.MULTI]:
@@ -429,7 +429,7 @@ class GreedyGhostCog_Roller(commands.Cog):
                         raise ValueError(self.bot.getStringForUser(ctx, "string_error_already_splitting_X", roll_index+1) )
                 else: # not an elif because reasons
                     if len(args) < i+3:
-                        raise ValueError(self.bot.getStringForUser(ctx,  "string_error_X_takes_atleast_Y_params", args[i], 2))
+                        raise ValueError(self.bot.getStringForUser(ctx,  "string_error_X_takes_Y_params", args[i], 2))
                 i, d1 = self.validateIntegerGreatZero(ctx, args, i+1)
                 i, d2 = self.validateIntegerGreatZero(ctx, args, i+1)
                 split.append( [roll_index] + list(map(int, [d1, d2])))
