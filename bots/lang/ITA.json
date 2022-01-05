@@ -82,7 +82,7 @@
 	"string_error_wrong_number_arguments": "Numero di argomenti errato",
 	"string_error_character_already_exists": "Il personaggio esiste già",
 	"string_error_char_not_allowed": "carattere non permesso",
-	"string_error_not_d10": "Solo i d10 sono amamessi in questo tiro",
+	"string_error_not_d10": "Solo i d10 sono ammessi in questo tiro",
 	"string_error_face_mixing": "Mischiare dadi di tipo diverso non è supportato",
 
 	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
