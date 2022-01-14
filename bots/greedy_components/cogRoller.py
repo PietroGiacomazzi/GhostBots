@@ -107,7 +107,10 @@ strat_list = [
                 'star',
                 #
                 'sttar',
-                'trast'
+                'trast',
+                'strar',
+                'sbrat',
+                'sbratt'
                 ]
 
 def prettyRoll(roll: list, diff: int, canceled: int) -> str:
