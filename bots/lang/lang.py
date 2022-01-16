@@ -20,7 +20,9 @@ class LanguageStringProvider():
         try:
             return self.languages[lang_id][string_name].format(*args)
         except KeyError:
-            if string_name in self.languages[lang_id]: # this happens when the lang string contains "{something}" instead of "{}", that breaks the call to str.format
+            if not lang_id in self.languages:
+                raise LangException(f'Language: {lang_id} is not available')
+            elif string_name in self.languages[lang_id]: # this happens when the lang string contains "{something}" instead of "{}", that breaks the call to str.format
                 raise LangException(f'Someone wrote a bad language string! language: {lang_id}, langstring: {string_name}, contents: {self.languages[lang_id][string_name]}, arguments: {args}')
             else:
                 print(f"Missing string {string_name} for language {lang_id}")

@@ -548,7 +548,7 @@ class GreedyGhostCog_Roller(commands.Cog):
             bonuses_log.append(self.bot.getStringForUser(ctx, "string_bonus_X", add))
         try:
             character = self.bot.dbm.getActiveChar(ctx)
-            for traitid in ['prontezza', 'destrezza', 'velocità']:
+            for traitid in ['prontezza', 'destrezza', 'velocità']: # TODO dehardcode?
                 try:
                     val = self.bot.dbm.getTrait_LangSafe(character['id'], traitid, lid)
                     bonus += val["cur_value"]
