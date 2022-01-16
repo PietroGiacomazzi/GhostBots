@@ -60,6 +60,7 @@
 	"string_error_roll_invalid_param_combination": "Combinazione di parametri non valida!",
 	"string_error_missing_diff": "Si ma mi devi dare una difficoltà",
 	"string_error_unknown_rolltype": "Tipo di tiro sconosciuto: {}",
+	"string_error_notimplemented": "Non implementato",
 	"string_bonus_X": "bonus: {}",
 	"string_comment_no_pc": "nessun personaggio",
 	"string_initiative": "Iniziativa",

@@ -17,7 +17,7 @@ import support.ghostDB as ghostDB
 # TODO: prevent startup if above conditions are not met
 SOMMA_CMD = ["somma", "lapse", "sum"]
 DIFF_CMD = ["difficoltà", "difficolta", "difficulty", "diff", "diff."]
-MULTI_CMD = ["multi", "m"]
+MULTI_CMD = ["multi", "mlt"]
 DANNI_CMD = ["danni", "danno", "dmg", "damage"]
 PROGRESSI_CMD = ["progressi", "progress"]
 SPLIT_CMD = ["split"]
@@ -25,15 +25,16 @@ PENALITA_CMD = ["penalita", "penalità", "penalty"]
 DADI_CMD = ["dadi", "dice"]
 ADD_CMD = "+"
 SUB_CMD = "-"
-
 PERMANENTE_CMD = ["permanente", "permanent", "perm"]
+STATISTICS_CMD = ["statistica", "stats", "stat"]
+MINSUCC_CMD = ['minsucc', 'mins', 'ms']
+
 SOAK_CMD = ["soak", "assorbi"]
 INIZIATIVA_CMD = ["iniziativa", "initiative", "iniz"]
 RIFLESSI_CMD = ["riflessi", "reflexes", "r"]
-STATISTICS_CMD = ["statistica", "stats", "stat"]
 
 RollCat = utils.enum("DICE", "INITIATIVE", "REFLEXES", "SOAK") # macro categoria che divide le azioni di tiro
-RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE", "PENALITA", "DADI", "DADI_PERMANENTI",  "PERMANENTE", "STATS", "CHARACTER", "NFACES") # argomenti del tiro
+RollArg = utils.enum("DIFF", "MULTI", "SPLIT", "ADD", "ROLLTYPE", "PENALITA", "DADI", "DADI_PERMANENTI",  "PERMANENTE", "STATS", "CHARACTER", "NFACES", "MINSUCC") # argomenti del tiro
 RollType = utils.enum("NORMALE", "SOMMA", "DANNI", "PROGRESSI") # valori dell'argomento RollType
 die_emoji = {
     2: ":two:",
@@ -127,47 +128,64 @@ def prettyRoll(roll: list, diff: int, canceled: int) -> str: # roll is assumed t
     random.shuffle(roll)
     return "["+", ".join(roll)+"]"
 
-def rollStatusDMG(lp: lng.LanguageStringProvider, lid: str, n: int) -> str:
-    if n == 1:
-        return lp.get(lid, 'roll_status_dmg_1dmg')
-    elif n > 1:
-        return lp.get(lid, "roll_status_dmg_ndmg", n) 
-    else:
-        return lp.get(lid, 'roll_status_dmg_0dmg')
+class RollStatusFormatter:
+    def __init__(self, langProvider: lng.LanguageStringProvider, lid: str):
+        self.langProvider = langProvider
+        self.langId = lid
+    def format(self, n: int):
+        raise NotImplementedError("Roll status not implemented") # no point in using a lang string here, the user won't see this
 
-def rollStatusProgress(lp: lng.LanguageStringProvider, lid: str, n: int) -> str:
-    if n == 1:
-        return lp.get(lid, 'roll_status_prg_1hr')
-    elif n > 1:
-        return lp.get(lid, 'roll_status_prg_nhr', n) 
-    else:
-        return lp.get(lid, 'roll_status_prg_0hr')
+class RollStatusDMG(RollStatusFormatter):
+    def format(self, n: int) -> str:
+        if n == 1:
+            return self.langProvider.get(self.langId, 'roll_status_dmg_1dmg')
+        elif n > 1:
+            return self.langProvider.get(self.langId, "roll_status_dmg_ndmg", n) 
+        else:
+            return self.langProvider.get(self.langId, 'roll_status_dmg_0dmg')
 
-def rollStatusNormal(lp: lng.LanguageStringProvider, lid: str, n: int) -> str:
-    if n == 1:
-        return lp.get(lid, 'roll_status_normal_1succ')
-    elif n > 1:
-        return lp.get(lid, 'roll_status_normal_nsucc', n)
-    elif n == 0:
-        return lp.get(lid, 'roll_status_normal_fail')
-    elif n == -2:
-        return lp.get(lid, 'roll_status_normal_dramafail')
-    else:
-        return lp.get(lid, 'roll_status_normal_critfail')
+class RollStatusProgress(RollStatusFormatter):
+    def format(self, n: int) -> str:
+        if n == 1:
+            return self.langProvider.get(self.langId, 'roll_status_prg_1hr')
+        elif n > 1:
+            return self.langProvider.get(self.langId, 'roll_status_prg_nhr', n) 
+        else:
+            return self.langProvider.get(self.langId, 'roll_status_prg_0hr')
 
-def rollStatusReflexes(lp: lng.LanguageStringProvider, lid: str, n: int) -> str:
-    if n >= 1:
-        return lp.get(lid, 'roll_status_hitormiss_success') 
-    else:
-        return lp.get(lid, 'roll_status_hitormiss_fail')
 
-def rollStatusSoak(lp: lng.LanguageStringProvider, lid: str, n: int) -> str:
-    if n == 1:
-        return lp.get(lid, 'roll_status_soak_1dmg') 
-    elif n > 1:
-        return lp.get(lid, 'roll_status_soak_ndmg', n) 
-    else:
-        return lp.get(lid, 'roll_status_soak_0dmg') 
+class RollStatusNormal(RollStatusFormatter):
+    def __init__(self, langProvider: lng.LanguageStringProvider, lid: str, minsucc: int = 1):
+        super(RollStatusNormal, self).__init__(langProvider, lid)
+        self.minsucc = minsucc
+    def format(self, n: int) -> str:
+        if n == -2:
+            return self.langProvider.get(self.langId, 'roll_status_normal_dramafail')
+        elif n == -1:
+            return self.langProvider.get(self.langId, 'roll_status_normal_critfail')
+        elif n >= self.minsucc:
+            if n == 1:
+                return self.langProvider.get(self.langId, 'roll_status_normal_1succ')
+            elif n > 1:
+                return self.langProvider.get(self.langId, 'roll_status_normal_nsucc', n)
+        else:
+            return self.langProvider.get(self.langId, 'roll_status_normal_fail')
+
+class RollStatusReflexes(RollStatusFormatter):
+    def format(self, n: int) -> str:
+        if n >= 1:
+            return self.langProvider.get(self.langId, 'roll_status_hitormiss_success') 
+        else:
+            return self.langProvider.get(self.langId, 'roll_status_hitormiss_fail')
+
+class RollStatusSoak(RollStatusFormatter):
+    def format(self, n: int) -> str:
+        if n == 1:
+            return self.langProvider.get(self.langId, 'roll_status_soak_1dmg') 
+        elif n > 1:
+            return self.langProvider.get(self.langId, 'roll_status_soak_ndmg', n) 
+        else:
+            return self.langProvider.get(self.langId, 'roll_status_soak_0dmg') 
 
 
 def findSplit(idx: int, splits: list) -> list:
@@ -190,10 +208,9 @@ class GreedyGhostCog_Roller(commands.Cog):
     def __init__(self, bot: gb.GreedyGhost):
         self.bot = bot
 
-    def rollAndFormatVTM(self, ctx: commands.Context, ndice: int, nfaces: int, diff: int, statusFunc: Callable[[lng.LanguageStringProvider, str, int], str] = rollStatusNormal, extra_succ: int = 0, canceling: bool = True, spec: bool = False, statistics: bool = False) -> str:
-        lid = self.bot.getLID(ctx.message.author.id)
-        statistics_samples = int(self.bot.config['BotOptions']['stat_samples'])
+    def rollAndFormatVTM(self, ctx: commands.Context, ndice: int, nfaces: int, diff: int, statusFunc: RollStatusFormatter, extra_succ: int = 0, canceling: bool = True, spec: bool = False, statistics: bool = False, minsucc: int = 1) -> str:
         if statistics:
+            statistics_samples = int(self.bot.config['BotOptions']['stat_samples'])
             total_successes = 0
             passes = 0
             fails = 0
@@ -226,8 +243,8 @@ class GreedyGhostCog_Roller(commands.Cog):
         else:        
             successi, tiro, cancels = vtm_res.roller(ndice, nfaces, diff, canceling, spec, extra_succ)
             pretty = prettyRoll(tiro, diff, cancels)
-            status = statusFunc(self.bot.languageProvider, lid, successi)
-            response = status + f' (diff {diff}): {pretty}'
+            status = statusFunc.format(successi)
+            response = status + f' (diff {diff}, min. {minsucc}): {pretty}' 
             if extra_succ > 0:
                 response += f' **+{extra_succ}**'
             if extra_succ < 0:
@@ -358,6 +375,7 @@ class GreedyGhostCog_Roller(commands.Cog):
     def parseRollArgs(self, ctx: commands.Context, args_raw: tuple) -> dict:
         parsed = {
             RollArg.ROLLTYPE: RollType.NORMALE, # default
+            RollArg.MINSUCC: 1,
             RollArg.CHARACTER: None
             }
         args = list(args_raw)
@@ -474,6 +492,9 @@ class GreedyGhostCog_Roller(commands.Cog):
                 parsed[RollArg.PERMANENTE] = True
             elif args[i] in STATISTICS_CMD:
                 parsed[RollArg.STATS] = True
+            elif args[i] in MINSUCC_CMD:
+                i, minsucc = self.validateIntegerGreatZero(ctx, args, i+1) # simple positive integer -> add as successes
+                parsed[RollArg.MINSUCC] = minsucc
             else:
                 #try parsing a dice expr
                 try:
@@ -546,7 +567,7 @@ class GreedyGhostCog_Roller(commands.Cog):
         prontezza = self.bot.dbm.getTrait_LangSafe(character['id'], 'prontezza', lid)#['cur_value']
         diff = 10 - prontezza['cur_value']
         response = f'{volonta["traitName"]}: {volonta["cur_value"]}, {prontezza["traitName"]}: {prontezza["cur_value"]} -> {volonta["cur_value"]}d{10} {self.bot.getStringForUser(ctx, "string_diff")} ({diff} = {10}-{prontezza["cur_value"]})\n'
-        response += self.rollAndFormatVTM(ctx, volonta['cur_value'], 10, diff, rollStatusReflexes, add, statistics = RollArg.STATS in parsed)
+        response += self.rollAndFormatVTM(ctx, volonta['cur_value'], 10, diff, RollStatusReflexes(self.bot.languageProvider, lid), add, statistics = RollArg.STATS in parsed)
         return response
 
     async def roll_soak(self, ctx: commands.Context, parsed: dict) -> str:
@@ -560,9 +581,10 @@ class GreedyGhostCog_Roller(commands.Cog):
             pool += self.bot.dbm.getTrait_LangSafe(character['id'], 'robustezza', lid)['cur_value']
         except ghostDB.DBException:
             pass
-        return self.rollAndFormatVTM(ctx, pool, 10, diff, rollStatusSoak, 0, False, statistics = RollArg.STATS in parsed)
+        return self.rollAndFormatVTM(ctx, pool, 10, diff, RollStatusSoak(self.bot.languageProvider, lid), 0, False, statistics = RollArg.STATS in parsed)
 
     async def roll_dice(self, ctx: commands.Context, parsed: dict) -> str:
+        lid =  self.bot.getLID(ctx.message.author.id)
         ndice = 0
         if RollArg.PERMANENTE in parsed:
             ndice = parsed[RollArg.DADI_PERMANENTI]
@@ -578,7 +600,7 @@ class GreedyGhostCog_Roller(commands.Cog):
         if RollArg.PENALITA in parsed:
             if not character:
                 character = self.bot.dbm.getActiveChar(ctx)
-            health = self.bot.dbm.getTrait_LangSafe(character['id'], 'salute', self.bot.getLID(ctx.message.author.id))
+            health = self.bot.dbm.getTrait_LangSafe(character['id'], 'salute', lid)
             penalty, _ = utils.parseHealth(health)
             ndice += penalty[0]
 
@@ -633,9 +655,9 @@ class GreedyGhostCog_Roller(commands.Cog):
                     if len(split_diffs):
                         pools = [(ndadi-ndadi//2), ndadi//2]
                         for j in range(len(pools)):
-                            parziale += f'\n{self.bot.getStringForUser(ctx,  "string_roll")} {j+1}: '+ self.rollAndFormatVTM(ctx, pools[j], nfaces, split_diffs[j], statistics = stats)
+                            parziale += f'\n{self.bot.getStringForUser(ctx,  "string_roll")} {j+1}: '+ self.rollAndFormatVTM(ctx, pools[j], nfaces, split_diffs[j], RollStatusNormal(self.bot.languageProvider, lid, parsed[RollArg.MINSUCC]), statistics = stats)
                     else:
-                        parziale = self.rollAndFormatVTM(ctx, ndadi, nfaces, parsed[RollArg.DIFF], statistics = stats)
+                        parziale = self.rollAndFormatVTM(ctx, ndadi, nfaces, parsed[RollArg.DIFF], RollStatusNormal(self.bot.languageProvider, lid, parsed[RollArg.MINSUCC]), statistics = stats, minsucc = parsed[RollArg.MINSUCC])
                     response += f'\n{self.bot.getStringForUser(ctx,  "string_action")} {i+1}: '+parziale # line break all'inizio tanto c'è il @mention
             else:
                 raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_roll_invalid_param_combination"))
@@ -646,7 +668,7 @@ class GreedyGhostCog_Roller(commands.Cog):
                     pools = [(ndice-ndice//2), ndice//2]
                     response = ''
                     for i in range(len(pools)):
-                        parziale = self.rollAndFormatVTM(ctx, pools[i], nfaces, split[0][i+1], statistics = stats)
+                        parziale = self.rollAndFormatVTM(ctx, pools[i], nfaces, split[0][i+1], RollStatusNormal(self.bot.languageProvider, lid, parsed[RollArg.MINSUCC] ), statistics = stats)
                         response += f'\n{self.bot.getStringForUser(ctx, "string_roll")} {i+1}: '+parziale
                 else:
                     raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_roll_invalid_param_combination"))
@@ -654,13 +676,13 @@ class GreedyGhostCog_Roller(commands.Cog):
                 if parsed[RollArg.ROLLTYPE] == RollType.NORMALE: # tiro normale
                     if not RollArg.DIFF in parsed:
                         raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_missing_diff"))
-                    response = self.rollAndFormatVTM(ctx, ndice, nfaces, parsed[RollArg.DIFF], rollStatusNormal, add, statistics = stats)
+                    response = self.rollAndFormatVTM(ctx, ndice, nfaces, parsed[RollArg.DIFF], RollStatusNormal(self.bot.languageProvider, lid, parsed[RollArg.MINSUCC] ), add, statistics = stats, minsucc = parsed[RollArg.MINSUCC])
                 elif parsed[RollArg.ROLLTYPE] == RollType.DANNI:
                     diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
-                    response = self.rollAndFormatVTM(ctx, ndice, nfaces, diff, rollStatusDMG, add, False, statistics = stats)
+                    response = self.rollAndFormatVTM(ctx, ndice, nfaces, diff, RollStatusDMG(self.bot.languageProvider, lid), add, False, statistics = stats)
                 elif parsed[RollArg.ROLLTYPE] == RollType.PROGRESSI:
                     diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
-                    response = self.rollAndFormatVTM(ctx, ndice, nfaces, diff, rollStatusProgress, add, False, True, statistics = stats)
+                    response = self.rollAndFormatVTM(ctx, ndice, nfaces, diff, RollStatusProgress(self.bot.languageProvider, lid), add, False, True, statistics = stats)
                 else:
                     raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_unknown_rolltype", RollArg.ROLLTYPE))
         return response

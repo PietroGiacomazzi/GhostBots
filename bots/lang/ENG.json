@@ -60,6 +60,7 @@
 	"string_error_roll_invalid_param_combination": "Invalid parameter combination!",
 	"string_error_missing_diff": "Ok but I need a difficulty",
 	"string_error_unknown_rolltype": "Unknown roll type: {}",
+	"string_error_notimplemented": "Not implemented",
 	"string_bonus_X": "bonus: {}",
 	"string_comment_no_pc": "no character",
 	"string_initiative": "Initiative",
