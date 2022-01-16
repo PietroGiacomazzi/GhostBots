@@ -113,7 +113,7 @@ strat_list = [
                 'sbratt'
                 ]
 
-def prettyRoll(roll: list, diff: int, canceled: int) -> str:
+def prettyRoll(roll: list, diff: int, canceled: int) -> str: # roll is assumed to be SORTED
     for i in range(0, len(roll)-canceled):
         die = roll[i]
         if die == 1:
@@ -198,11 +198,10 @@ class GreedyGhostCog_Roller(commands.Cog):
             passes = 0
             fails = 0
             critfails = 0
-            for i in range():
-                successi, _, _ = vtm_res.roller(ndice, nfaces, diff, canceling, spec)
+            for i in range(statistics_samples):
+                successi, _, _ = vtm_res.roller(ndice, nfaces, diff, canceling, spec, extra_succ)
                 if successi > 0:
                     passes += 1
-                    total_successes += (successi + extra_succ)
                 elif successi == 0 or successi == -2:
                     fails += 1
                 else:
@@ -224,16 +223,8 @@ class GreedyGhostCog_Roller(commands.Cog):
             )
             return response
         else:        
-            successi, tiro, cancels = vtm_res.roller(ndice, nfaces, diff, canceling, spec)
+            successi, tiro, cancels = vtm_res.roller(ndice, nfaces, diff, canceling, spec, extra_succ)
             pretty = prettyRoll(tiro, diff, cancels)
-            # TODO: define how extra successes (both positive and negative) influence critfail situations, for now we simply block failure if auto successes are present
-            if (extra_succ > 0): 
-                if successi < 0: # adding auto successes means we ignore critfail situations, the roll is always a success.
-                    successi = 0
-                successi += extra_succ
-            if (extra_succ < 0): 
-                if successi > 0: # the idea here is that we only act if there are successes to remove in the first place, and at max we shift to a fail (?)
-                    successi = max(0, successi + extra_succ)
             status = statusFunc(self.bot.languageProvider, lid, successi)
             response = status + f' (diff {diff}): {pretty}'
             if extra_succ > 0:
@@ -372,7 +363,7 @@ class GreedyGhostCog_Roller(commands.Cog):
 
         # detaching + or - from the end of an expression needs to be done immediately
         i = 0
-        while i < len(args):
+        while i < len(args): # TODO just split everything by ADD_CMD and SUB_CMD so that everything is separated past this pointt
             if args[i].endswith(ADD_CMD) and args[i] != ADD_CMD: 
                 args = args[:i] + [args[i][:-1], ADD_CMD] + args[i+1:]
             if args[i].endswith(SUB_CMD) and args[i] != SUB_CMD: 
@@ -506,12 +497,8 @@ class GreedyGhostCog_Roller(commands.Cog):
                     while not did_split and idx < len(tests):
                         cmd = tests[idx]
                         if args[i].startswith(cmd):
-                            try:
-                                #_ = int(args[i][len(cmd):]) # pass only if the rest of the argument is a valid integer. We don't enforce this anymore now that we can also parse traits.
-                                args = args[:i] + [cmd, args[i][len(cmd):]] + args[i+1:]
-                                did_split = True
-                            except ValueError:
-                                pass
+                            args = args[:i] + [cmd, args[i][len(cmd):]] + args[i+1:]
+                            did_split = True
                         idx += 1
 
                     if not did_split: # F

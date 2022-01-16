@@ -49,7 +49,7 @@ def decider(roll_sorted, difficulty, failcancel = 2, spec = False, cancel_high =
     else:
         return count_success, roll_sorted
 
-def roller(ndice, nfaces, diff, cancel = True, spec = False):
+def roller(ndice, nfaces, diff, cancel = True, spec = False, extra_successes = 0):
     roll_raw = list(map(lambda x: random.randint(1, nfaces), range(0, ndice)))
     roll_sorted = sorted(roll_raw)
     md = -1 # will contain the index of the first success
@@ -74,6 +74,16 @@ def roller(ndice, nfaces, diff, cancel = True, spec = False):
                 successes = successes[:-crit_fails]
             count_success = len(successes)
     tens = successes.count(10)
+
+    # TODO: define how extra successes (both positive and negative) influence critfail situations, for now we simply block failure if auto successes are present
+    if (extra_successes > 0): 
+        if count_success < 0: # adding auto successes means we ignore critfail situations, the roll is always a success.
+            count_success = 0
+        count_success += extra_successes
+    if (extra_successes < 0): 
+        if count_success > 0: # the idea here is that we only act if there are successes to remove in the first place, and at max we shift to a fail (?)
+            count_success = max(0, count_success + extra_successes)
+
     if spec:
         return count_success+tens, roll_sorted, canceled
     else:
