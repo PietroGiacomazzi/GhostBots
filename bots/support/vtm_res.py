@@ -63,17 +63,24 @@ def roller(ndice, nfaces, diff, cancel = True, spec = False, extra_successes = 0
     count_success = len(successes)
     crit_fails = roll_sorted.count(1)
     canceled = 0
+    tens = successes.count(10)
     if cancel: # crit failing is only available when canceling is ON
         if crit_fails > 0 and count_success == 0: # critfail
-            return -1, roll_sorted, 0
+            count_success = -1
+            tens = 0
         elif crit_fails > count_success: # critfail drammatico
-            return -2, roll_sorted, count_success
-        else: #just cancel
+            canceled = count_success
+            count_success = -2
+            tens = 0
+        else: # roll is a success or a regular fail
             if crit_fails > 0:
                 canceled = crit_fails
                 successes = successes[:-crit_fails]
             count_success = len(successes)
-    tens = successes.count(10)
+            tens = successes.count(10) # here we re-count only uncanceled tens
+    
+    if spec:
+        count_success += tens
 
     # TODO: define how extra successes (both positive and negative) influence critfail situations, for now we simply block failure if auto successes are present
     if (extra_successes > 0): 
@@ -84,10 +91,7 @@ def roller(ndice, nfaces, diff, cancel = True, spec = False, extra_successes = 0
         if count_success > 0: # the idea here is that we only act if there are successes to remove in the first place, and at max we shift to a fail (?)
             count_success = max(0, count_success + extra_successes)
 
-    if spec:
-        return count_success+tens, roll_sorted, canceled
-    else:
-        return count_success, roll_sorted, canceled
+    return count_success, roll_sorted, canceled
 
 
 def rollpool(dicepool, difficulty, failcancel = 2, spec = False, cancel_high = False, spec_reroll = False):
