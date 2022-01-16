@@ -20,7 +20,7 @@
 	"roll_status_soak_1dmg": ":green_square: **1 Damage soaked**",
 	"roll_status_soak_ndmg": ":green_square: **{} Damage soaked**",
 	"roll_status_soak_0dmg": ":red_square: **No damage soaked**",
-	"roll_status_statistics_info": "\n --- Simulation with {} rolls of {}d{} diff {} +{}, {} canceling, {} explosion of 10s ---\nSuccess frequency: {}%\nFail frequency: {}%\n    ({}% regular/dramatic fails and {}% critical fails)\nAverage successes: {}\n---",
+	"roll_status_statistics_info": "\n --- Simulation with {} rolls of {}d{} diff {} +{}, {} canceling, {} explosion of 10s ---\nSuccess frequency: {}%\nFail frequency: {}%\n    ({}% regular/dramatic fails and {}% critical fails)\nAverage successes: {}\nAverage successes when the roll succeeds: {}\n---",
 	"roll_status_with": "with",
 	"roll_status_without": "without",
 	"string_error_wat": "wat",

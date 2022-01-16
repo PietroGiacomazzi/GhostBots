@@ -211,14 +211,19 @@ class GreedyGhostCog_Roller(commands.Cog):
     def rollAndFormatVTM(self, ctx: commands.Context, ndice: int, nfaces: int, diff: int, statusFunc: RollStatusFormatter, extra_succ: int = 0, canceling: bool = True, spec: bool = False, statistics: bool = False, minsucc: int = 1) -> str:
         if statistics:
             statistics_samples = int(self.bot.config['BotOptions']['stat_samples'])
-            total_successes = 0
+            total_successes = 0 # total successes, even when the roll is a fail
+            pass_successes = 0 # total of successes only when the roll succeeds
             passes = 0
             fails = 0
             critfails = 0
             for i in range(statistics_samples):
                 successi, _, _ = vtm_res.roller(ndice, nfaces, diff, canceling, spec, extra_succ)
                 if successi > 0:
-                    passes += 1
+                    if successi > minsucc:
+                        passes += 1
+                        pass_successes += successi
+                    else:
+                        fails += 1
                     total_successes += successi
                 elif successi == 0 or successi == -2:
                     fails += 1
@@ -237,7 +242,8 @@ class GreedyGhostCog_Roller(commands.Cog):
                 round(100*(fails+critfails)/statistics_samples, 2),
                 round(100*fails/statistics_samples, 2),
                 round(100*critfails/statistics_samples, 2),
-                round(total_successes/statistics_samples, 2)
+                round(total_successes/statistics_samples, 2),
+                round(pass_successes/passes, 2)
             )
             return response
         else:        

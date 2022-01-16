@@ -20,7 +20,7 @@
 	"roll_status_soak_1dmg": ":green_square: **1 danno assorbito**",
 	"roll_status_soak_ndmg": ":green_square: **{} danni assorbiti**",
 	"roll_status_soak_0dmg": ":red_square: **Nessun danno assorbito**",
-	"roll_status_statistics_info": "\n --- Simulazione con {} tiri di {}d{} diff {} +{}, {} canceling, {} esplosione dei 10 ---\nFrequenza di successo: {}%\nFrequenza di fallimento:  {}%\n    ({}% fallimenti regolari/drammatici e {}% fallimenti critici)\nSuccessi medi: {}\n---",
+	"roll_status_statistics_info": "\n --- Simulazione con {} tiri di {}d{} diff {} +{}, {} canceling, {} esplosione dei 10 ---\nFrequenza di successo: {}%\nFrequenza di fallimento:  {}%\n    ({}% fallimenti regolari/drammatici e {}% fallimenti critici)\nSuccessi medi: {}\nSuccessi medi se il tiro ha successo: {}\n---",
 	"roll_status_with": "con",
 	"roll_status_without": "senza",
 	"string_error_wat": "coes",
