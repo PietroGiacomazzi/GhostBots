@@ -219,7 +219,7 @@ class GreedyGhostCog_Roller(commands.Cog):
             for i in range(statistics_samples):
                 successi, _, _ = vtm_res.roller(ndice, nfaces, diff, canceling, spec, extra_succ)
                 if successi > 0:
-                    if successi > minsucc:
+                    if successi >= minsucc:
                         passes += 1
                         pass_successes += successi
                     else:
