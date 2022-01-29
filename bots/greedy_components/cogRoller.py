@@ -73,17 +73,17 @@ A sessione attiva:
 .roll assorbi          -> .roll costituzione+robustezza diff 6 danni
 .roll <...> penalita   -> Applica la penalità derivata dalla salute
 .roll <...> dadi N     -> Modifica il numero di dadi del tiro (N può essere positivo o negativo)
-.roll <...> +/- XdY    -> Vedi sopra
+.roll <...> +/- XdY    -> Come sopra
 .roll <...> permanente -> Usa i valori base e non quelli potenziati/spesi (es.: ".roll volontà permanente diff 7")
 
 Note sugli spazi:
 
-Si può spaziare o meno tra i tratti, basta non mischiare dadi e successi automatici se non si spazia:
+Si può spaziare o meno tra i tratti senza problemi:
   ".roll forza + rissa" ok
   ".roll 2d10+ rissa" ok
   ".roll forza +rissa" ok
   ".roll forza+2d10" ok
-  ".roll forza+2" no
+  ".roll forza+2" ok
 
 Si può omettere lo spazio tra argomento e il 1° parametro:
   ".roll 3d10 diff6" ok
