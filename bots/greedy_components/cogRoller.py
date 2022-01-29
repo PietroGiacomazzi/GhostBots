@@ -415,7 +415,9 @@ class GreedyGhostCog_Roller(commands.Cog):
         parsed = { # TODO this should probably become a class
             RollArg.ROLLTYPE: RollType.NORMALE, # default
             RollArg.MINSUCC: 1,
-            RollArg.CHARACTER: None
+            RollArg.CHARACTER: None,
+            RollArg.DADI: 0,
+            RollArg.DADI_PERMANENTI: 0
             }
         args = list(args_raw)
 
@@ -525,7 +527,7 @@ class GreedyGhostCog_Roller(commands.Cog):
             else:
                 #try parsing a dice expr
                 try:
-                    parsed = self.parseDiceExpressionIntoSummany(ctx, parsed, args[i+1], forced10 = (i != 0))
+                    parsed = self.parseDiceExpressionIntoSummany(ctx, parsed, args[i], forced10 = (i != 0))
                 except gb.BotException as e:
                     # provo a staccare parametri attaccati
                     did_split = False
