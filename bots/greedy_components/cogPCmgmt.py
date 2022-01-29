@@ -119,8 +119,10 @@ class GreedyGhostCog_PCmgmt(commands.Cog):
     def formatTrait(self, ctx: commands.Context, formatter: FormatterType, trait) -> str:
         return formatter(trait, self.bot.getLID(ctx.message.author.id), self.bot.languageProvider)
 
-    async def pc_interact(self, ctx: commands.Context, pc: object, can_edit: bool, *args) -> str:
+    async def pc_interact(self, ctx: commands.Context, pc: object, can_edit: bool, *args_tuple) -> str:
         lid = self.bot.getLID(ctx.message.author.id)
+
+        args = list(args_tuple)
 
         response = ''
         if len(args) == 0:
@@ -128,13 +130,16 @@ class GreedyGhostCog_PCmgmt(commands.Cog):
             parsed[4] = urllib.parse.urlencode({'character': pc['id']}) # fill query
             unparsed = urllib.parse.urlunparse(tuple(parsed)) # recreate url
             return f"Personaggio: {pc['fullname']}\nScheda: {unparsed}"
+        
+        # detach stuff like ["exp+1"] to ["exp", "+1"]" or ["exp-", "1"] to ["exp", "-", "1"] in args
+        for op in ["+", "-"]:
+            idx = args[0].find(op)
+            if idx > 0:
+                args = [args[0][:idx]] + [args[0][idx:]] + args[1:]
+                break
 
         trait_id = args[0].lower()
         if len(args) == 1:
-            #if trait_id.count("+") or trait_id.count("-"): # TODO this will need to be done better
-            #    count, count_perm, _, _ = parseDiceExpression_Mixed(ctx, lid, trait_id, firstNegative = False, forced10 = True, character = pc)
-            #    return f"{args[0]}: {count}\npermanente: {count_perm}"
-            #else:
             trait = self.bot.dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
             prettyFormatter = getTraitFormatter(trait)
             return self.formatTrait(ctx, prettyFormatter, trait)# prettyFormatter(trait, lid)
