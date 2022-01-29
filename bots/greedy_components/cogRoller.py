@@ -1,3 +1,4 @@
+from ast import parse
 import random
 from dataclasses import dataclass
 from typing import AnyStr, Callable
@@ -201,6 +202,7 @@ class DiceExprParsed:
     """ Parsed dice expression """
     n_dice: int
     n_dice_permanent: int
+    n_extrasucc: int
     n_faces: int
     character: object
 
@@ -285,7 +287,7 @@ class GreedyGhostCog_Roller(commands.Cog):
         if faces > int(self.bot.config['BotOptions']['max_faces']):
             raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_toomany_faces", faces))
 
-        return DiceExprParsed(n, n, faces, None)
+        return DiceExprParsed(n, n, 0, faces, None)
 
     def parseDiceExpression_Mixed(self, ctx: commands.Context, what: str, firstNegative: bool = False, forced10: bool = True, character = None) -> DiceExprParsed:
         lid = self.bot.getLID(ctx.message.author.id)
@@ -296,6 +298,7 @@ class GreedyGhostCog_Roller(commands.Cog):
         faces = 0
         n = 0
         n_perm = 0
+        n_extrasucc = 0
 
         split_add_list = what.split(ADD_CMD) # split on "+", so each of the results STARTS with something to add
         for i in range(0, len(split_add_list)):
@@ -306,6 +309,7 @@ class GreedyGhostCog_Roller(commands.Cog):
                 term = split_sub_list[j]
                 n_term = 0
                 n_term_perm = 0
+                n_term_extra = 0
                 try: # either a xdy expr
                     parsed_expr =  self.parseDiceExpression_Dice(ctx, term, forced10)  
                     n_term = parsed_expr.n_dice
@@ -325,19 +329,24 @@ class GreedyGhostCog_Roller(commands.Cog):
                         saw_trait = True
                         faces = 10
                     except ghostDB.DBException as edb:
-                        raise gb.BotException("\n".join([ self.bot.getStringForUser(ctx, "string_error_notsure_whatroll"), f'{e}', f'{self.bot.languageProvider.formatException(lid, edb)}']) )
+                        try:
+                            _, n_term_extra = self.validateNumber(ctx, [term], 0)
+                        except ValueError as ve:
+                            raise gb.BotException("\n".join([ self.bot.getStringForUser(ctx, "string_error_notsure_whatroll"), f'{e}', f'{self.bot.languageProvider.formatException(lid, edb)}', f'{ve}']) )
                 
                 if j > 0 or (i == 0 and firstNegative):
                     n -= n_term
                     n_perm -= n_term_perm
+                    n_extrasucc -= n_term_extra
                 else:
                     n += n_term
                     n_perm += n_term_perm
+                    n_extrasucc += n_term_extra
 
         if saw_trait and saw_notd10: # forced10 = false only lets through non d10 expressions that DO NOT use traits
             raise gb.BotException( self.bot.getStringForUser(ctx, "string_error_not_d10"))
 
-        return DiceExprParsed(n, n_perm, faces, character)
+        return DiceExprParsed(n, n_perm, n_extrasucc, faces, character)
 
     def validateInteger(self, ctx: commands.Context, args: list, i: int, err_msg: str = None) -> utils.ValidatedIntSeq:
         if err_msg == None:
@@ -376,20 +385,45 @@ class GreedyGhostCog_Roller(commands.Cog):
     def validateDifficulty(self, ctx: commands.Context,  args: list, i: int) -> utils.ValidatedIntSeq:
         return self.validateBoundedNumber(ctx, args, i, 2, 10, self.bot.getStringForUser(ctx, "string_errorpiece_valid_diff") )
 
+    def parseDiceExpressionIntoSummany(self, ctx: commands.Context, summary: dict, expression: str, firstNegative: bool = False, forced10: bool = False) -> dict:
+        parsed_expr = self.parseDiceExpression_Mixed(ctx, expression, firstNegative = firstNegative, forced10 = forced10, character = summary[RollArg.CHARACTER])
+        if RollArg.DADI in summary:
+            summary[RollArg.DADI] += parsed_expr.n_dice
+            summary[RollArg.DADI_PERMANENTI] += parsed_expr.n_dice_permanent 
+        else:
+            summary[RollArg.DADI] = parsed_expr.n_dice
+            summary[RollArg.DADI_PERMANENTI] = parsed_expr.n_dice_permanent
+
+        if parsed_expr.n_extrasucc != 0:
+            if RollArg.ADD in summary:
+                summary[RollArg.ADD] += parsed_expr.n_extrasucc
+            else:
+                summary[RollArg.ADD] = parsed_expr.n_extrasucc
+        
+        if parsed_expr.character != None:
+            summary[RollArg.CHARACTER] = parsed_expr.character
+
+        if RollArg.NFACES in summary and summary[RollArg.NFACES] != parsed_expr.n_faces:
+            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_face_mixing"))
+        summary[RollArg.NFACES] = parsed_expr.n_faces
+
+        return summary
 
     # input: sequenza di argomenti per .roll
     # output: dizionario popolato con gli argomenti validati
     def parseRollArgs(self, ctx: commands.Context, args_raw: tuple) -> dict:
-        parsed = {
+        parsed = { # TODO this should probably become a class
             RollArg.ROLLTYPE: RollType.NORMALE, # default
             RollArg.MINSUCC: 1,
             RollArg.CHARACTER: None
             }
         args = list(args_raw)
 
+        max_dice = int(self.bot.config['BotOptions']['max_dice'])
+
         # detaching + or - from the end of an expression needs to be done immediately
         i = 0
-        while i < len(args): # TODO just split everything by ADD_CMD and SUB_CMD so that everything is separated past this pointt
+        while i < len(args):
             if args[i].endswith(ADD_CMD) and args[i] != ADD_CMD: 
                 args = args[:i] + [args[i][:-1], ADD_CMD] + args[i+1:]
             if args[i].endswith(SUB_CMD) and args[i] != SUB_CMD: 
@@ -459,36 +493,22 @@ class GreedyGhostCog_Roller(commands.Cog):
                     raise ValueError(self.bot.getStringForUser(ctx, "string_error_x_what", args[i]))
                 # 3 options here: XdY (and variants), trait(s), integers.
                 try:
-                    sign = ( 1 - 2 * ( args[i] == SUB_CMD)) # 1 or -1 depenging on args[i]
+                    sign = ( 1 - 2 * ( args[i] == SUB_CMD)) # 1 or -1 depending on args[i]
                     i, add = self.validateIntegerGreatZero(ctx, args, i+1) # simple positive integer -> add as successes
                     if RollArg.ADD in parsed:
                         parsed[RollArg.ADD] += add * sign
                     else:
                         parsed[RollArg.ADD] = add * sign
                 except ValueError as e_add: # not an integer -> try to parse it as a dice expression
-                    parsed_expr = self.parseDiceExpression_Mixed(ctx, args[i+1], firstNegative = args[i] == SUB_CMD, forced10 = (i != 0), character = parsed[RollArg.CHARACTER]) # TODO: we're locked into d10s by this point, non-vtm dice rolls are limited to the first argument for .roll
-                    #n_dice = parsed_expr.n_dice
-                    #n_dice_perm = parsed_expr.n_dice_permanent
-                    #nfaces = parsed_expr.n_faces
-                    #character = parsed_expr.character
-                    if RollArg.DADI in parsed:
-                        parsed[RollArg.DADI] += parsed_expr.n_dice
-                        parsed[RollArg.DADI_PERMANENTI] += parsed_expr.n_dice_permanent 
-                    else:
-                        parsed[RollArg.DADI] = parsed_expr.n_dice
-                        parsed[RollArg.DADI_PERMANENTI] = parsed_expr.n_dice_permanent
-                    if parsed_expr.character != None:
-                        parsed[RollArg.CHARACTER] = parsed_expr.character
-                    if RollArg.NFACES in parsed and parsed[RollArg.NFACES] != parsed_expr.n_faces:
-                        raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_face_mixing"))
-                    parsed[RollArg.NFACES] = parsed_expr.n_faces
+                    # TODO: we're locked into d10s by this point, non-vtm dice rolls are limited to the first argument for .roll
+                    parsed = self.parseDiceExpressionIntoSummany(ctx, parsed, args[i+1], firstNegative = args[i] == SUB_CMD, forced10 = (i != 0))
                     i += 1
             elif args[i] in PENALITA_CMD:
                 parsed[RollArg.PENALITA] = True
             elif args[i] in DADI_CMD:
                 if len(args) == i+1:
                     raise ValueError(self.bot.getStringForUser(ctx, "string_error_x_what", args[i]))
-                i, val = self.validateBoundedInteger(ctx, args, i+1, -100, +100) # this is also checked later on the final number
+                i, val = self.validateBoundedInteger(ctx, args, i+1, -max_dice, max_dice) # this is also checked later on the final number
                 if RollArg.DADI in parsed:
                     parsed[RollArg.DADI] += val
                     parsed[RollArg.DADI_PERMANENTI] += val 
@@ -505,19 +525,7 @@ class GreedyGhostCog_Roller(commands.Cog):
             else:
                 #try parsing a dice expr
                 try:
-                    parsed_expr = self.parseDiceExpression_Mixed(ctx, args[i], firstNegative = False, forced10 = (i != 0), character = parsed[RollArg.CHARACTER])
-
-                    if RollArg.DADI in parsed:
-                        parsed[RollArg.DADI] += parsed_expr.n_dice
-                        parsed[RollArg.DADI_PERMANENTI] += parsed_expr.n_dice_permanent 
-                    else:
-                        parsed[RollArg.DADI] = parsed_expr.n_dice
-                        parsed[RollArg.DADI_PERMANENTI] = parsed_expr.n_dice_permanent
-                    if parsed_expr.character != None:
-                        parsed[RollArg.CHARACTER] = parsed_expr.character
-                    if RollArg.NFACES in parsed and parsed[RollArg.NFACES] != parsed_expr.n_faces:
-                        raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_face_mixing"))
-                    parsed[RollArg.NFACES] = parsed_expr.n_faces
+                    parsed = self.parseDiceExpressionIntoSummany(ctx, parsed, args[i+1], forced10 = (i != 0))
                 except gb.BotException as e:
                     # provo a staccare parametri attaccati
                     did_split = False
