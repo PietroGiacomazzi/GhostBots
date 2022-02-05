@@ -168,7 +168,7 @@
 	"web_label_charid": "Character ID",
 	"web_label_charName": "Character name",
 	"web_label_createChar": "Create character",
-	"web_label_charid_placeholder": "Short name with no spoaces (e.g. 'george')",
+	"web_label_charid_placeholder": "Short name with no spaces (e.g. 'george')",
 	"web_label_charName_placeholder": "Complete name, spaces are allowed (e.g. 'Generic George')",
 	"web_label_valtype_0": "Current",
 	"web_label_valtype_1": "Total",
