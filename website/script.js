@@ -49,11 +49,12 @@ if (!String.format) {
 
 function getLangString(string_id){
 	// output sanitization is a bit overkill here
-	if (window.language_dictionary){
+	if (window.language_dictionary && window.language_dictionary[string_id]){
 		return out_sanitize(window.language_dictionary[string_id], replace_HTMLElement)
 	}
 	else
 	{
+		console.log("could not load string:", string_id);
 		return out_sanitize(string_id, replace_HTMLElement);
 	}
 }
@@ -1015,11 +1016,15 @@ function get_remote_resource(url, res_type, callback, error_callback = default_e
 
 function post_error(text){
     //updateStatus('Error!');
+
     //var main = document.getElementById('main');
     //var alertPanel = document.createElement('div');
     //alertPanel.innerHTML = '<div class="w3-panel w3-red">  <h3>Danger!</h3>  <p>'+text+'</p></div>';
     //main.appendChild(alertPanel);
-	alert(text);
+
+	show_error_toast(text);
+
+	//alert(text);
 }
 
 function populate_page(){
@@ -1259,3 +1264,12 @@ function w3_close() {
 	document.getElementById("side_menu").style.display = "none";
 	document.getElementById("openNav").style.display = "inline-block";
 }
+
+//error
+
+function show_error_toast(text = 'Error') {
+	var x = document.getElementById("error_toast");
+	x.className = "show";
+	x.innerHTML = text;
+	setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+  }
