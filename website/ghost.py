@@ -746,10 +746,10 @@ class userList(APIResponse): # TODO: maybe a standardized autocomplete list resp
         super(userList, self).__init__(config, session, min_access_level=1) 
     def mGET(self):
         query = """
-        select p.id as value, name as display
+        select p.userid  as value, p.name as display
         from People p
         """
-        # for now only storytellers and admins can see the list of registered users
+        # only storytellers and admins can see the list of registered users, but we can still reassign if we know the discordid (as you would on the bot)
         issuer_id = self.session.discord_userid
         st, _ =  dbm.isStoryteller(issuer_id)
         ba, _ = dbm.isBotAdmin(issuer_id)

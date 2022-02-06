@@ -811,7 +811,8 @@ function createPlayerNameControl(ownername){
 	player_edit.id = PLAYER_EDIT_CONTROL;
 	player_edit.className = "material-icons md-18";
 	player_edit.innerHTML = 'edit';
-	player_edit.style = 'none';
+	if (!window.charEditMode)
+		player_edit.style.display = 'none';
 	if (!window.editElements.includes(player_edit.id)){
 		window.editElements.push(player_edit.id)
 	}
