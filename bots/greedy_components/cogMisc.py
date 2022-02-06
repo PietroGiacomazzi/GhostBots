@@ -72,6 +72,6 @@ class GreedyGhostCog_Misc(commands.Cog):
         if not iu:
             user = await self.bot.fetch_user(userid)
             self.bot.dbm.registerUser(userid, user.name, self.bot.config['BotOptions']['default_language'])
-            self.bot.atSendLang("string_mgs_user_registered")
+            await self.bot.atSendLang(ctx, "string_mgs_user_registered")
         else:
-            self.bot.atSendLang("string_mgs_user_already_registered")
+            await self.bot.atSendLang(ctx, "string_mgs_user_already_registered")
