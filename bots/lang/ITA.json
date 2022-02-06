@@ -30,6 +30,8 @@
 	"string_error_database_unexpected_update_rowcount": "Qualcosa è andato (forse) storto, righe aggiornate: {}",
 	"string_error_unhandled_exception": "Congratulazioni! Hai trovato un modo per rompere il comando!",
 	"string_error_details": "Il messaggio:\n\n{}\n\n ha causato l'errore di tipo {}:\n\n{}",
+	"string_error_permission_only_st_adm": "Solo gli storyteller e gli admin possono eseguire questa azione.",
+	"string_error_invalid_mention_or_id": "Invalid mention or Discord id",
 	"string_heads": "Testa",
 	"string_tails": "Croce",
 	"string_error_toomany_d": "Troppe 'd' b0ss",
@@ -81,6 +83,8 @@
 	"string_msg_trait_X_in_Y_has_translation_Z1_Z2": "Il tratto {} ha traduzione in {}: {} (nome corto: {}) ",
 	"string_msg_trait_X_not_translated_Y": "Il tratto {} non ha una traduzione in {}",
 	"string_msg_character_reassigned_to_user": "Il personaggio {} è stato riassegnato a {}",
+	"string_mgs_user_registered": "Utente registrato",
+	"string_mgs_user_already_registered": "Utente già registrato",
 	"string_TRAIT_does_not_exist": "Il tratto {} non esiste",
 	"string_error_wrong_number_arguments": "Numero di argomenti errato",
 	"string_error_character_already_exists": "Il personaggio esiste già",
@@ -178,5 +182,6 @@
 	"web_label_valtype_3": "Pimpabilità",
 	"web_label_valtype_4": "Aggiunta",
 	"web_label_valtype_5": "Rimozione",
-	"web_label_sidebar_close": "X Chiudi"
+	"web_label_sidebar_close": "X Chiudi",
+	"web_label_change_player": "Riassegna personaggio"
 }

@@ -47,7 +47,9 @@ urls = (
     "/canEditCharacter", "canEditCharacter",
     "/webFunctionVisibility", "webFunctionVisibility",
     "/getModal", "getModal",
-    "/newCharacter", "newCharacter"
+    "/newCharacter", "newCharacter",
+    "/userList", "userList",
+    "/editCharacterReassign", "editCharacterReassign"
     )
 
 
@@ -144,6 +146,12 @@ def validator_trait_textbased(data):
             return string
     except ghostDB.DBException as e:
         raise WebException("Invalid trait", 400)
+
+def validator_bot_user(data):
+    iu, _ = dbm.isUser(data)
+    if not iu:
+        raise WebException("Invalid user", 400)
+    return data
 
 class Log(WsgiLog): # this shit needs the config to be loaded so it can't be off this file :(
     def __init__(self, application):
@@ -251,8 +259,9 @@ class discordCallback(APIResponse):
             self.session.discord_username = user['username']
             self.session.discord_userdiscriminator = user['discriminator']
 
-            if not len(dbm.db.select('People', where='userid=$userid', vars=dict(userid=self.session.discord_userid))):
-                dbm.db.insert('People', userid=self.session.discord_userid, name= self.session.discord_username, langId = default_language)
+            iu, _ = dbm.isUser(self.session.discord_userid)
+            if not iu:
+                dbm.registerUser(self.session.discord_userid, self.session.discord_username, default_language)
 
             self.session.language = getLanguage(self.session, dbm)
             
@@ -731,7 +740,50 @@ class newCharacter(APIResponseLang):
             return self.input_data # idk
         except ghostDB.DBException as e:
             raise self.getLangExceptionFromBDExc(e, 400)
-        
+
+class userList(APIResponse): # TODO: maybe a standardized autocomplete list response class for input modals?
+    def __init__(self):
+        super(userList, self).__init__(config, session, min_access_level=1) 
+    def mGET(self):
+        query = """
+        select p.id as value, name as display
+        from People p
+        """
+        # for now only storytellers and admins can see the list of registered users
+        issuer_id = self.session.discord_userid
+        st, _ =  dbm.isStoryteller(issuer_id)
+        ba, _ = dbm.isBotAdmin(issuer_id)
+        data  = []
+        if st or ba:
+            data = dbm.db.query(query, vars=dict(langId=getLanguage(session, dbm))).list()
+        return data
+
+class editCharacterReassign(APIResponse): #textbased
+    def __init__(self):
+        super(editCharacterReassign, self).__init__(config, session, min_access_level=1, accepted_input = {
+            'userId': (MUST, validator_str_range(1, 32)), 
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+        })
+    def mGET(self):
+        charId = self.input_data['charId']
+        userId = self.input_data['userId']
+
+        vl, character = dbm.isValidCharacter(charId)
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        vu, user = dbm.isUser(userId)
+        if not vu:
+            raise WebException("Invalid user", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if can_edit:
+            dbm.reassignCharacter(charId, userId)
+            return user
+        else:
+            raise WebException("Permission denied", 403)
 
 if __name__ == "__main__":
     app.run(Log)

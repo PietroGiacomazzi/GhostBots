@@ -30,6 +30,8 @@
 	"string_error_database_unexpected_update_rowcount": "Something (might) have gone wrong, updated rows: {}",
 	"string_error_unhandled_exception": "Oops! Something broke, congratulations!",
 	"string_error_details": "The message:\n\n{}\n\n caused an error of type {}:\n\n{}",
+	"string_error_permission_only_st_adm": "Only storytellers and admins can perform this action.",
+	"string_error_invalid_mention_or_id": "Menzione o Discord id non validi",
 	"string_heads": "Heads",
 	"string_tails": "Tails",
 	"string_error_toomany_d": "Too many 'd's",
@@ -81,6 +83,8 @@
 	"string_msg_trait_X_in_Y_has_translation_Z1_Z2": "The trait {} has the following {} translation: {} (shortname: {}) ",
 	"string_msg_trait_X_not_translated_Y": "The trait {} does not have a translation in {}",
 	"string_msg_character_reassigned_to_user": "Character {} reassigned to {}",
+	"string_mgs_user_registered": "User has been registered",
+	"string_mgs_user_already_registered": "User was already registered",
 	"string_TRAIT_does_not_exist": "The trait {} does not exist",
 	"string_error_wrong_number_arguments": "Wrong number of arguments",
 	"string_error_character_already_exists": "The character already exists",
@@ -178,5 +182,6 @@
 	"web_label_valtype_3": "Pimpability",
 	"web_label_valtype_4": "Add",
 	"web_label_valtype_5": "Delete",
-	"web_label_sidebar_close": "X Close"
+	"web_label_sidebar_close": "X Close",
+	"web_label_change_player": "Reassign character"
 }

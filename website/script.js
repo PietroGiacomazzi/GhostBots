@@ -14,6 +14,7 @@ var urlParams = new URLSearchParams(window.location.search);
 window.charEditMode = false;
 window.editElements = Array();
 window.traitList = null;
+window.userList = null;
 window.input_modal = null;
 window.newchar_modal = null;
 
@@ -23,6 +24,9 @@ replace_HTMLElement['<'] = '&lt;';
 replace_HTMLElement['>'] = '&gt;';
 replace_HTMLElement['"'] = '&quot;';
 replace_HTMLElement["'"] = '&#x27;';
+
+PLAYER_EDIT_CONTROL = 'player-edit-control';
+PLAYER_NAME_CONTROL = 'PLAYER_NAME_CONTROL';
 
 //var replace_HTMLattribute = []
 //replace_HTMLattribute
@@ -145,12 +149,58 @@ function openNewTrait(){
 	}
 }
 
+function openChangePlayer(){
+	if (window.charEditMode && window.input_modal != null  && window.userList != null ){
+		// inject the modal
+		var modal_area = document.getElementById('inputmodal_area');	
+		modal_area.innerHTML = window.input_modal
+
+		var modal = document.getElementById('input_modal')
+		modal.style.display = 'block';
+		// setup the modal
+		document.getElementById('input_modal_title').innerHTML = getLangString("web_label_change_player");
+		var form = document.getElementById('input_modal_form');
+
+		var input_tag = document.getElementById('input_modal_myInput');
+		input_tag.setAttribute("placeholder", getLangString("web_label_user")+"...");
+
+		var input_save = document.getElementById('input_modal_submit');
+		input_save.innerHTML = getLangString("web_label_save");
+		input_save.addEventListener('click', function(event){
+			var inp = document.getElementById('input_modal_myInput');
+			// todo post
+			const params = new URLSearchParams({
+				userId: inp.value,
+				charId: window.selected_charid
+			});
+			get_remote_resource('./editCharacterReassign?'+params.toString(), 'json', 
+			function (data){
+				var newPlayer = createPlayerNameControl(data.name);
+				var oldPlayer = document.getElementById(PLAYER_NAME_CONTROL);
+				oldPlayer.parentNode.replaceChild(newPlayer, oldPlayer);
+			}/*, 
+			function(xhr){
+			}*/)
+			modal.style.display='none';
+			modal.remove();
+		 });
+
+		autocomplete(document.getElementById("input_modal_myInput"), window.userList);
+	}
+	else{
+		console.log("not yet!");
+	}
+}
+
 function enableCharEditMode(){
 	if (window.input_modal == null){
 		get_remote_resource('../html_res/InputFieldModal.html', 'text',  function(modaldata){window.input_modal = modaldata;});
 	}
 	if (window.traitList == null){
 		get_remote_resource('./traitList', 'json', function(data){window.traitList = data});
+	}	
+	if (window.userList == null){
+		get_remote_resource('./userList', 'json', function(data){window.userList = data});
 	}
 
 	var editcontrol = document.getElementById("editchar");
@@ -320,143 +370,146 @@ function populate_clan_img(clan_name){
 function editTrait(event) {
     var span = event.target;
 	//console.log(span);
-	if (window.charEditMode && span.dataset.traitid)
+	if (window.charEditMode)
 	{
-		if (span.dataset.removetrait){
-			// todo post
-			const params = new URLSearchParams({
-				traitId: span.dataset.traitid,
-				charId: window.selected_charid
-			});
-			get_remote_resource('./editCharacterTraitRemove?'+params.toString(), 'json', 
-			function (data){
-				var oldTrait = document.getElementById(data.trait);
-				oldTrait.remove();
-			}/*, 
-			function(xhr){
-			}*/)
-		}
-		else if (!span.dataset.textbased){
-			if (span.dataset.current_val){
-				if (span.dataset.dotbased){
-					// todo post
-					const params = new URLSearchParams({
-						traitId: span.dataset.traitid,
-						charId: window.selected_charid,
-						newValue: span.dataset.dot_id
-					});
-					get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
-					function (data){
-						var newTrait = createTraitElement(data);
-						var oldTrait = document.getElementById(data.trait);
-						oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-					}/*, 
-					function(xhr){
-					}*/)
-				}
-				else {
-					editBox(event, 
-						function (id){
-							input_id = id+'-input'
-							var input_tag = document.getElementById(input_id);
-							// todo post
-							const params = new URLSearchParams({
-								traitId: span.dataset.traitid,
-								charId: window.selected_charid,
-								newValue: input_tag.value
-							});
-							get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
-							function (data){
-								var newTrait = createTraitElement(data);
-								var oldTrait = document.getElementById(data.trait);
-								oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-							}/*, 
-							function(xhr){
-							}*/)
-						}
-						, function (id){
-							span.innerHTML = span.dataset.backup;
-							span.dataset.editable = "1";
-						}
-						);
-				}
+		if (span.dataset.traitid)
+		{
+			if (span.dataset.removetrait){
+				// todo post
+				const params = new URLSearchParams({
+					traitId: span.dataset.traitid,
+					charId: window.selected_charid
+				});
+				get_remote_resource('./editCharacterTraitRemove?'+params.toString(), 'json', 
+				function (data){
+					var oldTrait = document.getElementById(data.trait);
+					oldTrait.remove();
+				}/*, 
+				function(xhr){
+				}*/)
 			}
-			else{
-				if (span.dataset.dotbased){
-					// todo post
-					const params = new URLSearchParams({
-						traitId: span.dataset.traitid,
-						charId: window.selected_charid,
-						newValue: span.dataset.dot_id
-					});
-					get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
-					function (data){
-						var newTrait = createTraitElement(data);
-						var oldTrait = document.getElementById(data.trait);
-						oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-					}/*, 
-					function(xhr){
-					}*/)
+			else if (!span.dataset.textbased){
+				if (span.dataset.current_val){
+					if (span.dataset.dotbased){
+						// todo post
+						const params = new URLSearchParams({
+							traitId: span.dataset.traitid,
+							charId: window.selected_charid,
+							newValue: span.dataset.dot_id
+						});
+						get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
+						function (data){
+							var newTrait = createTraitElement(data);
+							var oldTrait = document.getElementById(data.trait);
+							oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+						}/*, 
+						function(xhr){
+						}*/)
+					}
+					else {
+						editBox(event, 
+							function (id){
+								input_id = id+'-input'
+								var input_tag = document.getElementById(input_id);
+								// todo post
+								const params = new URLSearchParams({
+									traitId: span.dataset.traitid,
+									charId: window.selected_charid,
+									newValue: input_tag.value
+								});
+								get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
+								function (data){
+									var newTrait = createTraitElement(data);
+									var oldTrait = document.getElementById(data.trait);
+									oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+								}/*, 
+								function(xhr){
+								}*/)
+							}
+							, function (id){
+								span.innerHTML = span.dataset.backup;
+								span.dataset.editable = "1";
+							}
+							);
+					}
 				}
 				else{
-					editBox(event, 
-						function (id){
-							input_id = id+'-input'
-							var input_tag = document.getElementById(input_id);
-							// todo post
-							const params = new URLSearchParams({
-								traitId: span.dataset.traitid,
-								charId: window.selected_charid,
-								newValue: input_tag.value
-							});
-							get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
-							function (data){
-								var newTrait = createTraitElement(data);
-								var oldTrait = document.getElementById(data.trait);
-								oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-							}/*, 
-							function(xhr){
-							}*/)
-						}
-						, function (id){
-							span.innerHTML = span.dataset.backup;
-							span.dataset.editable = "1";
-						}
-						);
+					if (span.dataset.dotbased){
+						// todo post
+						const params = new URLSearchParams({
+							traitId: span.dataset.traitid,
+							charId: window.selected_charid,
+							newValue: span.dataset.dot_id
+						});
+						get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
+						function (data){
+							var newTrait = createTraitElement(data);
+							var oldTrait = document.getElementById(data.trait);
+							oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+						}/*, 
+						function(xhr){
+						}*/)
+					}
+					else{
+						editBox(event, 
+							function (id){
+								input_id = id+'-input'
+								var input_tag = document.getElementById(input_id);
+								// todo post
+								const params = new URLSearchParams({
+									traitId: span.dataset.traitid,
+									charId: window.selected_charid,
+									newValue: input_tag.value
+								});
+								get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
+								function (data){
+									var newTrait = createTraitElement(data);
+									var oldTrait = document.getElementById(data.trait);
+									oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+								}/*, 
+								function(xhr){
+								}*/)
+							}
+							, function (id){
+								span.innerHTML = span.dataset.backup;
+								span.dataset.editable = "1";
+							}
+							);
+					}
 				}
 			}
+			else if (span.dataset.textbased){
+				editBox(event, 
+					function (id){
+						input_id = id+'-input'
+						var input_tag = document.getElementById(input_id);
+						// todo post
+						const params = new URLSearchParams({
+							traitId: span.dataset.traitid,
+							charId: window.selected_charid,
+							newValue: input_tag.value
+						});
+						get_remote_resource('./editCharacterTraitText?'+params.toString(), 'json', 
+						function (data){
+							var newTrait = createTraitElement(data);
+							var oldTrait = document.getElementById(data.trait);
+							oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+						}/*, 
+						function(xhr){
+						}*/)
+					}
+					, function (id){
+						span.innerHTML = span.dataset.backup;
+						span.dataset.editable = "1";
+					}
+					);
+			}
 		}
-		else if (span.dataset.textbased){
-			editBox(event, 
-				function (id){
-					input_id = id+'-input'
-					var input_tag = document.getElementById(input_id);
-					// todo post
-					const params = new URLSearchParams({
-						traitId: span.dataset.traitid,
-						charId: window.selected_charid,
-						newValue: input_tag.value
-					});
-					get_remote_resource('./editCharacterTraitText?'+params.toString(), 'json', 
-					function (data){
-						var newTrait = createTraitElement(data);
-						var oldTrait = document.getElementById(data.trait);
-						oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-					}/*, 
-					function(xhr){
-					}*/)
-				}
-				, function (id){
-					span.innerHTML = span.dataset.backup;
-					span.dataset.editable = "1";
-				}
-				);
+		else if (span.id === PLAYER_EDIT_CONTROL)
+		{
+			openChangePlayer();
 		}
 	}
-	/*
-	else{
-		console.log("Edit mode is disabled");
-	}*/
 }
 
 function populateDotArrayElement(element, dots_array, traitdata, current_val = false){
@@ -750,6 +803,27 @@ function createTraitElement(traitdata){
 	return c;
 }
 
+function createPlayerNameControl(ownername){
+	var c = document.createElement('tr'); 
+	c.id = PLAYER_NAME_CONTROL;
+
+	var player_edit = document.createElement('span');
+	player_edit.id = PLAYER_EDIT_CONTROL;
+	player_edit.className = "material-icons md-18";
+	player_edit.innerHTML = 'edit';
+	player_edit.style = 'none';
+	if (!window.editElements.includes(player_edit.id)){
+		window.editElements.push(player_edit.id)
+	}
+	c.appendChild(player_edit);
+
+	var player_name = document.createElement('span');
+	player_name.id = 'nome_giocatore';
+	player_name.innerHTML = String.format(getLangString("web_string_charplayer"), ownername); 
+	c.appendChild(player_name);
+
+	return c;
+}
 
 function populateSheet(characterTraits, character){
 	window.editElements = Array();
@@ -787,9 +861,7 @@ function populateSheet(characterTraits, character){
 	
 	// nome del giocatore
 	sheetspot = document.getElementById("testata");
-	var c = document.createElement('tr'); 
-	c.id = 'nome_giocatore';
-	c.innerHTML = String.format(getLangString("web_string_charplayer"), character.ownername); 
+	c = createPlayerNameControl(character.ownername)	
 	sheetspot.appendChild(c);
 	
 	var temp_dump = document.getElementById('altro');
