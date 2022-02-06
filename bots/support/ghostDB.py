@@ -46,9 +46,22 @@ insert into CharacterTrait
         else:
             t.commit()
             return
-    def isValidCharacter(self, charid):
+    def reassignCharacter(self, charid: str, new_owner: str) -> bool:
+        """ Reassing a character to anither player"""
+        u = self.db.update("PlayerCharacter", where='id = $charid', vars=dict(charid=charid), owner = new_owner, player = new_owner)
+        if u == 1 or u == 0:
+            return True
+        else:
+            raise DBException(0, 'string_error_database_unexpected_update_rowcount', (u,))
+    def isValidCharacter(self, charid: str):
         characters = self.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
         return bool(len(characters)), (characters[0] if (len(characters)) else None)
+    def getCharacter(self, charid: str):
+        """ validates charid and returns the relevant character, throws an error if the character does not exist"""
+        isChar, character = self.isValidCharacter(charid)
+        if not isChar:
+            raise DBException(0, f"Il personaggio {charid} non esiste!")
+        return character
     def getActiveChar(self, ctx: commands.Context): # dato un canale e un utente, trova il pg interpretato
         playercharacters = self.db.query("""
     SELECT pc.*

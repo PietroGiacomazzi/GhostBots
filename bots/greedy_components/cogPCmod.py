@@ -14,6 +14,7 @@ unlink_description = "Argomenti: nome breve del pg, nome breve della cronaca"
 addt_description = "Argomenti: nome breve del pg, nome breve del tratto, valore"
 modt_description = "Argomenti: nome breve del pg, nome breve del tratto, nuovo valore"
 rmt_description = "Argomenti: nome breve del pg, nome breve del tratto"
+reassign_description = "Argomenti: nome breve del pg, @menzione al nuovo proprietario (oppure Discord ID)"
 
 pgmod_help = {
         "create": [create_description, "Crea un personaggio"],
@@ -21,7 +22,8 @@ pgmod_help = {
         "modt": [modt_description, "Modifica un tratto di un personaggio"],
         "rmt": [rmt_description, "Rimuovi un tratto ad un personaggio"],
         "link": [link_description, "Aggiunge un personaggio ad una cronaca"],
-        "unlink": [unlink_description, "Disassocia un personaggio da una cronaca"]
+        "unlink": [unlink_description, "Disassocia un personaggio da una cronaca"],
+        "reassign": [reassign_description, "Riassegna un personaggio ad un altro giocatore"]
         }
 
 class GreedyGhostCog_PCMod(commands.Cog):
@@ -77,10 +79,7 @@ class GreedyGhostCog_PCMod(commands.Cog):
             return 
         
         # validation
-        charid = args[0].lower()
-        isChar, character = self.bot.dbm.isValidCharacter(charid)
-        if not isChar:
-            raise gb.BotException(f"Il personaggio {charid} non esiste!")
+        character = self.bot.dbm.getCharacter(args[0].lower())
         
         chronid = args[1].lower()
         vc, chronicle = self.bot.dbm.isValidChronicle(chronid)
@@ -109,10 +108,7 @@ class GreedyGhostCog_PCMod(commands.Cog):
             return 
         
         # validation
-        charid = args[0].lower()
-        isChar, character = self.bot.dbm.isValidCharacter(charid)
-        if not isChar:
-            raise gb.BotException(f"Il personaggio {charid} non esiste!")
+        character = self.bot.dbm.getCharacter(args[0].lower())
 
         chronid = args[1].lower()
         vc, chronicle = self.bot.dbm.isValidChronicle(chronid)
@@ -164,11 +160,8 @@ class GreedyGhostCog_PCMod(commands.Cog):
             await self.bot.atSend(ctx, addt_description)
             return 
 
-        charid = args[0].lower()
+        character = self.bot.dbm.getCharacter(args[0].lower())
         traitid = args[1].lower()
-        isChar, character = self.bot.dbm.isValidCharacter(charid)
-        if not isChar:
-            raise gb.BotException(f"Il personaggio {charid} non esiste!")
 
         # permission checks
         issuer = str(ctx.message.author.id)
@@ -200,11 +193,9 @@ class GreedyGhostCog_PCMod(commands.Cog):
         if len(args) < 3:
             await self.bot.atSend(ctx, modt_description)
             return 
-        charid = args[0].lower()
+
+        character = self.bot.dbm.getCharacter(args[0].lower())
         traitid = args[1].lower()
-        isChar, character = self.bot.dbm.isValidCharacter(charid)
-        if not isChar:
-            raise gb.BotException(f"Il personaggio {charid} non esiste!")
 
         # permission checks
         issuer = str(ctx.message.author.id)
@@ -238,11 +229,8 @@ class GreedyGhostCog_PCMod(commands.Cog):
             await self.bot.atSend(ctx, rmt_description)
             return
 
-        charid = args[0].lower()
+        character = self.bot.dbm.getCharacter(args[0].lower())
         traitid = args[1].lower()
-        isChar, character = self.bot.dbm.isValidCharacter(charid)
-        if not isChar:
-            raise gb.BotException(f"Il personaggio {charid} non esiste!")
 
         # permission checks
         issuer = str(ctx.message.author.id)
@@ -269,4 +257,39 @@ class GreedyGhostCog_PCMod(commands.Cog):
         else:
             await self.bot.atSend(ctx, f"Nessun tratto rimosso")
 
-  
+    @pgmod.command(brief = pgmod_help["reassign"][1], description = pgmod_help["reassign"][0])
+    async def reassign(self, ctx: commands.Context, *args):
+        if len(args) < 2:
+            await self.bot.atSend(ctx, pgmod_help["reassign"][0])
+            return
+        
+        charid = args[0].lower()
+        character = self.bot.dbm.getCharacter(charid)
+        
+        # permission checks
+        issuer = str(ctx.message.author.id)
+        
+        self.pgmodPermissionCheck_CharacterExc(issuer, character, ctx.channel.id)
+
+        v, owner = await self.bot.validateDiscordMentionOrID(args[1])
+        if not v:
+            raise gb.BotException("Menziona il proprietario del personaggio con @nome on con il suo discord ID")
+
+        username = ""
+        t = self.bot.dbm.db.transaction()
+        try:
+            iu, r = self.bot.dbm.isUser(owner)
+            if not iu:
+                user = await self.bot.fetch_user(owner)
+                username = user.name
+                self.bot.dbm.registerUser(owner, user.name, self.bot.config['BotOptions']['default_language'])
+            else:
+                username = r["name"]
+            self.bot.dbm.reassignCharacter(charid, owner)
+        except:
+            t.rollback()
+            raise
+        else:
+            t.commit()
+
+        await self.bot.atSendLang(ctx, "string_msg_character_reassigned_to_user", character["fullname"], username)
