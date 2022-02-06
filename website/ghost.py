@@ -604,10 +604,10 @@ class traitList(APIResponse):
         super(traitList, self).__init__(config, session, min_access_level=1)
     def mGET(self):
         query = """
-        select tt.id as value, lt.traitName as display
-        from Trait tt
-        join LangTrait lt on (lt.traitId = tt.id and lt.langId = $langId)
-        order by tt.standard desc, tt.traittype asc, tt.ordering asc
+        select t.id as value, CONCAT(lt.traitName, "(", lt.traitShort, ", ", t.traittype, ")") as display
+        from Trait t
+        join LangTrait lt on (lt.traitId = t.id and lt.langId = $langId)
+        order by t.standard desc, t.traittype asc, t.ordering asc
         """
         traitData = dbm.db.query(query, vars=dict(langId=getLanguage(session, dbm))).list()
         return traitData
