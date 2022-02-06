@@ -604,7 +604,7 @@ class traitList(APIResponse):
         super(traitList, self).__init__(config, session, min_access_level=1)
     def mGET(self):
         query = """
-        select t.id as value, CONCAT(lt.traitName, "(", lt.traitShort, ", ", t.traittype, ")") as display
+        select t.id as value, CONCAT(lt.traitName, " (", lt.traitShort, ", ", t.traittype, ")") as display
         from Trait t
         join LangTrait lt on (lt.traitId = t.id and lt.langId = $langId)
         order by t.standard desc, t.traittype asc, t.ordering asc

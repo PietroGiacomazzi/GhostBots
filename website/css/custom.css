@@ -36,6 +36,11 @@
   width: auto;
 }
 
+.modal-submit{
+  float: right;
+  margin: 16px;
+}
+
 /* autocomplete stuff */
 
 /*
@@ -50,6 +55,7 @@ body {
   /*the container must be positioned relative:*/
   position: relative;
   display: inline-block;
+  width: 500px;
 }
 input {
   border: 1px solid transparent;
