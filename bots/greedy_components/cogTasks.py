@@ -45,6 +45,8 @@ class GreedyGhostCog_Tasks(commands.Cog):
                 if st:
                     st_hc = self.bot.dbm.hasSTAnyChronicles(userid)
                 if not ba and (not st or (st and not st_hc)):
+                    if st:
+                        self.bot.dbm.unnameStoryTeller(userid)
                     self.bot.dbm.removeUser(userid, self.bot.user.id)
                     removed.append(str(userid))
                 else:

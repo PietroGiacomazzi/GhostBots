@@ -444,7 +444,7 @@ class GreedyGhostCog_GMadm(commands.Cog):
         if not t_st:
             raise gb.BotException(f"L'utente selezionato non è uno storyteller")
         
-        n = self.bot.dbm.db.delete('Storyteller', where='userid=$userid', vars=dict(userid=target_st)) #foreign key is set to cascade. this will also unlink from all chronicles
+        n = self.bot.dbm.unnameStoryTeller(target_st)
         if n:
             await self.bot.atSend(ctx, f"{name} non è più Storyteller")
         else:

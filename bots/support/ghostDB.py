@@ -278,6 +278,8 @@ where cc.playerchar = $charid
         return bool(len(langs)), (langs[0] if (len(langs)) else None)
     def log(self, userid, charid, traitid, modtype, new_val, old_val = "", command = ""):
         self.db.insert("CharacterModLog", userid = userid, charid = charid, traitid = traitid, val_type = modtype, old_val = old_val, new_val = new_val, command = command)
-        
+    def unnameStoryTeller(self, userid):
+        """ Remove storyteller status """
+        return self.db.delete('Storyteller', where='userid=$userid', vars=dict(userid=userid)) #foreign key is set to cascade. this will also unlink from all chronicles
 
 
