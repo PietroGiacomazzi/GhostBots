@@ -189,6 +189,7 @@ insert into CharacterTrait
         """ Removes an user by moving all their characters to a dummy user and deleting the database record """
         # TODO: tts?
         u = self.db.update("PlayerCharacter", where='owner = $userid or player = $userid', vars=dict(userid=userid), owner = dummyuserid, player = dummyuserid)
+        u = self.db.update("CharacterModLog", where='userid = $userid', vars=dict(userid=userid), userid = dummyuserid)
         u = self.db.delete('People', where='userid=$userid', vars=dict(userid=userid))
     def updateUser(self, userid, name) -> None:
         """ Updates a user's name """
