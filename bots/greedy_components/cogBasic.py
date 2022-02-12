@@ -87,13 +87,13 @@ class GreedyGhostCog_Basic(commands.Cog):
             self.bot.dbm.registerUser(member.id, member.name, self.bot.config['BotOptions']['default_language'])
 
     @commands.Cog.listener()
-    async def on_member_remove(self, member):
+    async def on_member_remove(self, member: discord.Member):
         iu, _ = self.bot.dbm.isUser(member.id)
         if iu:
             self.bot.dbm.removeUser(member.id, self.bot.user.id)
 
     @commands.Cog.listener()
-    async def on_member_update(self, member):
-        iu, _ = self.bot.dbm.isUser(member.id)
+    async def on_member_update(self, member_before: discord.Member, member_after: discord.Member):
+        iu, _ = self.bot.dbm.isUser(member_after.id)
         if iu:
-            self.bot.dbm.updateUser(member.id, member.name)
+            self.bot.dbm.updateUser(member_after.id, member_after.name)
