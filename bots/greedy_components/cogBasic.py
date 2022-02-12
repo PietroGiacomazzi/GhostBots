@@ -27,7 +27,7 @@ class GreedyGhostCog_Basic(commands.Cog):
         if not iu:
             self.bot.dbm.registerUser(self.bot.user.id, self.bot.user.name, self.bot.config['BotOptions']['default_language'])
         # notify debug user that bot is online
-        self.bot.logToDebugUser("Bot is Online!")
+        await self.bot.logToDebugUser("Bot is Online!")
     
 
     @commands.Cog.listener()

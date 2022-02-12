@@ -30,19 +30,19 @@ class GreedyGhostCog_Tasks(commands.Cog):
                     if not seen:
                         self.bot.dbm.updateUser(member.id, member.name)
                         seen = True
-                        self.bot.logToDebugUser(f"user maintenance: updated {member.name}")
+                        await self.bot.logToDebugUser(f"user maintenance: updated {member.name}")
                 else:
                     self.bot.dbm.registerUser(member.id, member.name, self.bot.config['BotOptions']['default_language'])
-                    self.bot.logToDebugUser(f"user maintenance: registered {member.name}")
+                    await self.bot.logToDebugUser(f"user maintenance: registered {member.name}")
                     usersDict[member.id] = (True, None)
         
         for userid in usersDict:
             seen, usr = usersDict[userid]
             if not seen:
                 self.bot.dbm.removeUser(userid, self.bot.user.id)
-                self.bot.logToDebugUser(f"user maintenance: removed {member.name}")
+                await self.bot.logToDebugUser(f"user maintenance: removed {member.name}")
         
-        self.bot.logToDebugUser("user maintenance complete")
+        await self.bot.logToDebugUser("user maintenance complete")
 
         
     @userMaintenance.before_loop
