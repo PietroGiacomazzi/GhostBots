@@ -54,7 +54,7 @@ if __name__ == "__main__":
     botcmd_prefixes = ['.'] # all prefixes needs to be length 1, some code relies on it (on_command_error for example)
 
     # create bot client
-    bot = gb.GreedyGhost(config, database_manager, botcmd_prefixes)
+    bot = gb.GreedyGhost(config, database_manager, botcmd_prefixes, intents = intents)
 
     #add all cogs
     bot.add_cog(cogBasic.GreedyGhostCog_Basic(bot))
