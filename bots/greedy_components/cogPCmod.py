@@ -46,6 +46,8 @@ class GreedyGhostCog_PCMod(commands.Cog):
         v, owner = await self.bot.validateDiscordMentionOrID(args[1])
         if not v:
             raise gb.BotException("Menziona il proprietario del personaggio con @nome on con il suo discord ID")
+        
+        _ =  self.bot.dbm.getUser(owner) 
 
         fullname = " ".join(list(args[2:]))
 
@@ -57,18 +59,7 @@ class GreedyGhostCog_PCMod(commands.Cog):
             if not (st or ba):
                 raise gb.BotException("Per creare un pg ad un altra persona è necessario essere Admin o Storyteller")
         
-        t = self.bot.dbm.db.transaction()
-        try:
-            iu, _ = self.bot.dbm.isUser(owner)
-            if not iu:
-                user = await self.bot.fetch_user(owner)
-                self.bot.dbm.registerUser(owner, user.name, self.bot.config['BotOptions']['default_language'])
-            self.bot.dbm.newCharacter(chid, fullname, owner)
-        except:
-            t.rollback()
-            raise
-        else:
-            t.commit()
+        self.bot.dbm.newCharacter(chid, fullname, owner)
         
         await self.bot.atSend(ctx, f'Il personaggio {fullname} è stato inserito!')
 
@@ -274,22 +265,10 @@ class GreedyGhostCog_PCMod(commands.Cog):
         v, owner = await self.bot.validateDiscordMentionOrID(args[1])
         if not v:
             raise gb.BotException("Menziona il proprietario del personaggio con @nome on con il suo discord ID")
-
-        username = ""
-        t = self.bot.dbm.db.transaction()
-        try:
-            iu, r = self.bot.dbm.isUser(owner)
-            if not iu:
-                user = await self.bot.fetch_user(owner)
-                username = user.name
-                self.bot.dbm.registerUser(owner, user.name, self.bot.config['BotOptions']['default_language'])
-            else:
-                username = r["name"]
-            self.bot.dbm.reassignCharacter(charid, owner)
-        except:
-            t.rollback()
-            raise
-        else:
-            t.commit()
-
+        
+        user =  self.bot.dbm.getUser(owner) 
+        username = user['name']
+        
+        self.bot.dbm.reassignCharacter(charid, owner)
+        
         await self.bot.atSendLang(ctx, "string_msg_character_reassigned_to_user", character["fullname"], username)

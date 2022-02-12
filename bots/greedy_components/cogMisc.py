@@ -50,8 +50,10 @@ class GreedyGhostCog_Misc(commands.Cog):
             ]
         await self.bot.atSend(ctx, f'Domanda: {question}\n\nRisposta: {random.choice(responses)}')
 
+    # this command is not needed anymore and is here only in case the bot misses someone joining and we don't want to wait up to 1 day for the user maintenance task to catch up
+    # remember: if we register a User that is not actually in a guild that the bot can see, the registration will be removed when the maintenance task runs
     @commands.command(brief='Registra un utente nel database')
-    async def register(self, ctx: commands.Context, *args):
+    async def register(self, ctx: commands.Context, *args): 
         issuer = str(ctx.message.author.id)
 
         userid = None

@@ -18,16 +18,10 @@ class GreedyGhostCog_Lang(commands.Cog):
         if len(args) == 0:
             await self.bot.atSendLang(ctx, "string_your_lang_is", self.bot.getLID(ctx.message.author.id))
         elif len(args) == 1:
-            try:
-                _ = self.bot.dbm.getUser(issuer)
-                self.bot.dbm.db.update("People", where='userid  = $userid', vars=dict(userid =issuer), langId = args[0])
-                lid = args[0]
-                await self.bot.atSendLang(ctx, "string_lang_updated_to", lid)
-            except ghostDB.DBException:
-                user = await self.bot.fetch_user(issuer)
-                self.bot.dbm.registerUser(issuer, user.name, args[0])
-                lid = args[0]
-                await self.bot.atSendLang(ctx, "string_lang_updated_to", lid)
+            _ = self.bot.dbm.getUser(issuer)
+            self.bot.dbm.db.update("People", where='userid  = $userid', vars=dict(userid =issuer), langId = args[0])
+            lid = args[0]
+            await self.bot.atSendLang(ctx, "string_lang_updated_to", lid)
         else:
             raise gb.BotException(self.bot.getStringForUser(ctx, "string_invalid_number_of_parameters"))
     

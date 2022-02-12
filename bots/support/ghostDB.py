@@ -223,6 +223,9 @@ insert into CharacterTrait
 """
         result = self.db.query(query,vars=dict(userid=userid, charid=charid))
         return bool(len(result)), (result[0] if (len(result)) else None)
+    def hasSTAnyChronicles(self, userid):
+        """ Does the user own any chronicles? """
+        return len(self.db.select("StoryTellerChronicleRel", where='storyteller = $userid', vars=dict(userid=userid))) != 0
     def isCharacterOwner(self, userid, character):
         """Does this user own this character?"""
         characters = self.db.select('PlayerCharacter',  where='owner = $owner and id=$character', vars=dict(owner=userid, character=character))

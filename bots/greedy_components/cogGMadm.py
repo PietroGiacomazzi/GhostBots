@@ -413,14 +413,8 @@ class GreedyGhostCog_GMadm(commands.Cog):
         if t_st:
             raise gb.BotException(f"L'utente selezionato è già uno storyteller")
         
-        iu, usr = self.bot.dbm.isUser(target_st)
-        name = ""
-        if not iu:
-            user = await self.bot.fetch_user(target_st)
-            self.bot.dbm.registerUser(target_st, user.name, self.bot.config['BotOptions']['default_language'])
-            name = user.name
-        else:
-            name = usr['name']
+        usr = self.bot.dbm.getUser(target_st)
+        name = usr['name']
         
         self.bot.dbm.db.insert("Storyteller",  userid=target_st)
         await self.bot.atSend(ctx, f"{name} ora è Storyteller")
@@ -443,9 +437,7 @@ class GreedyGhostCog_GMadm(commands.Cog):
         if not ba:
             raise gb.BotException("Solo gli admin possono de-nominare gli storyteller")
 
-        iu, usr = self.bot.dbm.isUser(target_st)
-        if not iu:
-            raise gb.BotException("Utente non registrato")        
+        usr = self.bot.dbm.getUser(target_st)      
         name = usr['name']
 
         t_st, _ = self.bot.dbm.isStoryteller(target_st)
