@@ -1,6 +1,7 @@
 
 from typing import AnyStr, Callable
 from discord.ext import commands
+import discord
 import MySQLdb
 
 from greedy_components import greedyBase as gb
@@ -18,19 +19,16 @@ class GreedyGhostCog_Basic(commands.Cog):
     #@bot.event
     @commands.Cog.listener()
     async def on_ready(self):
+        print(f'{self.bot.user} is connected to the following guilds:\n')
         for guild in self.bot.guilds:
-            print(
-                f'{self.bot.user} is connected to the following guilds:\n'
-                f'{guild.name} (id: {guild.id})'
-            )
-        debug_user = await self.bot.fetch_user(int(self.bot.config['Discord']['debuguser']))
-        if debug_user != "":
-            await debug_user.send(f'Online!')
-        else:
-            print("ONLINE!")
-        #members = '\n - '.join([member.name for member in guild.members])
-        #print(f'Guild Members:\n - {members}')
-        #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send("bot is online")
+            print(f'{guild.name} (id: {guild.id})')
+        #add self to user list
+        iu, _ = self.bot.dbm.isUser(self.bot.user.id)
+        if not iu:
+            self.bot.dbm.registerUser(self.bot.user.id, self.bot.user.name, self.bot.config['BotOptions']['default_language'])
+        # notify debug user that bot is online
+        self.bot.logToDebugUser("Bot is Online!")
+    
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context, error: Exception):
@@ -81,3 +79,21 @@ class GreedyGhostCog_Basic(commands.Cog):
                 await debug_user.send(error_details)
             else:
                 print(error_details) # TODO logs
+    
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        iu, _ = self.bot.dbm.isUser(member.id)
+        if not iu:
+            self.bot.dbm.registerUser(member.id, member.name, self.bot.config['BotOptions']['default_language'])
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member):
+        iu, _ = self.bot.dbm.isUser(member.id)
+        if iu:
+            self.bot.dbm.removeUser(member.id, self.bot.user.id)
+
+    @commands.Cog.listener()
+    async def on_member_update(self, member):
+        iu, _ = self.bot.dbm.isUser(member.id)
+        if iu:
+            self.bot.dbm.updateUser(member.id, member.name)

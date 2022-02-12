@@ -50,4 +50,10 @@ class GreedyGhost(commands.Bot):
     def atSendLang(self, ctx: commands.Context, msg: str, *args):
         translated = self.getStringForUser(ctx, msg, *args)
         return self.atSend(ctx, translated)
+    async def logToDebugUser(self, msg: str):
+        debug_user = await self.fetch_user(int(self.config['Discord']['debuguser']))
+        if debug_user != "":
+            await debug_user.send(msg)
+        else:
+            print(msg)
         

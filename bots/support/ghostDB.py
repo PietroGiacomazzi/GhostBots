@@ -185,6 +185,18 @@ insert into CharacterTrait
     def registerUser(self, userid, name, langId):
         """ Registers a user """
         self.db.insert('People', userid=userid, name=name, langId = langId)
+    def removeUser(self, userid, dummyuserid) -> None:
+        """ Removes an user by moving all their characters to a dummy user and deleting the database record """
+        # TODO: tts?
+        u = self.db.update("PlayerCharacter", where='owner = $userid or player = $userid', vars=dict(userid=userid), owner = dummyuserid, player = dummyuserid)
+        u = self.db.delete('People', where='userid=$userid', vars=dict(userid=userid))
+    def updateUser(self, userid, name) -> None:
+        """ Updates a user's name """
+        if self.getUser(userid)['name'] != name:
+            u = self.db.update("People", where='userid = $userid', vars=dict(userid=userid), name = name)
+    def getUsers(self) -> list:
+        """ Get all registered users """
+        return self.db.select('People').list()
     def getUserLanguage(self, userid):
         """Returns the language id of the selected user"""
         results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))

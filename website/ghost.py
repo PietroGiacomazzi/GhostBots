@@ -264,8 +264,8 @@ class discordCallback(APIResponse):
             self.session.discord_userdiscriminator = user['discriminator']
 
             iu, _ = dbm.isUser(self.session.discord_userid)
-            if not iu:
-                dbm.registerUser(self.session.discord_userid, self.session.discord_username, default_language)
+            #if not iu:
+            #    dbm.registerUser(self.session.discord_userid, self.session.discord_username, default_language)
 
             self.session.language = getLanguage(self.session, dbm)
             
@@ -275,6 +275,8 @@ class discordCallback(APIResponse):
                 self.session.access_level = 5
             elif ba:
                 self.session.access_level = 10
+            elif iu:
+                self.session.access_level = 2
             else:
                 self.session.access_level = 1
             web.seeother('/')
@@ -487,7 +489,7 @@ def pgmodPermissionCheck_web(issuer_id, character):
 
 class editCharacterTraitNumber(APIResponse): # no textbased
     def __init__(self):
-        super(editCharacterTraitNumber, self).__init__(config, session, min_access_level=1, accepted_input = {
+        super(editCharacterTraitNumber, self).__init__(config, session, min_access_level=2, accepted_input = {
             'traitId': (MUST, validator_trait_number),
             'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
             'newValue': (MUST, validator_positive_integer),   
@@ -517,7 +519,7 @@ class editCharacterTraitNumber(APIResponse): # no textbased
 
 class editCharacterTraitNumberCurrent(APIResponse): # no textbased
     def __init__(self):
-        super(editCharacterTraitNumberCurrent, self).__init__(config, session, min_access_level=1, accepted_input = {
+        super(editCharacterTraitNumberCurrent, self).__init__(config, session, min_access_level=2, accepted_input = {
             'traitId': (MUST, validator_trait_number),
             'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
             'newValue': (MUST, validator_positive_integer),   
@@ -554,7 +556,7 @@ class editCharacterTraitNumberCurrent(APIResponse): # no textbased
 
 class editCharacterTraitText(APIResponse): #textbased
     def __init__(self):
-        super(editCharacterTraitText, self).__init__(config, session, min_access_level=1, accepted_input = {
+        super(editCharacterTraitText, self).__init__(config, session, min_access_level=2, accepted_input = {
             'traitId': (MUST, validator_trait_textbased), 
             'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
             'newValue': (MUST, validator_str_range(1, 50)),   
@@ -583,7 +585,7 @@ class editCharacterTraitText(APIResponse): #textbased
 
 class editCharacterTraitRemove(APIResponse): #textbased
     def __init__(self):
-        super(editCharacterTraitRemove, self).__init__(config, session, min_access_level=1, accepted_input = {
+        super(editCharacterTraitRemove, self).__init__(config, session, min_access_level=2, accepted_input = {
             'traitId': (MUST, validator_trait), 
             'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
         })
@@ -614,7 +616,7 @@ class editCharacterTraitRemove(APIResponse): #textbased
 
 class traitList(APIResponse): 
     def __init__(self):
-        super(traitList, self).__init__(config, session, min_access_level=1)
+        super(traitList, self).__init__(config, session, min_access_level=2)
     def mGET(self):
         query = """
         select t.id as value, CONCAT(lt.traitName, " (", lt.traitShort, ", ", t.traittype, ")") as display
@@ -627,7 +629,7 @@ class traitList(APIResponse):
 
 class editCharacterTraitAdd(APIResponse): #textbased
     def __init__(self):
-        super(editCharacterTraitAdd, self).__init__(config, session, min_access_level=1, accepted_input = {
+        super(editCharacterTraitAdd, self).__init__(config, session, min_access_level=2, accepted_input = {
             'traitId': (MUST, validator_str_range(1, 20)), # I'm validating the trait later because I also need trait data
             'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
         })
@@ -669,7 +671,7 @@ class editCharacterTraitAdd(APIResponse): #textbased
 
 class canEditCharacter(APIResponse): #textbased
     def __init__(self):
-        super(canEditCharacter, self).__init__(config, session, min_access_level=1, accepted_input = {
+        super(canEditCharacter, self).__init__(config, session, min_access_level=2, accepted_input = {
             'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
         })
     def mGET(self):
@@ -701,7 +703,7 @@ class webFunctionVisibility(APIResponse):
 
         return {
             "side_menu": self.session.access_level >= 1, # any logged user
-            "new_character": self.session.access_level >= 1, # any logged user
+            "new_character": self.session.access_level >= 2, # any logged registered user
             "translate_traits": ba or st, # storytellers or admins
         }
 
@@ -721,12 +723,17 @@ class getModal(WebPageResponseLang):
 
 class newCharacter(APIResponseLang):
     def __init__(self):
-        super(newCharacter, self).__init__(config, session, accepted_input = {
+        super(newCharacter, self).__init__(config, session, min_access_level=2, accepted_input = {
             'charId': (MUST, validator_str_range(1, 20)),
             'charName': (MUST, validator_str_range(1, 50)),
         })
     def mGET(self):
         lid = getLanguage(self.session, dbm)
+
+        iu, _ = dbm.isUser(self.session.discord_userid)
+        if not iu:
+            raise WebException("Only registered users can create new characters!", 400)
+
         vl, character = dbm.isValidCharacter(self.input_data['charId'])
         if vl:
             raise self.getLangException(400, "string_error_character_already_exists")
@@ -747,7 +754,7 @@ class newCharacter(APIResponseLang):
 
 class userList(APIResponse): # TODO: maybe a standardized autocomplete list response class for input modals?
     def __init__(self):
-        super(userList, self).__init__(config, session, min_access_level=1) 
+        super(userList, self).__init__(config, session, min_access_level=2) 
     def mGET(self):
         query = """
         select p.userid  as value, p.name as display
@@ -764,7 +771,7 @@ class userList(APIResponse): # TODO: maybe a standardized autocomplete list resp
 
 class editCharacterReassign(APIResponse): #textbased
     def __init__(self):
-        super(editCharacterReassign, self).__init__(config, session, min_access_level=1, accepted_input = {
+        super(editCharacterReassign, self).__init__(config, session, min_access_level=2, accepted_input = {
             'userId': (MUST, validator_str_range(1, 32)), 
             'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
         })
