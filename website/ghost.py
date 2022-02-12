@@ -246,12 +246,16 @@ class discordCallback(APIResponse):
         if self.input_data['error']:
             return self.input_data['error'] + self.input_data['error_description']
         else:
+            # should validate state here?
+            if self.session.oauth2_state != self.input_data['state']: # TODO: maybe have all validators in accepted_input be generators what then pass self to the validator -> we can do stuff like validate state directly in the validator and fill fields in the response obects
+                raise WebException("Invalid state", 400)
             discord = make_session(state=self.session.oauth2_state)
             token = discord.fetch_token(
                 TOKEN_URL,
+                code = self.input_data['code'], # optional because we can use authorization_response instead for some reason
                 client_secret=OAUTH2_CLIENT_SECRET,
                 authorization_response=web.ctx.home + web.ctx.fullpath)
-            self.session.oauth2_token = token
+            self.session.oauth2_token = token 
             #---
             discord = make_session(token=self.session.oauth2_token)
             user = discord.get(API_BASE_URL + '/users/@me').json()
