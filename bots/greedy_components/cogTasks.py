@@ -42,7 +42,7 @@ class GreedyGhostCog_Tasks(commands.Cog):
                 self.bot.dbm.removeUser(userid, self.bot.user.id)
                 removed.append(userid)
         
-        await self.bot.logToDebugUser(f'user maintenance complete, added:\n    {"\n    ".join(added)}\nRemoved:\n    {"\n    ".join(removed)}')
+        await self.bot.logToDebugUser('user maintenance complete, added:\n    '+"\n    ".join(added)+'Removed:\n    '+"\n    ".join(removed))
         
     @userMaintenance.before_loop
     async def before_printer(self):
