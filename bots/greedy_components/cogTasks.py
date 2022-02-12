@@ -40,9 +40,9 @@ class GreedyGhostCog_Tasks(commands.Cog):
         for userid in usersSeenDict:
             if not usersSeenDict[userid]:
                 self.bot.dbm.removeUser(userid, self.bot.user.id)
-                removed.append(userid)
+                removed.append(str(userid))
         
-        await self.bot.logToDebugUser('user maintenance complete, added:\n    '+"\n    ".join(added)+'Removed:\n    '+"\n    ".join(removed))
+        await self.bot.logToDebugUser(f'user maintenance complete: added {len(added)} users, removed {len(removed)}')
         
     @userMaintenance.before_loop
     async def before_printer(self):
