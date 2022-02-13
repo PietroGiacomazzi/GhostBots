@@ -264,29 +264,29 @@ class GreedyGhostCog_Roller(commands.Cog):
     def parseDiceExpression_Dice(self, ctx: commands.Context, what: str, forced10: bool = False) -> DiceExprParsed:
         split = what.split("d")
         if len(split) > 2:
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_toomany_d"))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_toomany_d")
         if len(split) == 1:
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_not_XdY", split[0] ) )
+            raise self.bot.getBotExceptionLang(ctx, "string_error_not_XdY", split[0] ) 
         if split[0] == "":
             split[0] = "1"
         if not split[0].isdigit():
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_not_positive_integer", split[0]))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_not_positive_integer", split[0])
         if split[1] == "":
             split[1] = "10"
         if not split[1].isdigit():
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_not_positive_integer", split[1]))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_not_positive_integer", split[1])
         n = int(split[0])
         faces = int(split[1])
         if forced10 and faces != 10:
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_not_d10", split[1]))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_not_d10", split[1])
         if n == 0:
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_not_gt0", n) )
+            raise self.bot.getBotExceptionLang(ctx, "string_error_not_gt0", n) 
         if  faces == 0:
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_not_gt0", faces))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_not_gt0", faces)
         if n > int(self.bot.config['BotOptions']['max_dice']):
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_toomany_dice", n) )
+            raise self.bot.getBotExceptionLang(ctx, "string_error_toomany_dice", n)
         if faces > int(self.bot.config['BotOptions']['max_faces']):
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_toomany_faces", faces))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_toomany_faces", faces)
 
         return DiceExprParsed(n, n, 0, faces, None)
 
@@ -318,7 +318,7 @@ class GreedyGhostCog_Roller(commands.Cog):
                     nf = parsed_expr.n_faces
                     saw_notd10 = saw_notd10 or (nf != 10)
                     if faces and (faces != nf): # we do not support mixing different face numbers for now
-                        raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_face_mixing"))
+                        raise self.bot.getBotExceptionLang(ctx, "string_error_face_mixing")
                     faces = nf
                 except gb.BotException as e: # or a trait
                     try:
@@ -345,7 +345,7 @@ class GreedyGhostCog_Roller(commands.Cog):
                     n_extrasucc += n_term_extra
 
         if saw_trait and saw_notd10: # forced10 = false only lets through non d10 expressions that DO NOT use traits
-            raise gb.BotException( self.bot.getStringForUser(ctx, "string_error_not_d10"))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_not_d10")
 
         return DiceExprParsed(n, n_perm, n_extrasucc, faces, character)
 
@@ -405,7 +405,7 @@ class GreedyGhostCog_Roller(commands.Cog):
             summary[RollArg.CHARACTER] = parsed_expr.character
 
         if RollArg.NFACES in summary and summary[RollArg.NFACES] != parsed_expr.n_faces:
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_face_mixing"))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_face_mixing")
         summary[RollArg.NFACES] = parsed_expr.n_faces
 
         return summary
@@ -550,7 +550,7 @@ class GreedyGhostCog_Roller(commands.Cog):
 
     async def roll_initiative(self, ctx: commands.Context, parsed: dict) -> str:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_roll_invalid_param_combination") )
+            raise self.bot.getBotExceptionLang(ctx, "string_error_roll_invalid_param_combination")
         lid = self.bot.getLID(ctx.message.author.id)
         add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
         raw_roll = random.randint(1, 10)
@@ -577,7 +577,7 @@ class GreedyGhostCog_Roller(commands.Cog):
 
     async def roll_reflexes(self, ctx: commands.Context, parsed: dict) -> str:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:    
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_roll_invalid_param_combination"))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_roll_invalid_param_combination")
         lid = self.bot.getLID(ctx.message.author.id)
         add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
         character = self.bot.dbm.getActiveChar(ctx)
@@ -590,7 +590,7 @@ class GreedyGhostCog_Roller(commands.Cog):
 
     async def roll_soak(self, ctx: commands.Context, parsed: dict) -> str:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or RollArg.ADD in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE:
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_roll_invalid_param_combination"))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_roll_invalid_param_combination")
         lid = self.bot.getLID(ctx.message.author.id)
         diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
         character = self.bot.dbm.getActiveChar(ctx)
@@ -624,18 +624,18 @@ class GreedyGhostCog_Roller(commands.Cog):
 
         max_dice = int(self.bot.config['BotOptions']['max_dice'])
         if ndice > max_dice:
-            raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_toomany_dice", max_dice))
+            raise self.bot.getBotExceptionLang(ctx,  "string_error_toomany_dice", max_dice)
         if ndice <= 0:
-            raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_toofew_dice", ndice) )
+            raise self.bot.getBotExceptionLang(ctx,  "string_error_toofew_dice", ndice)
 
         # check n° di mosse per le multiple
         if RollArg.MULTI in parsed:
             multi = parsed[RollArg.MULTI]
             max_moves = int( ((ndice+1)/2) -0.1) # (ndice+1)/2 è il numero di mosse in cui si rompe, non il massimo. togliendo 0.1 e arrotondando per difetto copro sia il caso intero che il caso con .5
             if max_moves == 1:
-                raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_not_enough_dice_multi") )
+                raise self.bot.getBotExceptionLang(ctx,  "string_error_not_enough_dice_multi")
             elif multi > max_moves:
-                raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_not_enough_dice_multi_MAX_REQUESTED", max_moves, ndice) )
+                raise self.bot.getBotExceptionLang(ctx,  "string_error_not_enough_dice_multi_MAX_REQUESTED", max_moves, ndice)
 
         # decido cosa fare
 
@@ -651,7 +651,7 @@ class GreedyGhostCog_Roller(commands.Cog):
                 return repr(raw_roll)
             
         if nfaces != 10:
-            raise gb.BotException(self.bot.getStringForUser(ctx,  'string_error_not_d10') )
+            raise self.bot.getBotExceptionLang(ctx,  'string_error_not_d10') 
         # past this point, we are in d10 territory
         
         stats = RollArg.STATS in parsed
@@ -665,7 +665,7 @@ class GreedyGhostCog_Roller(commands.Cog):
             if parsed[RollArg.ROLLTYPE] == RollType.NORMALE:
                 response = ""
                 if not RollArg.DIFF in parsed:
-                    raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_missing_diff"))
+                    raise self.bot.getBotExceptionLang(ctx,  "string_error_missing_diff")
                 for i in range(multi):
                     parziale = ''
                     ndadi = ndice-i-multi
@@ -678,7 +678,7 @@ class GreedyGhostCog_Roller(commands.Cog):
                         parziale = self.rollAndFormatVTM(ctx, ndadi, nfaces, parsed[RollArg.DIFF], RollStatusNormal(self.bot.languageProvider, lid, parsed[RollArg.MINSUCC]), statistics = stats, minsucc = parsed[RollArg.MINSUCC])
                     response += f'\n{self.bot.getStringForUser(ctx,  "string_action")} {i+1}: '+parziale # line break all'inizio tanto c'è il @mention
             else:
-                raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_roll_invalid_param_combination"))
+                raise self.bot.getBotExceptionLang(ctx,  "string_error_roll_invalid_param_combination")
         else: # 1 tiro solo 
             if RollArg.SPLIT in parsed:
                 split = parsed[RollArg.SPLIT]
@@ -689,11 +689,11 @@ class GreedyGhostCog_Roller(commands.Cog):
                         parziale = self.rollAndFormatVTM(ctx, pools[i], nfaces, split[0][i+1], RollStatusNormal(self.bot.languageProvider, lid, parsed[RollArg.MINSUCC] ), statistics = stats)
                         response += f'\n{self.bot.getStringForUser(ctx, "string_roll")} {i+1}: '+parziale
                 else:
-                    raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_roll_invalid_param_combination"))
+                    raise self.bot.getBotExceptionLang(ctx,  "string_error_roll_invalid_param_combination")
             else:
                 if parsed[RollArg.ROLLTYPE] == RollType.NORMALE: # tiro normale
                     if not RollArg.DIFF in parsed:
-                        raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_missing_diff"))
+                        raise self.bot.getBotExceptionLang(ctx,  "string_error_missing_diff")
                     response = self.rollAndFormatVTM(ctx, ndice, nfaces, parsed[RollArg.DIFF], RollStatusNormal(self.bot.languageProvider, lid, parsed[RollArg.MINSUCC] ), add, statistics = stats, minsucc = parsed[RollArg.MINSUCC])
                 elif parsed[RollArg.ROLLTYPE] == RollType.DANNI:
                     diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
@@ -702,13 +702,13 @@ class GreedyGhostCog_Roller(commands.Cog):
                     diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
                     response = self.rollAndFormatVTM(ctx, ndice, nfaces, diff, RollStatusProgress(self.bot.languageProvider, lid), add, False, True, statistics = stats)
                 else:
-                    raise gb.BotException(self.bot.getStringForUser(ctx,  "string_error_unknown_rolltype", RollArg.ROLLTYPE))
+                    raise self.bot.getBotExceptionLang(ctx,  "string_error_unknown_rolltype", RollArg.ROLLTYPE)
         return response
 
     @commands.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
     async def roll(self, ctx: commands.Context, *args):
         if len(args) == 0:
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_x_what", "roll")+" diomadonna") #xd
+            raise self.bot.getBotExceptionLang(ctx, "string_error_x_what", "roll")+" diomadonna" #xd
         args_list = list(args)
         
         # capisco che tipo di tiro ho di fronte

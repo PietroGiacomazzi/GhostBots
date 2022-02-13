@@ -185,12 +185,27 @@ insert into CharacterTrait
     def registerUser(self, userid, name, langId):
         """ Registers a user """
         self.db.insert('People', userid=userid, name=name, langId = langId)
-    def removeUser(self, userid, dummyuserid) -> None:
-        """ Removes an user by moving all their characters to a dummy user and deleting the database record """
+    def _removeUser(self, userid, dummyuserid) -> None:
+        """ Removes an user by moving all their characters to a dummy user and deleting the database record
+        Will fail if the user is an Admin or a Storyteller due to data constraits """
         # TODO: tts?
         u = self.db.update("PlayerCharacter", where='owner = $userid or player = $userid', vars=dict(userid=userid), owner = dummyuserid, player = dummyuserid)
         u = self.db.update("CharacterModLog", where='userid = $userid', vars=dict(userid=userid), userid = dummyuserid)
         u = self.db.delete('People', where='userid=$userid', vars=dict(userid=userid))
+    def tryRemoveUser(self, userid, dummyuserid) -> None:
+        """ Attempts to remove an user but does not if the user is an admin or a storyteller with chronicles """
+        ba, _ = self.isBotAdmin(userid)
+        st, _ = self.isStoryteller(userid)
+        st_hc = False
+        if st:
+            st_hc = self.hasSTAnyChronicles(userid)
+        if not ba and (not st or (st and not st_hc)):
+            if st:
+                self.unnameStoryTeller(userid)
+            self._removeUser(userid, dummyuserid)
+            return True
+        print(f"Cannot remove {userid}: admin: {ba} storyteller {st} has chronicles {st_hc}")
+        return False
     def updateUser(self, userid, name) -> None:
         """ Updates a user's name """
         if self.getUser(userid)['name'] != name:

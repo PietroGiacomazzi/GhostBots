@@ -23,7 +23,7 @@ class GreedyGhostCog_Lang(commands.Cog):
             lid = args[0]
             await self.bot.atSendLang(ctx, "string_lang_updated_to", lid)
         else:
-            raise gb.BotException(self.bot.getStringForUser(ctx, "string_invalid_number_of_parameters"))
+            raise self.bot.getBotExceptionLang(ctx, "string_invalid_number_of_parameters")
     
     @commands.command(name = 'translate', brief='Permette di aggiornare la traduzione di un tratto in una lingua' , help = "")
     async def translate(self, ctx: commands.Command, *args):
@@ -31,11 +31,11 @@ class GreedyGhostCog_Lang(commands.Cog):
         if len(args):
             vl, language = self.bot.dbm.isValidLanguage(args[0]) 
             if not vl:
-                raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_invalid_language_X", args[0]))
+                raise self.bot.getBotExceptionLang(ctx, "string_error_invalid_language_X", args[0])
         if len(args)>=2:
             vt, _ = self.bot.dbm.isValidTrait(args[1]) 
             if not vt:
-                raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_invalid_trait_X", args[1]))
+                raise self.bot.getBotExceptionLang(ctx, "string_error_invalid_trait_X", args[1])
 
         if len(args) == 2: # consulto
             traits = self.bot.dbm.db.select("LangTrait", where = 'traitId = $traitId and langId = $langId', vars = dict(traitId=args[1], langId = args[0]))

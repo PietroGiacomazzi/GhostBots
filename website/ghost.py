@@ -59,7 +59,6 @@ web.config.session_parameters['secure'] = True
 app = web.application(urls, globals())#, autoreload=False) # the autoreload bit fucks with sessions
 session = web.session.Session(app, web.session.DiskStore(config['WebApp']['sessions_path']), initializer={'access_level': 0})
 render = web.template.render(abspath+'templates')
-#db = web.database(dbn=config['Database']['type'], user=config['Database']['user'], pw=config['Database']['pw'], db=config['Database']['database'])
 dbm = ghostDB.DBManager(config['Database'])
 
 OAUTH2_CLIENT_ID = config['Discord']['OAUTH2_CLIENT_ID']

@@ -39,18 +39,8 @@ class GreedyGhostCog_Tasks(commands.Cog):
         
         for userid in usersSeenDict:
             if not usersSeenDict[userid]:
-                ba, _ = self.bot.dbm.isBotAdmin(userid)
-                st, _ = self.bot.dbm.isStoryteller(userid)
-                st_hc = False
-                if st:
-                    st_hc = self.bot.dbm.hasSTAnyChronicles(userid)
-                if not ba and (not st or (st and not st_hc)):
-                    if st:
-                        self.bot.dbm.unnameStoryTeller(userid)
-                    self.bot.dbm.removeUser(userid, self.bot.user.id)
+                if self.bot.dbm.tryRemoveUser(userid, self.bot.user.id):
                     removed.append(str(userid))
-                else:
-                    print(f"Cannot remove {userid}: admin: {ba} storyteller {st} has chronicles {st_hc}")
         
         await self.bot.logToDebugUser(f'user maintenance complete: added {len(added)} users, removed {len(removed)}')
         

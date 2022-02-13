@@ -58,17 +58,17 @@ class GreedyGhostCog_Misc(commands.Cog):
 
         userid = None
         if len(args) < 1:
-            userid = issuer
+            raise self.bot.getBotExceptionLang(ctx, "string_error_permission_only_st_adm")
+
+        # only admins/storytellers can register other users
+        st, _ =  self.bot.dbm.isStoryteller(issuer) # TODO make a permission checker object 
+        ba, _ = self.bot.dbm.isBotAdmin(issuer)
+        if st or ba:
+            v, userid = await self.bot.validateDiscordMentionOrID(args[0])
+            if not v:
+                raise self.bot.getBotExceptionLang(ctx, "string_error_invalid_mention_or_id")
         else:
-            # only admins/storytellers can register other users
-            st, _ =  self.bot.dbm.isStoryteller(issuer) # TODO make a permission checker object 
-            ba, _ = self.bot.dbm.isBotAdmin(issuer)
-            if st or ba:
-                v, userid = await self.bot.validateDiscordMentionOrID(args[0])
-                if not v:
-                    raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_invalid_mention_or_id"))
-            else:
-                raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_permission_only_st_adm"))
+            raise self.bot.getBotExceptionLang(ctx, "string_error_permission_only_st_adm")
 
         iu, _ = self.bot.dbm.isUser(userid)
         if not iu:

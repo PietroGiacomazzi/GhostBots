@@ -1,4 +1,5 @@
 import configparser, os
+from distutils.log import error
 from discord.ext import commands
 
 import support.ghostDB as ghostDB
@@ -26,7 +27,7 @@ class GreedyGhost(commands.Bot):
         self.config = configuration
         self.dbm = db_manager
         self.languageProvider = self._initLanguageProvider(configuration['BotOptions']['language_files_path'])
-    def _initLanguageProvider(self, language_file_path: str) -> lng.LanguageStringProvider:
+    def _initLanguageProvider(self, language_file_path: str) -> GreedyLanguageStringProvider:
         return GreedyLanguageStringProvider(self.config, self.dbm, language_file_path)
     async def validateDiscordMentionOrID(self, inp: str) -> utils.ValidatedString:
         vm, userid = utils.validateDiscordMention(inp)
@@ -51,9 +52,12 @@ class GreedyGhost(commands.Bot):
         translated = self.getStringForUser(ctx, msg, *args)
         return self.atSend(ctx, translated)
     async def logToDebugUser(self, msg: str):
+        """ Sends msg to the debug user """
         debug_user = await self.fetch_user(int(self.config['Discord']['debuguser']))
         if debug_user != "":
             await debug_user.send(msg)
         else:
             print(msg)
-        
+    def getBotExceptionLang(self, ctx: commands.Context, error_str: str, *args) -> BotException:
+        """ Creates a BotException object that contains a translated error string """
+        return BotException(self.getStringForUser(ctx, error_str, *args))

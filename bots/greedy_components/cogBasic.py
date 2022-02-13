@@ -88,9 +88,7 @@ class GreedyGhostCog_Basic(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
-        iu, _ = self.bot.dbm.isUser(member.id)
-        if iu:
-            self.bot.dbm.removeUser(member.id, self.bot.user.id)
+        self.bot.dbm.tryRemoveUser(member.id, self.bot.user.id)
 
     @commands.Cog.listener()
     async def on_member_update(self, member_before: discord.Member, member_after: discord.Member):
