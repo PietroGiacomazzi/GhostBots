@@ -70,7 +70,8 @@ class GreedyGhostCog_PCMod(commands.Cog):
             return 
         
         # validation
-        character = self.bot.dbm.getCharacter(args[0].lower())
+        charid = args[0].lower()
+        character = self.bot.dbm.getCharacter(charid)
         
         chronid = args[1].lower()
         vc, chronicle = self.bot.dbm.isValidChronicle(chronid)
@@ -84,11 +85,11 @@ class GreedyGhostCog_PCMod(commands.Cog):
         if not (st or ba):
             raise gb.BotException("Per associare un pg ad una cronaca necessario essere Admin o Storyteller di quella cronaca")
         
-        is_linked, _ = self.bot.dbm.isCharacterLinkedToChronicle(charid, chronid)
+        is_linked, _ = self.bot.dbm.isCharacterLinkedToChronicle(character['id'], chronid)
         if is_linked:
             await self.bot.atSend(ctx, f"C'è già un associazione tra {character['fullname']} e {chronicle['name']}")
         else:
-            self.bot.dbm.db.insert("ChronicleCharacterRel", chronicle=chronid, playerchar=charid)
+            self.bot.dbm.db.insert("ChronicleCharacterRel", chronicle=chronid, playerchar=character['id'])
             await self.bot.atSend(ctx, f"{character['fullname']} ora gioca a {chronicle['name']}")
 
 
@@ -99,7 +100,8 @@ class GreedyGhostCog_PCMod(commands.Cog):
             return 
         
         # validation
-        character = self.bot.dbm.getCharacter(args[0].lower())
+        charid = args[0].lower()
+        character = self.bot.dbm.getCharacter(charid)
 
         chronid = args[1].lower()
         vc, chronicle = self.bot.dbm.isValidChronicle(chronid)
@@ -113,9 +115,9 @@ class GreedyGhostCog_PCMod(commands.Cog):
         if not (st or ba):
             raise gb.BotException("Per rimuovere un pg da una cronaca necessario essere Admin o Storyteller di quella cronaca")
         
-        is_linked, _ = self.bot.dbm.isCharacterLinkedToChronicle(charid, chronid)
+        is_linked, _ = self.bot.dbm.isCharacterLinkedToChronicle(character['id'], chronid)
         if is_linked:
-            self.bot.dbm.db.delete("ChronicleCharacterRel", where = 'playerchar=$playerchar and chronicle=$chronicleid', vars=dict(chronicleid=chronid, playerchar=charid))
+            self.bot.dbm.db.delete("ChronicleCharacterRel", where = 'playerchar=$playerchar and chronicle=$chronicleid', vars=dict(chronicleid=chronid, playerchar=character['id']))
             await self.bot.atSend(ctx, f"{character['fullname']} ora non gioca più a  {chronicle['name']}")
         else:
             await self.bot.atSend(ctx, f"Non c\'è un\'associazione tra {character['fullname']} e {chronicle['name']}")
@@ -151,7 +153,8 @@ class GreedyGhostCog_PCMod(commands.Cog):
             await self.bot.atSend(ctx, addt_description)
             return 
 
-        character = self.bot.dbm.getCharacter(args[0].lower())
+        charid = args[0].lower()
+        character = self.bot.dbm.getCharacter(charid)
         traitid = args[1].lower()
 
         # permission checks
@@ -170,12 +173,12 @@ class GreedyGhostCog_PCMod(commands.Cog):
         ttype = self.bot.dbm.db.select('TraitType', where='id=$id', vars=dict(id=trait['traittype']))[0]
         if ttype['textbased']:
             textval = " ".join(args[2:])
-            self.bot.dbm.db.insert("CharacterTrait", trait=traitid, playerchar=charid, cur_value = 0, max_value = 0, text_value = textval, pimp_max = 0)
+            self.bot.dbm.db.insert("CharacterTrait", trait=traitid, playerchar=character['id'], cur_value = 0, max_value = 0, text_value = textval, pimp_max = 0)
             self.bot.dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.TEXT_VALUE, textval, '', ctx.message.content)
             await self.bot.atSend(ctx, f"{character['fullname']} ora ha {trait['name']} {textval}")
         else:
             pimp = 6 if trait['traittype'] in ['fisico', 'sociale', 'mentale'] else 0
-            self.bot.dbm.db.insert("CharacterTrait", trait=traitid, playerchar=charid, cur_value = args[2], max_value = args[2], text_value = "", pimp_max = pimp)
+            self.bot.dbm.db.insert("CharacterTrait", trait=traitid, playerchar=character['id'], cur_value = args[2], max_value = args[2], text_value = "", pimp_max = pimp)
             self.bot.dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.MAX_VALUE, args[2], '', ctx.message.content)
             await self.bot.atSend(ctx, f"{character['fullname']} ora ha {trait['name']} {args[2]}")
 
