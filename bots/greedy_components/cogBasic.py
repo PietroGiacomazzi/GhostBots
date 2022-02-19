@@ -11,9 +11,7 @@ import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 
-class GreedyGhostCog_Basic(commands.Cog):
-    def __init__(self, bot: gb.GreedyGhost):
-        self.bot = bot
+class GreedyGhostCog_Basic(gb.GreedyGhostCog):
 
     #executed once on bot boot
     #@bot.event

@@ -9,9 +9,9 @@ import support.utils as utils
 import support.ghostDB as ghostDB
 
 
-class GreedyGhostCog_Tasks(commands.Cog): 
-    def __init__(self, bot: gb.GreedyGhost):
-        self.bot = bot
+class GreedyGhostCog_Tasks(gb.GreedyGhostCog): 
+    def __init__(self, *args, **kwargs):
+        super(GreedyGhostCog_Tasks, self).__init__(*args, **kwargs)
         self.userMaintenance.start()
 
     def cog_unload(self):

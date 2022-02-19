@@ -78,9 +78,7 @@ query_addTraitLangs = """
     insert into LangTrait select l.langId as langId, t.id as traitId, $traitid as traitShort, $traitname as traitName from Trait t join Languages l where t.id = $traitid;
 """
 
-class GreedyGhostCog_GMadm(commands.Cog):
-    def __init__(self, bot: gb.GreedyGhost):
-        self.bot = bot
+class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         
     @commands.group(brief='Gestione personaggi')
     async def gmadm(self, ctx: commands.Context):

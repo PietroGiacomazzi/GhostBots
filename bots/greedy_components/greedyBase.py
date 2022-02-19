@@ -61,3 +61,7 @@ class GreedyGhost(commands.Bot):
     def getBotExceptionLang(self, ctx: commands.Context, error_str: str, *args) -> BotException:
         """ Creates a BotException object that contains a translated error string """
         return BotException(self.getStringForUser(ctx, error_str, *args))
+
+class GreedyGhostCog(commands.Cog): 
+    def __init__(self, bot: GreedyGhost):
+        self.bot = bot

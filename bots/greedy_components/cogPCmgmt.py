@@ -112,9 +112,7 @@ def getTraitFormatter(trait: object) -> FormatterType:
         return defaultTraitFormatter
 
        
-class GreedyGhostCog_PCmgmt(commands.Cog): 
-    def __init__(self, bot: gb.GreedyGhost):
-        self.bot = bot
+class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog): 
 
     def formatTrait(self, ctx: commands.Context, formatter: FormatterType, trait) -> str:
         return formatter(trait, self.bot.getLID(ctx.message.author.id), self.bot.languageProvider)

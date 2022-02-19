@@ -7,9 +7,7 @@ from greedy_components import greedyBase as gb
 import lang.lang as lng
 import support.utils as utils
 
-class GreedyGhostCog_Misc(commands.Cog):
-    def __init__(self, bot: gb.GreedyGhost):
-        self.bot = bot
+class GreedyGhostCog_Misc(gb.GreedyGhostCog):
 
     @commands.command(name='coin', help = 'Testa o Croce.')
     async def coin(self, ctx: commands.Context):

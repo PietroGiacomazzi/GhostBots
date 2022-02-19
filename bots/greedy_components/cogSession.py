@@ -10,9 +10,7 @@ import support.utils as utils
 import support.ghostDB as ghostDB
 
 
-class GreedyGhostCog_Session(commands.Cog): 
-    def __init__(self, bot: gb.GreedyGhost):
-        self.bot = bot
+class GreedyGhostCog_Session(gb.GreedyGhostCog): 
 
     @commands.group(brief='Controlla le sessioni di gioco', description = "Le sessioni sono basate sui canali: un canale può ospitare una sessione alla volta, ma la stessa cronaca può avere sessioni attive in più canali.")
     async def session(self, ctx: commands.Context):

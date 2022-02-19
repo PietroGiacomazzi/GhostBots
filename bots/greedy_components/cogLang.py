@@ -8,9 +8,7 @@ import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 
-class GreedyGhostCog_Lang(commands.Cog):
-    def __init__(self, bot: gb.GreedyGhost):
-        self.bot = bot
+class GreedyGhostCog_Lang(gb.GreedyGhostCog):
 
     @commands.command(brief='Impostazioni di lingua', description = "Permette di cambiare impostazioni di lingua del bot")
     async def lang(self, ctx:commands.Context, *args):

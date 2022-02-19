@@ -208,9 +208,7 @@ class DiceExprParsed:
     character: object
 
 
-class GreedyGhostCog_Roller(commands.Cog):
-    def __init__(self, bot: gb.GreedyGhost):
-        self.bot = bot
+class GreedyGhostCog_Roller(gb.GreedyGhostCog):
 
     def rollAndFormatVTM(self, ctx: commands.Context, ndice: int, nfaces: int, diff: int, statusFunc: RollStatusFormatter, extra_succ: int = 0, canceling: bool = True, spec: bool = False, statistics: bool = False, minsucc: int = 1) -> str:
         if statistics:

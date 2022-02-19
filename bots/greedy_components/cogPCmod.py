@@ -26,9 +26,7 @@ pgmod_help = {
         "reassign": [reassign_description, "Riassegna un personaggio ad un altro giocatore"]
         }
 
-class GreedyGhostCog_PCMod(commands.Cog):
-    def __init__(self, bot: gb.GreedyGhost):
-        self.bot = bot
+class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
 
     @commands.group(brief='Gestione personaggi')
     async def pgmod(self, ctx: commands.Context):

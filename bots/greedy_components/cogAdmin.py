@@ -3,22 +3,17 @@ from discord.ext import commands
 import MySQLdb
 
 from greedy_components import greedyBase as gb
+from greedy_components import greedySecurity as gs
 
 import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 
-class GreedyGhostCog_Admin(commands.Cog):
-    def __init__(self, bot: gb.GreedyGhost):
-        self.bot = bot
+class GreedyGhostCog_Admin(gb.GreedyGhostCog):
 
     @commands.command(brief='a bad idea.', help = "no.", hidden=True)
+    @gs.command_security_cog(gs.IsAdmin)
     async def sql(self, ctx: commands.Context, *args):
-        issuer = str(ctx.message.author.id)
-        ba, _ = self.bot.dbm.isBotAdmin(issuer)
-        if not ba:
-            raise gb.BotException(f"Devi essere un Bot Admin per poter eseguire questo comando.")
-
         query = " ".join(args)
         try:
             query_result_raw = self.bot.dbm.db.query(query)
