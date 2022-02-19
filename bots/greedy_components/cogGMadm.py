@@ -4,6 +4,7 @@ from discord.ext import commands
 from discord.ext.commands import context
 
 from greedy_components import greedyBase as gb
+from greedy_components import greedySecurity as gs
 
 import lang.lang as lng
 import support.utils as utils
@@ -86,18 +87,12 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             response = 'Azioni disponibili:\n\n' + '\n'.join(list(map(lambda k: f'{k} - {gmadm_help[k][1]}', gmadm_help)))
             await self.bot.atSend(ctx, response)
 
-    @gmadm.command(brief = "Elenca le cronache", description = listChronicles_description)
+    @gmadm.command(name = 'listChronicles', brief = "Elenca le cronache", description = listChronicles_description)
+    @gs.command_security(gs.IsUser)
     async def listChronicles(self, ctx: commands.Context, *args):
         if len(args) != 0:
             await self.bot.atSend(ctx, listChronicles_description)
             return 
-
-        # permission checks
-        issuer = str(ctx.message.author.id)
-        #st, _ = dbm.isStoryteller(issuer)
-        #ba, _ = dbm.isBotAdmin(issuer)
-        #if not (st or ba):
-        #    raise gb.BotException("Per creare una cronaca è necessario essere Storyteller")
 
         query = """
     SELECT cr.id as cid, cr.name as cname, p.name as pname

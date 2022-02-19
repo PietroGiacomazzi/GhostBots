@@ -29,15 +29,21 @@ class IsAdmin(CommandSecurity):
         iu, _ = self.bot.dbm.isBotAdmin(issuer)
         return iu
 
-def command_security_cog(security_item: type[CommandSecurity], **security_options):
+def command_security(security_item: type[CommandSecurity], **security_options):
     """ setup command security for a command created in a GreedyGhostCog """
     def decorator(func):
-        def wrapper(self: gb.GreedyGhostCog, ctx: commands.Context, *args, **kwargs):
-            print("Self type:", type(self))
-            secItem = security_item(self.bot, ctx, security_options)
-            if secItem.checkSecurity():
-                func(self, ctx, *args, **kwargs)
+        async def wrapper(self: gb.GreedyGhostCog, ctx: commands.Context, *args, **kwargs):
+            secItem = None
+            if isinstance(self, gb.GreedyGhostCog):
+                secItem = security_item(self.bot, ctx, **security_options)
+            elif isinstance(self, gb.GreedyGhost):
+                secItem = security_item(self, ctx, **security_options)
             else:
-                raise self.bot.getBotExceptionLang("string_error_permission_denied")
+                raise gb.BotException("Command security is supported only for commands defined in a GreedyGhostCog or GreedyGhost object")
+
+            if secItem.checkSecurity():
+                await func(self, ctx, *args, **kwargs)
+            else:
+                raise self.bot.getBotExceptionLang(ctx, "string_error_permission_denied")
         return wrapper
     return decorator

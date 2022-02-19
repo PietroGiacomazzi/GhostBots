@@ -11,8 +11,8 @@ import support.ghostDB as ghostDB
 
 class GreedyGhostCog_Admin(gb.GreedyGhostCog):
 
-    @commands.command(brief='a bad idea.', help = "no.", hidden=True)
-    @gs.command_security_cog(gs.IsAdmin)
+    @commands.command(name = 'sql', brief='a bad idea.', help = "no.", hidden=True)
+    @gs.command_security(gs.IsAdmin)
     async def sql(self, ctx: commands.Context, *args):
         query = " ".join(args)
         try:

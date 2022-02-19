@@ -42,7 +42,8 @@ class GreedyGhostCog_Tasks(gb.GreedyGhostCog):
                 if self.bot.dbm.tryRemoveUser(userid, self.bot.user.id):
                     removed.append(str(userid))
         
-        await self.bot.logToDebugUser(f'user maintenance complete: added {len(added)} users, removed {len(removed)}')
+        if (len(added) > 0 or len(removed)> 0):
+            await self.bot.logToDebugUser(f'user maintenance complete: added {len(added)} users, removed {len(removed)}')
         
     @userMaintenance.before_loop
     async def before_printer(self):
