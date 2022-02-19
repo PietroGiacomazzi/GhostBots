@@ -115,7 +115,8 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
 
         await self.bot.atSend(ctx, "Cronache:\n" + "\n".join(list(map(lambda x: f"**{chronicles[x]}** ({x}) (storyteller: {', '.join(crst[x])})", chronicles))))
 
-    @gmadm.command(brief = "Crea una nuova cronaca associata allo ST che invoca il comando", description = newChronicle_description)
+    @gmadm.command(name = 'newChronicle', brief = "Crea una nuova cronaca associata allo ST che invoca il comando", description = newChronicle_description)
+    @gs.command_security(gs.IsStoryteller)
     async def newChronicle(self, ctx: commands.Context, *args):
         if len(args) < 2:
             self.bot.atSend(newChronicle_description)
@@ -124,12 +125,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         shortname = args[0].lower()
         fullname = " ".join(list(args[1:])) # squish
 
-        # permission checks
         issuer = str(ctx.message.author.id)
-        st, _ = self.bot.dbm.isStoryteller(issuer)
-        # no botadmin perchè non è necessariente anche uno storyteller e dovrei fare n check in più e non ho voglia
-        if not (st):
-            raise gb.BotException("Per creare una cronaca è necessario essere Storyteller")
 
         # todo existence
         t = self.bot.dbm.db.transaction()
@@ -145,7 +141,8 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         
         await self.bot.atSend(ctx, f"Cronaca {fullname} inserita ed associata a {issuer_user}")
 
-    @gmadm.command(brief = "Crea nuovo tratto", description = newTrait_description)
+    @gmadm.command(name = 'newTrait', brief = "Crea nuovo tratto", description = newTrait_description)
+    @gs.command_security(gs.IsAdminOrStoryteller)
     async def newTrait(self, ctx: commands.Context, *args):
         if len(args) < 5:
             helptext = "Argomenti: <id> <tipo> <tracker> <standard> <nome completo>\n\n"
@@ -164,14 +161,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
     """
             await self.bot.atSend(ctx, helptext)
             return
-        
-        # permission checks
-        issuer = ctx.message.author.id
-        st, _ = self.bot.dbm.isStoryteller(issuer)
-        ba, _ = self.bot.dbm.isBotAdmin(issuer)
-        if not (st or ba):
-            raise gb.BotException("Per creare un tratto è necessario essere Admin o Storyteller")
-        
+                
         traitid = args[0].lower()
         istrait, trait = self.bot.dbm.isValidTrait(traitid)
         if istrait:
@@ -217,7 +207,8 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
 
         await self.bot.atSend(ctx, response)
 
-    @gmadm.command(brief = "Modifica un tratto", description = updt_description)
+    @gmadm.command(name = 'updt', brief = "Modifica un tratto", description = updt_description)
+    @gs.command_security(gs.IsAdminOrStoryteller)
     async def updt(self, ctx: commands.Context, *args):    
         issuer = ctx.message.author.id
         if len(args) < 6:
@@ -238,12 +229,6 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, helptext)
             return
         
-        # permission checks
-        st, _ = self.bot.dbm.isStoryteller(issuer)
-        ba, _ = self.bot.dbm.isBotAdmin(issuer)
-        if not (st or ba):
-            raise gb.BotException("Per modificare un tratto è necessario essere Admin o Storyteller")
-
         old_traitid = args[0].lower()
         istrait, old_trait = self.bot.dbm.isValidTrait(old_traitid)
         if not istrait:
@@ -298,7 +283,8 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
 
         await self.bot.atSend(ctx, response)
 
-    @gmadm.command(brief = "Associa uno storyteller ad una cronaca", description = link_description)
+    @gmadm.command(name = 'link', brief = "Associa uno storyteller ad una cronaca", description = link_description)
+    @gs.command_security(gs.IsAdminOrChronicleStoryteller, chronid = 0)
     async def link(self, ctx: commands.Context, *args):
         issuer = str(ctx.message.author.id)
         #lid = getLanguage(issuer, dbm)
@@ -307,17 +293,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             await self.bot.atSendLang(ctx, "help_gmadm_stlink")
             return 
         
-        # validation
         chronid = args[0].lower()
-        vc, _ = self.bot.dbm.isValidChronicle(chronid)
-        if not vc:
-            raise gb.BotException(f"La cronaca {chronid} non esiste!")
-
-        # permission checks
-        st, _ = self.bot.dbm.isChronicleStoryteller(issuer, chronid)
-        ba, _ = self.bot.dbm.isBotAdmin(issuer)
-        if not (st or ba):
-            raise gb.BotException("Per collegare Storyteller e cronaca è necessario essere Admin o Storyteller di quella cronaca")
 
         target_st = None
         if len(args) == 1:
@@ -339,42 +315,23 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, f"Cronaca associata")
 
     @gmadm.command(brief = "Disassocia uno storyteller da una cronaca", description = unlink_description)
+    @gs.command_security(gs.CanUnlinkStorytellerFromChronicle, chronid = 0, user = 1)
     async def unlink(self, ctx: context.Context, *args):
-        issuer = str(ctx.message.author.id)
-        #lid = getLanguage(issuer, dbm)
 
         if len(args) == 0 or len(args) > 2:
             await self.bot.atSendLang(ctx, "help_gmadm_stunlink")
             return 
-        
-        # validation
-        chronid = args[0].lower()
-        vc, _ = self.bot.dbm.isValidChronicle(chronid)
-        if not vc:
-            raise gb.BotException(f"La cronaca {chronid} non esiste!")
 
+        issuer = str(ctx.message.author.id)
+        chronid = args[0].lower()
+        
         target_st = None
         if len(args) == 1:
             target_st = issuer
         else:
             vt, target_st = await self.bot.validateDiscordMentionOrID(args[1])
-            if not vt:
+            if not vt:  # should never happen due to commmand security decorator
                 raise gb.BotException(f"Menziona lo storyteller con @ o inserisci il suo Discord ID") 
-
-        # permission checks
-        ba, _ = self.bot.dbm.isBotAdmin(issuer)
-        #st, _ = dbm.isChronicleStoryteller(issuer, chronid)
-        st = issuer == target_st
-        if not (st or ba):
-            raise gb.BotException("Gli storyteller possono solo sganciarsi dalle proprie cronache, altrimenti è necessario essere admin")
-
-        t_st, _ = self.bot.dbm.isStoryteller(target_st)
-        if not t_st:
-            raise gb.BotException(f"L'utente selezionato non è uno storyteller") 
-        
-        t_stc, _ = self.bot.dbm.isChronicleStoryteller(target_st, chronid)
-        if not t_stc:
-            raise gb.BotException(f"L'utente selezionato non è Storyteller per {chronid}")  
 
         # link
         n = self.bot.dbm.db.delete('StoryTellerChronicleRel', where='storyteller=$storyteller and chronicle=$chronicle', vars=dict(storyteller=target_st, chronicle=chronid))
