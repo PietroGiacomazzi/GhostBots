@@ -315,7 +315,8 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, f"Cronaca associata")
 
     @gmadm.command(brief = "Disassocia uno storyteller da una cronaca", description = unlink_description)
-    @gs.command_security(gs.CanUnlinkStorytellerFromChronicle, chronid = 0, user = 1)
+    #@gs.command_security(gs.CanUnlinkStorytellerFromChronicle, chronid = 0, user = 1)
+    @gs.command_security(gs.genCanUnlinkStorytellerFromChronicle(target_chronicle = 0, target_user = 1))
     async def unlink(self, ctx: context.Context, *args):
 
         if len(args) == 0 or len(args) > 2:
