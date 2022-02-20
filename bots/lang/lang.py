@@ -1,5 +1,10 @@
 import os, json
 
+class LangSupportException(Exception):
+    def __init__(self, code: int, msg: str, formats: tuple = ()):
+        """ Base exception with language support. """
+        super(LangSupportException, self).__init__(code, msg, formats)
+
 class LangException(Exception): # use this for 'known' error situations
     def __init__(self, msg: str):
         super(LangException, self).__init__(msg)
@@ -29,7 +34,7 @@ class LanguageStringProvider():
                 return string_name.format(*args)
         except IndexError:
             raise LangException(f'Broken text parameters for {string_name}: "{self.languages[lang_id][string_name]}", language {lang_id}, parameters "{args}"')
-    def formatException(self, lang_id: str, exception: Exception) -> str:
+    def formatException(self, lang_id: str, exception: LangSupportException) -> str:
         return self.get(lang_id, exception.args[1], *exception.args[2])
         
 

@@ -31,7 +31,7 @@
 	"string_error_unhandled_exception": "Congratulazioni! Hai trovato un modo per rompere il comando!",
 	"string_error_details": "Il messaggio:\n\n{}\n\n ha causato l'errore di tipo {}:\n\n{}",
 	"string_error_permission_only_st_adm": "Solo gli storyteller e gli admin possono eseguire questa azione.",
-	"string_error_permission_denied": "Permisso negato",
+	"string_error_permission_denied": "Permesso negato: {}",
 	"string_error_invalid_mention_or_id": "Menzione o Discord id non validi",
 	"string_error_security_option_required": "Il parametro {} è obbligatorio",
 	"string_error_security_option_validation_failed": "Validazione di '{}' faillita",

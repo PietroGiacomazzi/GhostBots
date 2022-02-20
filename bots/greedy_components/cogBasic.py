@@ -55,7 +55,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
                 error = e
         if isinstance(error, gb.BotException):
             await self.bot.atSend(ctx, f'{error}')
-        elif isinstance(error, ghostDB.DBException):
+        elif isinstance(error, lng.LangSupportException):
             await self.bot.atSend(ctx, self.bot.languageProvider.formatException(lid, error))
         elif isinstance(error, lng.LangException):
             await self.bot.atSend(ctx, f'{error}')

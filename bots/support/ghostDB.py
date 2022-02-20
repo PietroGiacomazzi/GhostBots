@@ -1,12 +1,13 @@
 from discord.ext import commands
 import web
+
+from lang.lang import LangSupportException
 from .utils import *
 
 LogType = enum("CUR_VALUE", "MAX_VALUE", "TEXT_VALUE", "PIMP_MAX", "ADD", "DELETE")
 
-class DBException(Exception): # use this for 'known' error situations
-    def __init__(self, code: int, msg: str, formats: tuple = ()):
-        super(DBException, self).__init__(code, msg, formats)
+class DBException(LangSupportException):
+    pass
 
 class DBManager:
     def __init__(self, config):
@@ -175,13 +176,6 @@ insert into CharacterTrait
             return True, results[0]
         else:
             return False, None
-    def getUser(self, userid):
-        """ Gets user info """
-        results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))
-        if len(results):
-            return results[0]
-        else:
-            raise DBException(0, "Utente non trovato")
     def registerUser(self, userid, name, langId):
         """ Registers a user """
         self.db.insert('People', userid=userid, name=name, langId = langId)
@@ -220,11 +214,11 @@ insert into CharacterTrait
             return results[0]['langId']
         else:
             raise DBException(0, "Utente non trovato per la ricerca della lingua")
-    def isBotAdmin(self, userid):
+    def isBotAdmin(self, userid): # TODO remove
         """Is this user an admin?"""
         admins = self.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=userid))
         return bool(len(admins)), (admins[0] if (len(admins)) else None)
-    def isStoryteller(self, userid):
+    def isStoryteller(self, userid): # TODO remove
         """Is this user a storyteller?"""
         storytellers = self.db.select('Storyteller',  where='userid = $userid', vars=dict(userid=userid))
         return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
@@ -275,10 +269,6 @@ join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
 where cc.playerchar = $charid
 """, vars=dict(charid=charid))
         return bool(len(result)), result[0] if len(result) else None
-    def isChronicleStoryteller(self, userid, chronicle):
-        """Is this user a Storyteller for this chronicle?"""
-        storytellers = self.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=userid, chronicle = chronicle))
-        return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
     def isValidTrait(self, traitid):
         """Does this trait exist?"""
         traits = self.db.select('Trait', where='id=$id', vars=dict(id=traitid))
@@ -296,5 +286,65 @@ where cc.playerchar = $charid
     def unnameStoryTeller(self, userid):
         """ Remove storyteller status """
         return self.db.delete('Storyteller', where='userid=$userid', vars=dict(userid=userid)) #foreign key is set to cascade. this will also unlink from all chronicles
+    ## New style validators here
+    # the idea is: getter throws exception and returns only data
+    # Setter returns a "validated" object with a bool and either the object OR the exception
+    def getUser(self, userid):
+        """ Gets user info """
+        results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))
+        if len(results):
+            return results[0]
+        else:
+            raise DBException(0, "Utente non trovato")
+    def isValidUser(self, userid):
+        """ Is this a valid User?  """
+        try:
+            userdata = self.getUser(userid)
+            return True, userdata
+        except DBException as e:
+            return False, e
+    def getStoryTeller(self, userid):
+        """ Gets storyteller info """
+        results = self.db.query("""
+SELECT p.*
+FROM Storyteller s
+join People p on (p.userid = s.userid)
+where s.userid = $userid
+""", vars=dict(userid=userid))
+        if len(results):
+            return results[0]
+        else:
+            raise DBException(0, "L'utente specificato non è uno storyteller")
+    def isValidStoryteller(self, userid):
+        """ Is this a valid Storyteller?  """
+        try:
+            userdata = self.getStoryTeller(userid)
+            return True, userdata
+        except DBException as e:
+            return False, e
+    def getBotAdmin(self, userid):
+        """ Gets storyteller info """
+        results = self.db.query("""
+SELECT p.*
+FROM BotAdmin ba
+join People p on (p.userid = ba.userid)
+where ba.userid = $userid
+""", vars=dict(userid=userid))
+        if len(results):
+            return results[0]
+        else:
+            raise DBException(0, "L'utente specificato non è un Bot Admin")
+    def isValidBotAdmin(self, userid):
+        """ Is this a valid BotAdmin?  """
+        try:
+            userdata = self.getBotAdmin(userid)
+            return True, userdata
+        except DBException as e:
+            return False, e
+    ## Validators without an underlying Getter go here
+    def isChronicleStoryteller(self, userid, chronicle):
+        """Is this user a Storyteller for this chronicle?"""
+        storytellers = self.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=userid, chronicle = chronicle))
+        return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else DBException(0, "L'utente non è storyteller per questa cronaca"))
 
 

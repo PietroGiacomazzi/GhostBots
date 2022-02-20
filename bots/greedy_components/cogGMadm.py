@@ -284,7 +284,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
 
     @gmadm.command(name = 'link', brief = "Associa uno storyteller ad una cronaca", description = link_description)
-    @gs.command_security(gs.IsAdminOrChronicleStoryteller, chronid = 0)
+    @gs.command_security(gs.genIsAdminOrChronicleStoryteller(target_chronicle=0))
     async def link(self, ctx: commands.Context, *args):
         issuer = str(ctx.message.author.id)
         #lid = getLanguage(issuer, dbm)
@@ -314,8 +314,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         self.bot.dbm.db.insert("StoryTellerChronicleRel", storyteller=target_st, chronicle=chronid)
         await self.bot.atSend(ctx, f"Cronaca associata")
 
-    @gmadm.command(brief = "Disassocia uno storyteller da una cronaca", description = unlink_description)
-    #@gs.command_security(gs.CanUnlinkStorytellerFromChronicle, chronid = 0, user = 1)
+    @gmadm.command(name = 'unlink', brief = "Disassocia uno storyteller da una cronaca", description = unlink_description)
     @gs.command_security(gs.genCanUnlinkStorytellerFromChronicle(target_chronicle = 0, target_user = 1))
     async def unlink(self, ctx: context.Context, *args):
 
@@ -341,7 +340,8 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         else:
             await self.bot.atSend(ctx, f"Nessuna cronaca da disassociare")
 
-    @gmadm.command(brief = "Nomina storyteller", description = name_description)
+    @gmadm.command(name = 'name', brief = "Nomina storyteller", description = name_description)
+    @gs.command_security(gs.IsAdmin)
     async def name(self, ctx: commands.Context, *args):
         issuer = str(ctx.message.author.id)
         #lid = getLanguage(issuer, dbm)
@@ -354,12 +354,6 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         if not vt:
             raise gb.BotException(f"Menziona l'utente con @ o inserisci il suo Discord ID") 
 
-        # permission checks
-        ba, _ = self.bot.dbm.isBotAdmin(issuer)
-
-        if not ba:
-            raise gb.BotException("Solo gli admin possono nominare gli storyteller")
-
         t_st, _ = self.bot.dbm.isStoryteller(target_st)
         if t_st:
             raise gb.BotException(f"L'utente selezionato è già uno storyteller")
@@ -370,7 +364,8 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         self.bot.dbm.db.insert("Storyteller",  userid=target_st)
         await self.bot.atSend(ctx, f"{name} ora è Storyteller")
         
-    @gmadm.command(brief = "De-nomina storyteller", description = unname_description)
+    @gmadm.command(name = 'unname', brief = "De-nomina storyteller", description = unname_description)
+    @gs.command_security(gs.IsAdmin)
     async def unname(self, ctx: commands.Context, *args):
         issuer = str(ctx.message.author.id)
 
@@ -382,18 +377,8 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         if not vt:
             raise gb.BotException(f"Menziona l'utente con @ o inserisci il suo Discord ID") 
 
-        # permission checks
-        ba, _ = self.bot.dbm.isBotAdmin(issuer)
-
-        if not ba:
-            raise gb.BotException("Solo gli admin possono de-nominare gli storyteller")
-
-        usr = self.bot.dbm.getUser(target_st)      
+        usr = self.bot.dbm.getStoryTeller(target_st) # will fail if user is not ST  
         name = usr['name']
-
-        t_st, _ = self.bot.dbm.isStoryteller(target_st)
-        if not t_st:
-            raise gb.BotException(f"L'utente selezionato non è uno storyteller")
         
         n = self.bot.dbm.unnameStoryTeller(target_st)
         if n:

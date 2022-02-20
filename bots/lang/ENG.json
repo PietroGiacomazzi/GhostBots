@@ -31,7 +31,7 @@
 	"string_error_unhandled_exception": "Oops! Something broke, congratulations!",
 	"string_error_details": "The message:\n\n{}\n\n caused an error of type {}:\n\n{}",
 	"string_error_permission_only_st_adm": "Only storytellers and admins can perform this action.",
-	"string_error_permission_denied": "Permission denied",
+	"string_error_permission_denied": "Permission denied: {}",
 	"string_error_invalid_mention_or_id": "Invalid mention or Discord id",
 	"string_error_security_option_required": "Parameter {} is mandatory",
 	"string_error_security_option_validation_failed": "Validation of '{}' failed",
