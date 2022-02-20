@@ -71,7 +71,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
             else:
                 await self.bot.atSendLang(ctx, "string_error_unhandled_exception")
             #print("debug user:", int(config['Discord']['debuguser']))
-            debug_userid = self.bot.config['Discord']['debuguser']
+            debug_userid = self.bot.config['Discord']['debuguser'] # TODO use Logtodebuguser and make it more robust
             debug_user = ''
             lid = self.bot.getLID(debug_userid) # this does not raise, and does not need that the user exists
             error_details = self.bot.languageProvider.get(lid, "string_error_details", ctx.message.content, type(error), error)
