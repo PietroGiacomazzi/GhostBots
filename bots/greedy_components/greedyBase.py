@@ -1,5 +1,4 @@
 import configparser, os
-from distutils.log import error
 from discord.ext import commands
 
 import support.ghostDB as ghostDB

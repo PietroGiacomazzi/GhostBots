@@ -1,4 +1,3 @@
-
 import random
 from discord.ext import commands
 
@@ -56,7 +55,7 @@ class GreedyGhostCog_Misc(gb.GreedyGhostCog):
 
     # this command is not needed anymore and is here only in case the bot misses someone joining and we don't want to wait up to 1 day for the user maintenance task to catch up
     # remember: if we register a User that is not actually in a guild that the bot can see, the registration will be removed when the maintenance task runs
-    @commands.command(brief='Registra un utente nel database')
+    @commands.command(name = 'register', brief='Registra un utente nel database')
     @gs.command_security(gs.IsAdminOrStoryteller)
     async def register(self, ctx: commands.Context, *args): 
 

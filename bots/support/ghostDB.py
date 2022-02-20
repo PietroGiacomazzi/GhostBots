@@ -82,7 +82,7 @@ insert into CharacterTrait
             raise DBException(0, 'string_TRAIT_does_not_exist', (trait_id,))
         return traits[0]
     def getTrait(self, pc_id, trait_id):
-        """Get a character's trait"""
+        """Get a character's trait (input is raw id, output is raw)"""
         traits = self.db.query("""
     SELECT
         ct.*,
@@ -100,7 +100,7 @@ insert into CharacterTrait
             #raise DBException(0, '{} non ha il tratto {}', (pc_id, trait_id))
         return traits[0]
     def getTrait_Lang(self, pc_id, trait_id, lang_id):
-        """Get a character's trait (input needs to be translated)"""
+        """Get a character's trait (input needs to be translated, output is translated)"""
         traits = self.db.query("""
     SELECT
         ct.*,
@@ -142,6 +142,7 @@ insert into CharacterTrait
             raise DBException(0, 'string_TRAIT_is_ambiguous_N_found', (trait_id, len(traits)))
         return traits[0]
     def getTrait_LangSafe(self, pc_id, trait_id, lang_id):
+        """Get a character's trait (input can be either translated or raw)"""
         try:
             return self.getTrait_Lang(pc_id, trait_id, lang_id) # can raise
         except DBException as e: # fallback to base trait id and translate it 
@@ -256,7 +257,7 @@ join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
 where cc.playerchar = $charid
 """, vars=dict(charid=charid))
         return bool(len(result)), result[0] if len(result) else None
-    def isValidTrait(self, traitid):
+    def isValidTrait(self, traitid): # TODO lang Version
         """Does this trait exist?"""
         traits = self.db.select('Trait', where='id=$id', vars=dict(id=traitid))
         return bool(len(traits)), (traits[0] if (len(traits)) else None)
@@ -352,7 +353,7 @@ where ba.userid = $userid
     def isValidCharacter(self, charid: str):
         """Is this a valid character? """   
         try:
-            character = self.getChronicle(charid)
+            character = self.getCharacter(charid)
             return True, character
         except DBException as e:
             return False, e

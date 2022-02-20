@@ -1,11 +1,8 @@
-
-from dataclasses import dataclass
 from typing import Any, Callable
 
 from greedy_components import greedyBase as gb
 from discord.ext import commands
 from lang.lang import LangSupportException
-import support.utils as utils
 
 async def _chronicle_validator(bot: gb.GreedyGhost, input_string: str) -> bool:
     valid, _ = bot.dbm.isValidChronicle(input_string)
@@ -20,11 +17,6 @@ async def _user_validator(bot: gb.GreedyGhost, input_string: str) -> bool:
     if valid:
         valid, _ = bot.dbm.isUser(userid)
     return valid
-
-#async def _storyteller_validator(bot: gb.GreedyGhost, input_string: str) -> bool:
-#    valid, target_st = await bot.validateDiscordMentionOrID(input_string)
-#    #TODO
-#    return valid
 
 class SecuritySetupError(Exception):
     pass
@@ -185,7 +177,7 @@ def command_security(security_item: type[CommandSecurity], **security_options):
             elif isinstance(self, gb.GreedyGhost):
                 secItem = security_item(self, ctx, **security_options)
             else:
-                raise SecuritySetupError("Command security is supported only for commands defined in a GreedyGhostCog or GreedyGhost object")
+                raise SecuritySetupError(f"Command security is supported only for commands defined in a GreedyGhostCog or GreedyGhost object. Provided object type: {type(self)}")
             if not issubclass(security_item, CommandSecurity):
                 raise SecuritySetupError(f"Type {secItem} is not a {CommandSecurity} object")
             security_pass, security_comment = await secItem.checkSecurity(*args, **kwargs)

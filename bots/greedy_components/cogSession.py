@@ -14,7 +14,6 @@ import support.ghostDB as ghostDB
 class GreedyGhostCog_Session(gb.GreedyGhostCog): 
 
     @commands.group(name = 'session', brief='Controlla le sessioni di gioco', description = "Le sessioni sono basate sui canali: un canale può ospitare una sessione alla volta, ma la stessa cronaca può avere sessioni attive in più canali.")
-    @gs.command_security(gs.IsUser)
     async def session(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
             sessions = self.bot.dbm.db.select('GameSession', where='channel=$channel', vars=dict(channel=ctx.channel.id))
@@ -65,8 +64,8 @@ class GreedyGhostCog_Session(gb.GreedyGhostCog):
         for session, channel in zip(sessions, channels):
             if isinstance(channel, discord.abc.GuildChannel):
                 lines.append(f"**{session['chronicle']}** in: {channel.category}/{channel.name}")
-            #elif isinstance(channel, discord.abc.PrivateChannel):
-            #    pvt += 1
+            elif isinstance(channel, discord.abc.PrivateChannel):
+                lines.append(f"**{session['chronicle']}** in un canale privato")
         if not len(lines):
             lines.append("Nessuna!")
         response = "Sessioni attive:\n" + ("\n".join(lines))

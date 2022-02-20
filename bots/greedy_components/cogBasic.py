@@ -43,9 +43,9 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
                 charid = msgsplit[0]
                 ic, _ = self.bot.dbm.isValidCharacter(charid)
                 if ic:
-                    pgmanage_cog = self.bot.get_cog(cogPCmgmt.GreedyGhostCog_PCmgmt.__name__)
+                    pgmanage_cog: cogPCmgmt.GreedyGhostCog_PCmgmt = self.bot.get_cog(cogPCmgmt.GreedyGhostCog_PCmgmt.__name__)
                     if pgmanage_cog is not None:
-                        await pgmanage_cog.pgmanage(ctx, *msgsplit)
+                        await ctx.invoke(pgmanage_cog.bot.get_command('pgmanage'), *msgsplit)
                     else:
                         await self.bot.atSendLang(ctx, "string_error_wat")# TODO error cog not loaded
                 else:
@@ -71,8 +71,13 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
             else:
                 await self.bot.atSendLang(ctx, "string_error_unhandled_exception")
             #print("debug user:", int(config['Discord']['debuguser']))
-            debug_user = await self.bot.fetch_user(int(self.bot.config['Discord']['debuguser']))
-            error_details = self.bot.getStringForUser(ctx, "string_error_details", ctx.message.content, type(error), error) # TODO: This is actually getting the wrong language: language of the user, not the debug user
+            debug_userid = self.bot.config['Discord']['debuguser']
+            debug_user = ''
+            lid = self.bot.getLID(debug_userid) # this does not raise, and does not need that the user exists
+            error_details = self.bot.languageProvider.get(lid, "string_error_details", ctx.message.content, type(error), error)
+            # figure out where to send the error
+            if debug_userid and debug_userid != '':
+                debug_user = await self.bot.fetch_user(int(debug_userid))            
             if debug_user != '':
                 await debug_user.send(error_details)
             else:

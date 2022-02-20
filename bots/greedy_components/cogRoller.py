@@ -765,7 +765,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
             response += f"\n {trait['traitShort']} ({trait['traitId']}): {trait['traitName']}"
         await self.bot.atSend(ctx, response)
 
-    @commands.command(brief = "Richiama l'attenzione dello storyteller", description = "Richiama l'attenzione dello storyteller della cronaca attiva nel canale in cui viene invocato")
+    @commands.command(name = 'call', brief = "Richiama l'attenzione dello storyteller", description = "Richiama l'attenzione dello storyteller della cronaca attiva nel canale in cui viene invocato")
     @gs.command_security(gs.IsUser)
     async def call(self, ctx: commands.Context, *args):
         character = self.bot.dbm.getActiveChar(ctx)
@@ -776,12 +776,12 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
             response += f' {stuser.mention}'
         await self.bot.atSend(ctx, response)
 
-    @commands.command(brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata")
+    @commands.command(name = 'start', brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata")
     @gs.command_security(gs.IsUser)
     async def start(self, ctx: commands.Context, *args):
         await self.bot.atSend(ctx, f'{random.randint(1, 100)}')
 
-    @commands.command(aliases = strat_list, brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata anche se l'invocatore è ubriaco")
+    @commands.command(name = 'strat', aliases = strat_list, brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata anche se l'invocatore è ubriaco")
     @gs.command_security(gs.IsUser)
     async def strat(self, ctx: commands.Context, *args):
         await self.bot.atSend(ctx, f'{random.randint(1, 100)}, però la prossima volta scrivilo giusto <3')

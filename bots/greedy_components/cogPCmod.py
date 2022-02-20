@@ -98,6 +98,7 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
     @pgmod.command(name = 'addt', brief = "Aggiunge tratto ad un personaggio", description = addt_description)
     @gs.command_security(gs.genCanEditCharacter(target_character = 0))
     async def addt(self, ctx: commands.Context, *args):
+        lid = self.bot.getLID(ctx.message.author.id)
         if len(args) < 3:
             await self.bot.atSend(ctx, addt_description)
             return 
@@ -113,9 +114,11 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
         if not istrait:
             raise gb.BotException(f"Il tratto {traitid} non esiste!")
         
-        ptraits = self.bot.dbm.db.select("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id'])).list()
-        if len(ptraits):
-            raise gb.BotException(f"{character['fullname']} ha già il tratto {trait['name']} ")
+        try:
+            ptrait = self.bot.dbm.getTrait_LangSafe(character['id'], trait['id'], lid)
+            raise gb.BotException(f"{character['fullname']} ha già il tratto {ptrait['name']} ")
+        except ghostDB.DBException:
+            pass
         
         ttype = self.bot.dbm.db.select('TraitType', where='id=$id', vars=dict(id=trait['traittype']))[0]
         if ttype['textbased']:
