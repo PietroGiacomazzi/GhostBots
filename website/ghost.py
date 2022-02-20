@@ -70,7 +70,7 @@ AUTHORIZATION_BASE_URL = API_BASE_URL + '/oauth2/authorize'
 TOKEN_URL = API_BASE_URL + '/oauth2/token'
 
 default_language = config['WebApp']['default_language']
-lp = lng.LanguageStringProvider(abspath+"pyresources")
+lp = lng.LanguageStringProvider(abspath+"lang")
 
 # --- STUFF ---
 
