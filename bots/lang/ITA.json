@@ -35,6 +35,7 @@
 	"string_error_invalid_mention_or_id": "Menzione o Discord id non validi",
 	"string_error_security_option_required": "Il parametro {} è obbligatorio",
 	"string_error_security_option_validation_failed": "Validazione di '{}' faillita",
+	"string_error_permission_reason_generic": "Non hai i permessi per eseguire questa azione",
 	"string_heads": "Testa",
 	"string_tails": "Croce",
 	"string_error_toomany_d": "Troppe 'd' b0ss",

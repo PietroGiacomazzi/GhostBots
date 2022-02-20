@@ -43,27 +43,27 @@ class CommandSecurity:
         self.bot = bot
         self.ctx = ctx
         self.options = kwargs
-    def checkSecurity(self, *args, **kwargs) -> tuple(bool, Any):
+    async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         """ performs the security check """
         raise NotImplementedError("Base command security does not check anything!")
 
 class IsUser(CommandSecurity):
-    def checkSecurity(self, *args, **kwargs) -> tuple(bool, Any):
+    async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
         return self.bot.dbm.isValidUser(issuer)
 
 class IsStoryteller(CommandSecurity):
-    def checkSecurity(self, *args, **kwargs) -> tuple(bool, Any):
+    async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
         return self.bot.dbm.isValidStoryteller(issuer)
 
 class IsAdmin(CommandSecurity):
-    def checkSecurity(self, *args, **kwargs) -> tuple(bool, Any):
+    async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
         return self.bot.dbm.isValidBotAdmin(issuer)
 
 class IsAdminOrStoryteller(CommandSecurity):
-    def checkSecurity(self, *args, **kwargs) -> tuple(bool, Any):
+    async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
         st, _ = self.bot.dbm.isValidStoryteller(issuer)
         ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
@@ -88,7 +88,7 @@ class ParametrizedCommandSecurity(CommandSecurity):
 
 def genIsAdminOrChronicleStoryteller(target_chronicle):
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
-        async def checkSecurity(self, *args, **kwargs) -> tuple(bool, Any):
+        async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
             issuer = str(self.ctx.message.author.id)  
             chronid = await self.getParameter(target_chronicle, _chronicle_validator, args)
             st, _ = self.bot.dbm.isChronicleStoryteller(issuer, chronid)
@@ -100,7 +100,7 @@ def genIsAdminOrChronicleStoryteller(target_chronicle):
 
 def genCanUnlinkStorytellerFromChronicle(target_chronicle, target_user):
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
-        async def checkSecurity(self, *args, **kwargs) -> tuple(bool, Any):
+        async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
             issuer = str(self.ctx.message.author.id)
             chronid = await self.getParameter(target_chronicle, _chronicle_validator, args)
             target_st = await self.tryGetParameter(target_user, _user_validator, args, issuer)
@@ -111,7 +111,14 @@ def genCanUnlinkStorytellerFromChronicle(target_chronicle, target_user):
             elif st and issuer == target_st: # ST can unlink themselves
                 return True, None
             else:
-                return False, SecurityCheckException(0, "Solo gli admin possono disassociare un utente diverso da loro stessi da una cronaca") 
+                msg = ''
+                if ba: #  was not a storyteller  
+                    msg = f"L'utente non è storyteller della cronaca '{chronid}'"
+                elif st: # target was not self
+                    msg =  "Solo gli admin possono disassociare un utente diverso da loro stessi da una cronaca"
+                else:
+                    msg = "string_error_permission_reason_generic"
+                return False, SecurityCheckException(0, msg)
     return GeneratedCommandSecurity
 
 def command_security(security_item: type[CommandSecurity], **security_options):
@@ -131,6 +138,6 @@ def command_security(security_item: type[CommandSecurity], **security_options):
             if security_pass:
                 await func(self, ctx, *args, **kwargs)
             else:
-                raise SecurityCheckException(0, "string_error_permission_denied", secItem.bot.formatException(security_comment))
+                raise SecurityCheckException(0, "string_error_permission_denied", (secItem.bot.formatException(ctx, security_comment), ))
         return wrapper
     return decorator
