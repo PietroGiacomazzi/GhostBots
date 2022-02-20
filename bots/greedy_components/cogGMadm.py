@@ -343,9 +343,6 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
     @gmadm.command(name = 'name', brief = "Nomina storyteller", description = name_description)
     @gs.command_security(gs.IsAdmin)
     async def name(self, ctx: commands.Context, *args):
-        issuer = str(ctx.message.author.id)
-        #lid = getLanguage(issuer, dbm)
-
         if len(args) != 1:
             await self.bot.atSendLang(ctx, "help_gmadm_stname")
             return
@@ -367,7 +364,6 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
     @gmadm.command(name = 'unname', brief = "De-nomina storyteller", description = unname_description)
     @gs.command_security(gs.IsAdmin)
     async def unname(self, ctx: commands.Context, *args):
-        issuer = str(ctx.message.author.id)
 
         if len(args) != 1:
             await self.bot.atSendLang(ctx, "help_gmadm_stunname")

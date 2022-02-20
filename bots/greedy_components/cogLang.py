@@ -3,6 +3,8 @@ from typing import AnyStr, Callable
 from discord.ext import commands
 
 from greedy_components import greedyBase as gb
+from greedy_components import greedySecurity as gs
+
 
 import lang.lang as lng
 import support.utils as utils
@@ -10,7 +12,8 @@ import support.ghostDB as ghostDB
 
 class GreedyGhostCog_Lang(gb.GreedyGhostCog):
 
-    @commands.command(brief='Impostazioni di lingua', description = "Permette di cambiare impostazioni di lingua del bot")
+    @commands.command(name = 'lang', brief='Impostazioni di lingua', description = "Permette di cambiare impostazioni di lingua del bot")
+    @gs.command_security(gs.IsUser)
     async def lang(self, ctx:commands.Context, *args):
         issuer = ctx.message.author.id
         if len(args) == 0:
@@ -24,6 +27,7 @@ class GreedyGhostCog_Lang(gb.GreedyGhostCog):
             raise self.bot.getBotExceptionLang(ctx, "string_invalid_number_of_parameters")
     
     @commands.command(name = 'translate', brief='Permette di aggiornare la traduzione di un tratto in una lingua' , help = "")
+    @gs.command_security(gs.IsAdminOrStoryteller)
     async def translate(self, ctx: commands.Command, *args):
         language = None
         if len(args):

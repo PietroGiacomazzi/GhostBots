@@ -3,6 +3,7 @@ from typing import AnyStr, Callable
 from discord.ext import commands
 
 from greedy_components import greedyBase as gb
+from greedy_components import greedySecurity as gs
 
 import lang.lang as lng
 import support.utils as utils
@@ -34,7 +35,8 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
             response = 'Azioni disponibili:\n\n' + '\n'.join(list(map(lambda k: f'{k} - {pgmod_help[k][1]}', pgmod_help)))
             await self.bot.atSend(ctx, response)
 
-    @pgmod.command(brief = "Crea un personaggio", description = create_description)
+    @pgmod.command(name = 'create', brief = "Crea un personaggio", description = create_description)
+    @gs.command_security(gs.genCanCreateCharactertoSomeone(target_user = 1))
     async def create(self, ctx : commands.Context, *args):
         if len(args) < 3:
             await self.bot.atSend(ctx, create_description)
@@ -44,44 +46,25 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
         v, owner = await self.bot.validateDiscordMentionOrID(args[1])
         if not v:
             raise gb.BotException("Menziona il proprietario del personaggio con @nome on con il suo discord ID")
-        
-        _ =  self.bot.dbm.getUser(owner) 
 
         fullname = " ".join(list(args[2:]))
-
-        # permission checks
-        issuer = str(ctx.message.author.id)
-        if issuer != owner: # chiunque può crearsi un pg, ma per crearlo a qualcun'altro serve essere ST/admin
-            st, _ = self.bot.dbm.isStoryteller(issuer)
-            ba, _ = self.bot.dbm.isBotAdmin(issuer)
-            if not (st or ba):
-                raise gb.BotException("Per creare un pg ad un altra persona è necessario essere Admin o Storyteller")
         
         self.bot.dbm.newCharacter(chid, fullname, owner)
         
         await self.bot.atSend(ctx, f'Il personaggio {fullname} è stato inserito!')
 
-    @pgmod.command(brief = "Aggiunge un personaggio ad una cronaca", description = link_description)
+    @pgmod.command(name = 'link', brief = "Aggiunge un personaggio ad una cronaca", description = link_description)
+    @gs.command_security(gs.genIsAdminOrChronicleStoryteller(target_chronicle = 1))
     async def link(self, ctx: commands.Context, *args):
         if len(args) != 2:
             await self.bot.atSend(ctx, link_description)
             return 
         
-        # validation
         charid = args[0].lower()
         character = self.bot.dbm.getCharacter(charid)
         
         chronid = args[1].lower()
-        vc, chronicle = self.bot.dbm.isValidChronicle(chronid)
-        if not vc:
-            raise gb.BotException(f"La cronaca {chronid} non esiste!") 
-
-        # permission checks
-        issuer = str(ctx.message.author.id)
-        st, _ = self.bot.dbm.isChronicleStoryteller(issuer, chronicle['id'])
-        ba, _ = self.bot.dbm.isBotAdmin(issuer)
-        if not (st or ba):
-            raise gb.BotException("Per associare un pg ad una cronaca necessario essere Admin o Storyteller di quella cronaca")
+        chronicle = self.bot.dbm.getChronicle(chronid)
         
         is_linked, _ = self.bot.dbm.isCharacterLinkedToChronicle(character['id'], chronid)
         if is_linked:
@@ -91,7 +74,8 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, f"{character['fullname']} ora gioca a {chronicle['name']}")
 
 
-    @pgmod.command(brief = "Disassocia un personaggio da una cronaca", description = unlink_description)
+    @pgmod.command(name = 'unlink', brief = "Disassocia un personaggio da una cronaca", description = unlink_description)
+    @gs.command_security(gs.genIsAdminOrChronicleStoryteller(target_chronicle = 1))
     async def unlink(self, ctx: commands.Context, *args):
         if len(args) != 2:
             await self.bot.atSend(ctx, unlink_description)
@@ -102,16 +86,7 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
         character = self.bot.dbm.getCharacter(charid)
 
         chronid = args[1].lower()
-        vc, chronicle = self.bot.dbm.isValidChronicle(chronid)
-        if not vc:
-            raise gb.BotException(f"La cronaca {chronid} non esiste!")
-
-        # permission checks
-        issuer = str(ctx.message.author.id)
-        st, _ = self.bot.dbm.isChronicleStoryteller(issuer, chronicle['id'])
-        ba, _ = self.bot.dbm.isBotAdmin(issuer)
-        if not (st or ba):
-            raise gb.BotException("Per rimuovere un pg da una cronaca necessario essere Admin o Storyteller di quella cronaca")
+        chronicle = self.bot.dbm.getChronicle(chronid)
         
         is_linked, _ = self.bot.dbm.isCharacterLinkedToChronicle(character['id'], chronid)
         if is_linked:
@@ -120,32 +95,8 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
         else:
             await self.bot.atSend(ctx, f"Non c\'è un\'associazione tra {character['fullname']} e {chronicle['name']}")
 
-
-    def pgmodPermissionCheck_Character(self, issuer_id: str, character: object, channel_id: str) -> bool: # TODO: move to dbm and add optional exception parameter
-        owner_id = character['owner']
-        char_id = character['id']
-        
-        st, _ =  self.bot.dbm.isStorytellerForCharacter(issuer_id, char_id)
-        ba, _ = self.bot.dbm.isBotAdmin(issuer_id)
-        co = False
-        if owner_id == issuer_id and not (st or ba):
-            #1: unlinked
-            cl, _ = self.bot.dbm.isCharacterLinked(char_id)
-            #2 active session
-            sa, _ = self.bot.dbm.isSessionActiveForCharacter(char_id, channel_id)
-            co = co or (not cl) or sa            
-
-        return (st or ba or co)
-        
-    def pgmodPermissionCheck_CharacterExc(self, issuer_id: str, character: object, channel_id: str) -> bool:
-        pc = self.pgmodPermissionCheck_Character(issuer_id, character, channel_id)
-        if not pc:
-            raise gb.BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")
-        else:
-            return pc
-
-
-    @pgmod.command(brief = "Aggiunge tratto ad un personaggio", description = addt_description)
+    @pgmod.command(name = 'addt', brief = "Aggiunge tratto ad un personaggio", description = addt_description)
+    @gs.command_security(gs.genCanEditCharacter(target_character = 0))
     async def addt(self, ctx: commands.Context, *args):
         if len(args) < 3:
             await self.bot.atSend(ctx, addt_description)
@@ -157,8 +108,6 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
 
         # permission checks
         issuer = str(ctx.message.author.id)
-
-        self.pgmodPermissionCheck_CharacterExc(issuer, character, ctx.channel.id)
 
         istrait, trait = self.bot.dbm.isValidTrait(traitid)
         if not istrait:
@@ -180,7 +129,8 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
             self.bot.dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.MAX_VALUE, args[2], '', ctx.message.content)
             await self.bot.atSend(ctx, f"{character['fullname']} ora ha {trait['name']} {args[2]}")
 
-    @pgmod.command(brief = "Modifica un tratto di un personaggio", description = modt_description)
+    @pgmod.command(name = 'modt', brief = "Modifica un tratto di un personaggio", description = modt_description)
+    @gs.command_security(gs.genCanEditCharacter(target_character = 0))
     async def modt(self, ctx: commands.Context, *args):
         if len(args) < 3:
             await self.bot.atSend(ctx, modt_description)
@@ -192,8 +142,6 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
         # permission checks
         issuer = str(ctx.message.author.id)
         
-        self.pgmodPermissionCheck_CharacterExc(issuer, character, ctx.channel.id)
-
         istrait, trait = self.bot.dbm.isValidTrait(traitid)
         if not istrait:
             raise gb.BotException(f"Il tratto {traitid} non esiste!")
@@ -215,7 +163,8 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, f"{character['fullname']} ora ha {trait['name']} {args[2]}")
     
     
-    @pgmod.command(brief = "Rimuovi un tratto ad un personaggio", description = rmt_description)
+    @pgmod.command(name = 'rmt', brief = "Rimuovi un tratto ad un personaggio", description = rmt_description)
+    @gs.command_security(gs.genCanEditCharacter(target_character = 0))
     async def rmt(self, ctx: commands.Context, *args):
         if len(args) < 2:
             await self.bot.atSend(ctx, rmt_description)
@@ -227,8 +176,6 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
         # permission checks
         issuer = str(ctx.message.author.id)
         
-        self.pgmodPermissionCheck_CharacterExc(issuer, character, ctx.channel.id)
-
         istrait, trait = self.bot.dbm.isValidTrait(traitid)
         if not istrait:
             raise gb.BotException(f"Il tratto {traitid} non esiste!")
@@ -249,7 +196,8 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
         else:
             await self.bot.atSend(ctx, f"Nessun tratto rimosso")
 
-    @pgmod.command(brief = pgmod_help["reassign"][1], description = pgmod_help["reassign"][0])
+    @pgmod.command(name = 'reassign', brief = pgmod_help["reassign"][1], description = pgmod_help["reassign"][0])
+    @gs.command_security(gs.genCanEditCharacter(target_character = 0))
     async def reassign(self, ctx: commands.Context, *args):
         if len(args) < 2:
             await self.bot.atSend(ctx, pgmod_help["reassign"][0])
@@ -258,11 +206,6 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
         charid = args[0].lower()
         character = self.bot.dbm.getCharacter(charid)
         
-        # permission checks
-        issuer = str(ctx.message.author.id)
-        
-        self.pgmodPermissionCheck_CharacterExc(issuer, character, ctx.channel.id)
-
         v, owner = await self.bot.validateDiscordMentionOrID(args[1])
         if not v:
             raise gb.BotException("Menziona il proprietario del personaggio con @nome on con il suo discord ID")

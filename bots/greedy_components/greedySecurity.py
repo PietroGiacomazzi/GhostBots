@@ -71,14 +71,29 @@ class IsAdminOrStoryteller(CommandSecurity):
         comment = None if valid else SecurityCheckException(0, "L'Utente non è Admin o Storyteller") 
         return valid, comment
 
+class CanEditRunningSession(CommandSecurity): # this needs to exist separately from genIsAdminOrChronicleStoryteller because the chronicle is not available in the command parameters
+    async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
+        issuer = str(self.ctx.message.author.id)
+        sr, session = self.bot.dbm.isSessionRunning(self.ctx.channel.id)
+        valid = sr
+        comment = ''
+        if valid:
+            ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
+            st, _ = self.bot.dbm.isChronicleStoryteller(issuer, session['chronicle'])
+            valid = ba or st
+            comment = comment if valid else SecurityCheckException(0, "Non hai il ruolo di Storyteller per questa cronaca")
+        else:
+            comment = SecurityCheckException(0, "Non c'è alcuna sessione attiva in questo canale") 
+        return valid, comment
+
 class ParametrizedCommandSecurity(CommandSecurity):
     async def getParameter(self, param_idx: str, validator: Callable,  args: tuple): # TODO callable to something more precise
         if param_idx >= len(args):
-            raise MissingParameterException(0, 'string_error_security_option_required', param_idx) # this is the user's fault
+            raise MissingParameterException(0, 'string_error_security_option_required', (param_idx,)) # this is the user's fault
         param_content = args[param_idx]
         valid = await validator(self.bot, param_content)
         if not valid:
-            raise ParameterValidationFailedException(0, 'string_error_security_option_validation_failed', param_content) # this is the user's fault
+            raise ParameterValidationFailedException(0, 'string_error_security_option_validation_failed', (param_content,)) # this is the user's fault
         return param_content
     async def tryGetParameter(self, param_idx: str, validator: Callable,  args: tuple, fallback):
         try:
@@ -94,7 +109,7 @@ def genIsAdminOrChronicleStoryteller(target_chronicle):
             st, _ = self.bot.dbm.isChronicleStoryteller(issuer, chronid)
             ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
             valid = st or ba
-            comment = None if valid else SecurityCheckException(0, "L'Utente non è Admin o Storyteller") 
+            comment = None if valid else SecurityCheckException(0, "L'Utente non è Admin o Storyteller della cronaca", (chronid,)) 
             return valid, comment
     return GeneratedCommandSecurity
 
@@ -119,6 +134,45 @@ def genCanUnlinkStorytellerFromChronicle(target_chronicle, target_user):
                 else:
                     msg = "string_error_permission_reason_generic"
                 return False, SecurityCheckException(0, msg)
+    return GeneratedCommandSecurity
+
+def genCanCreateCharactertoSomeone(target_user):
+    class GeneratedCommandSecurity(ParametrizedCommandSecurity):
+        async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
+            issuer = str(self.ctx.message.author.id)  
+            target_usr = await self.tryGetParameter(target_user, _user_validator, args, issuer)
+            valid = True
+            comment = ''
+            if target_usr != issuer:
+                st, _ = self.bot.dbm.isValidStoryteller(issuer)
+                ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
+                valid = st or ba
+                if not valid:
+                    comment = SecurityCheckException(0, "Per creare un pg ad un altra persona è necessario essere Admin o Storyteller") 
+            return valid, comment
+    return GeneratedCommandSecurity
+
+def genCanEditCharacter(target_character):
+    class GeneratedCommandSecurity(ParametrizedCommandSecurity):
+        async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
+            issuer = str(self.ctx.message.author.id)  
+            charid = await self.getParameter(target_character, _character_validator, args)
+            character = self.bot.dbm.getCharacter(charid) # TODO prevent double DB read
+            owner = character['owner']
+
+            st, _ = self.bot.dbm.isStorytellerForCharacter(issuer, charid)
+            ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
+            co = False
+            if owner == issuer and not (st or ba):
+                #1: unlinked
+                cl, _ = self.bot.dbm.isCharacterLinked(charid)
+                #2 active session
+                sa, _ = self.bot.dbm.isSessionActiveForCharacter(charid, self.ctx.channel.id)
+                co = co or (not cl) or sa            
+
+            valid =  (st or ba or co)
+            comment = None if valid else SecurityCheckException(0, "Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller") 
+            return valid, comment
     return GeneratedCommandSecurity
 
 def command_security(security_item: type[CommandSecurity], **security_options):

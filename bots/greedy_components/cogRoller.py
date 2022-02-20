@@ -1,10 +1,11 @@
-from ast import parse
 import random
 from dataclasses import dataclass
 from typing import AnyStr, Callable
 from discord.ext import commands
 
 from greedy_components import greedyBase as gb
+from greedy_components import greedySecurity as gs
+
 
 import support.vtm_res as vtm_res
 import lang.lang as lng
@@ -704,6 +705,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         return response
 
     @commands.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
+    @gs.command_security(gs.IsUser)
     async def roll(self, ctx: commands.Context, *args):
         if len(args) == 0:
             raise self.bot.getBotExceptionLang(ctx, "string_error_x_what", "roll")+" diomadonna" #xd
@@ -744,6 +746,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
     
     @commands.command(name = 'search', brief = "Cerca un tratto", description = "Cerca un tratto:\n\n .search <termine di ricerca> -> elenco dei risultati")
+    @gs.command_security(gs.IsUser)
     async def search_trait(self, ctx: commands.Context, *args):
         if len(args) == 0:
             await self.bot.atSendLang("string_error_no_searchterm")
@@ -763,6 +766,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
 
     @commands.command(brief = "Richiama l'attenzione dello storyteller", description = "Richiama l'attenzione dello storyteller della cronaca attiva nel canale in cui viene invocato")
+    @gs.command_security(gs.IsUser)
     async def call(self, ctx: commands.Context, *args):
         character = self.bot.dbm.getActiveChar(ctx)
         sts = self.bot.dbm.getChannelStoryTellers(ctx.channel.id)
@@ -773,9 +777,11 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
 
     @commands.command(brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata")
+    @gs.command_security(gs.IsUser)
     async def start(self, ctx: commands.Context, *args):
         await self.bot.atSend(ctx, f'{random.randint(1, 100)}')
 
     @commands.command(aliases = strat_list, brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata anche se l'invocatore è ubriaco")
+    @gs.command_security(gs.IsUser)
     async def strat(self, ctx: commands.Context, *args):
         await self.bot.atSend(ctx, f'{random.randint(1, 100)}, però la prossima volta scrivilo giusto <3')

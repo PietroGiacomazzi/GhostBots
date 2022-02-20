@@ -4,6 +4,7 @@ import urllib
 from discord.ext import commands
 
 from greedy_components import greedyBase as gb
+from greedy_components import greedySecurity as gs
 
 import lang.lang as lng
 import support.utils as utils
@@ -313,13 +314,15 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
 
         return response
 
-    @commands.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
+    @commands.command(name = 'me', brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
+    @gs.command_security(gs.IsUser)
     async def me(self, ctx: commands.Context, *args):
         pc = self.bot.dbm.getActiveChar(ctx)
         response = await self.pc_interact(ctx, pc, True, *args)
         await self.bot.atSend(ctx, response)
 
-    @commands.command(brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = pgmanage_description)
+    @commands.command(name = 'pgmanage', brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = pgmanage_description)
+    @gs.command_security(gs.IsUser)
     async def pgmanage(self, ctx: commands.Context, *args):
         if len(args)==0:
             raise gb.BotException('Specifica un pg!')

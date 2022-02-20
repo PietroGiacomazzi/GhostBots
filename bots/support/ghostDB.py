@@ -54,15 +54,6 @@ insert into CharacterTrait
             return True
         else:
             raise DBException(0, 'string_error_database_unexpected_update_rowcount', (u,))
-    def isValidCharacter(self, charid: str):
-        characters = self.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
-        return bool(len(characters)), (characters[0] if (len(characters)) else None)
-    def getCharacter(self, charid: str):
-        """ validates charid and returns the relevant character, throws an error if the character does not exist"""
-        isChar, character = self.isValidCharacter(charid)
-        if not isChar:
-            raise DBException(0, f"Il personaggio {charid} non esiste!")
-        return character
     def getActiveChar(self, ctx: commands.Context): # dato un canale e un utente, trova il pg interpretato
         playercharacters = self.db.query("""
     SELECT pc.*
@@ -247,10 +238,6 @@ insert into CharacterTrait
         """Is this character linked to a specific chronicle? """
         result = self.db.select('ChronicleCharacterRel', where='playerchar=$id and chronicle=$chronicleid', vars=dict(id=charid, chronicleid=chronicleid))
         return bool(len(result)), result.list()[0] if len(result) else None
-    def isValidChronicle(self, chronicleid):
-        """Is this a valid chronicle?"""    
-        chronicles = self.db.select('Chronicle', where='id=$id', vars=dict(id=chronicleid))
-        return bool(len(chronicles)), chronicles.list()[0] if len(chronicles) else None
     def isSessionActiveForCharacter(self, charid, channelid): #
         """Is there a session on this channel that includes this character?"""
         result = self.db.query("""
@@ -339,6 +326,48 @@ where ba.userid = $userid
         try:
             userdata = self.getBotAdmin(userid)
             return True, userdata
+        except DBException as e:
+            return False, e
+    def getChronicle(self, chronicleid):
+        """ Gets chronicle info """
+        results = self.db.select('Chronicle', where='id=$id', vars=dict(id=chronicleid))
+        if len(results):
+            return results[0]
+        else:
+            raise DBException(0, "La cronaca {} non esiste!", (chronicleid,))
+    def isValidChronicle(self, chronicleid: str):
+        """Is this a valid chronicle? """   
+        try:
+            chronicle = self.getChronicle(chronicleid)
+            return True, chronicle
+        except DBException as e:
+            return False, e
+    def getCharacter(self, charid: str):
+        """ validates charid and returns the relevant character """
+        results = self.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
+        if len(results):
+            return results[0]
+        else:
+            raise DBException(0, "Il personaggio {} non esiste!", (charid,))
+    def isValidCharacter(self, charid: str):
+        """Is this a valid character? """   
+        try:
+            character = self.getChronicle(charid)
+            return True, character
+        except DBException as e:
+            return False, e
+    def getGameSession(self, channelid: str):
+        """ Gets the session running in channelid """
+        results = self.db.select('GameSession', where='channel=$channel', vars=dict(channel=channelid))
+        if len(results):
+            return results[0]
+        else:
+            raise DBException(0, "Nessuna sessione attiva in questo canale!")
+    def isSessionRunning(self, channelid: str):
+        """Is there a session running in channelid? """   
+        try:
+            result = self.getGameSession(channelid)
+            return True, result
         except DBException as e:
             return False, e
     ## Validators without an underlying Getter go here
