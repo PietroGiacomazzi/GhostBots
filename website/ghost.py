@@ -10,8 +10,8 @@ import subprocess, json, time, datetime
 from requests_oauthlib import OAuth2Session
 
 from pyresources.UtilsWebLib import *
-import pyresources.ghostDB as ghostDB
-import pyresources.lang as lng
+import lang.lang as lng
+import support.ghostDB as ghostDB
 
 config = configparser.ConfigParser()
 config.read("/var/www/greedy_ghost_web.ini")
