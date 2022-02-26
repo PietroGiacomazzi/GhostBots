@@ -708,7 +708,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
     @gs.command_security(gs.IsUser)
     async def roll(self, ctx: commands.Context, *args):
         if len(args) == 0:
-            raise self.bot.getBotExceptionLang(ctx, "string_error_x_what", "roll")+" diomadonna" #xd
+            raise gb.BotException(str(self.bot.getBotExceptionLang(ctx, "string_error_x_what", "roll"))+ " diomadonna") # xd
         args_list = list(args)
         
         # capisco che tipo di tiro ho di fronte
