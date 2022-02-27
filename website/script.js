@@ -278,7 +278,7 @@ function renderhealth(health_text, max_value)
 	]);
 	
 	var health_render = document.createElement('table');
-	charsheet.setAttribute("class", 'w3-table');
+	health_render.setAttribute("class", 'w3-table'); // why charsheet?
 	
 	var hs = health_text;
     hs = hs + (" ".repeat(max_value-hs.length));
@@ -512,7 +512,13 @@ function editTrait(event) {
 	}
 }
 
-function populateDotArrayElement(element, dots_array, traitdata, current_val = false){
+function populateDotArrayElement(element, dots_array, traitdata, current_val = false, newline_after = 0){
+	if (newline_after == 0)
+	{
+		newline_after = dots_array.length;
+	}
+	var current_line = document.createElement('div');
+
 	var zdot_span = document.createElement('span');
 	zdot_span.id = traitdata.trait+"-zerocontrol";
 	zdot_span.dataset.traitid = traitdata.trait;
@@ -529,10 +535,14 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 	if (!window.editElements.includes(zdot_span.id)){
 		window.editElements.push(zdot_span.id);
 	}
-	element.appendChild(zdot_span);
+	current_line.appendChild(zdot_span);
 	
 	for (j = 0; j<dots_array.length; ++j) 
 	{
+		if ((j > 0) && (j % newline_after == 0)){
+			element.appendChild(current_line);
+			current_line = document.createElement('div');
+		}
 		var dot_span = document.createElement('span');
 		dot_span.dataset.traitid = traitdata.trait
 		dot_span.dataset.dotbased = "1";
@@ -541,8 +551,10 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 			dot_span.dataset.current_val = "1";
 		}
 		dot_span.innerHTML = dots_array[j];
-		element.appendChild(dot_span);
+		current_line.appendChild(dot_span);
 	}
+	element.appendChild(current_line);
+
 	return element;
 }
 
@@ -616,6 +628,8 @@ function createTraitElement(traitdata){
 	}
 	else if (traitdata.trait == 'salute')
 	{
+		c = document.createElement('div'); // overwrite current c with a div because health is not part of a table of traits
+		c.setAttribute("id", traitdata.trait);
 		c.appendChild(createMaxModElement(traitdata));
 		c.appendChild(renderhealth(traitdata['text_value'], traitdata['max_value']));
 	}
@@ -660,7 +674,7 @@ function createTraitElement(traitdata){
 				sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
 			
 			var trait_sqrs = document.createElement('p');
-			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true);
+			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true, 10);
 			c.appendChild(trait_sqrs);
 		}
 		else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
