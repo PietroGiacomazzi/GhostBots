@@ -628,8 +628,6 @@ function createTraitElement(traitdata){
 	}
 	else if (traitdata.trait == 'salute')
 	{
-		c = document.createElement('div'); // overwrite current c with a div because health is not part of a table of traits
-		c.setAttribute("id", traitdata.trait);
 		c.appendChild(createMaxModElement(traitdata));
 		c.appendChild(renderhealth(traitdata['text_value'], traitdata['max_value']));
 	}
