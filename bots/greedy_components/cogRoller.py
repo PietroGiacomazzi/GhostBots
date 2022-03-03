@@ -260,7 +260,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
                 response += f' **{extra_succ}**'
             return response
 
-    def parseDiceExpression_Dice(self, ctx: commands.Context, what: str, forced10: bool = False) -> DiceExprParsed:
+    def parseDiceExpression_Dice(self, ctx: commands.Context, what: str) -> DiceExprParsed:
         split = what.split("d")
         if len(split) > 2:
             raise self.bot.getBotExceptionLang(ctx, "string_error_toomany_d")
@@ -276,8 +276,6 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
             raise self.bot.getBotExceptionLang(ctx, "string_error_not_positive_integer", split[1])
         n = int(split[0])
         faces = int(split[1])
-        if forced10 and faces != 10:
-            raise self.bot.getBotExceptionLang(ctx, "string_error_not_d10", split[1])
         if n == 0:
             raise self.bot.getBotExceptionLang(ctx, "string_error_not_gt0", n) 
         if  faces == 0:
@@ -289,7 +287,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
 
         return DiceExprParsed(n, n, 0, faces, None)
 
-    def parseDiceExpression_Mixed(self, ctx: commands.Context, what: str, firstNegative: bool = False, forced10: bool = True, character = None) -> DiceExprParsed:
+    def parseDiceExpression_Mixed(self, ctx: commands.Context, what: str, firstNegative: bool = False, character = None) -> DiceExprParsed:
         lid = self.bot.getLID(ctx.message.author.id)
 
         saw_trait = False
@@ -310,15 +308,13 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
                 n_term = 0
                 n_term_perm = 0
                 n_term_extra = 0
+                new_faces = 0
                 try: # either a xdy expr
-                    parsed_expr =  self.parseDiceExpression_Dice(ctx, term, forced10)  
+                    parsed_expr =  self.parseDiceExpression_Dice(ctx, term)  
                     n_term = parsed_expr.n_dice
                     n_term_perm = parsed_expr.n_dice_permanent
-                    nf = parsed_expr.n_faces
-                    saw_notd10 = saw_notd10 or (nf != 10)
-                    if faces and (faces != nf): # we do not support mixing different face numbers for now
-                        raise self.bot.getBotExceptionLang(ctx, "string_error_face_mixing")
-                    faces = nf
+                    new_faces = parsed_expr.n_faces
+                    saw_notd10 = saw_notd10 or (new_faces != 10)
                 except gb.BotException as e: # or a trait
                     try:
                         if not character:
@@ -327,13 +323,21 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
                         n_term = temp['cur_value']
                         n_term_perm = temp['max_value']
                         saw_trait = True
-                        faces = 10
+                        new_faces = 10
                     except ghostDB.DBException as edb:
                         try:
                             _, n_term_extra = self.validateNumber(ctx, [term], 0)
                         except ValueError as ve:
                             raise gb.BotException("\n".join([ self.bot.getStringForUser(ctx, "string_error_notsure_whatroll"), f'{e}', f'{self.bot.languageProvider.formatException(lid, edb)}', f'{ve}']) )
                 
+                if new_faces:
+                    if faces and (faces != new_faces): # we do not support mixing different face numbers for now
+                        raise self.bot.getBotExceptionLang(ctx, "string_error_face_mixing")
+                    faces = new_faces
+
+                if saw_trait and saw_notd10: # forced10 = false only lets through non d10 expressions that DO NOT use traits
+                    raise self.bot.getBotExceptionLang(ctx, "string_error_not_d10")
+
                 if j > 0 or (i == 0 and firstNegative):
                     n -= n_term
                     n_perm -= n_term_perm
@@ -343,8 +347,8 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
                     n_perm += n_term_perm
                     n_extrasucc += n_term_extra
 
-        if saw_trait and saw_notd10: # forced10 = false only lets through non d10 expressions that DO NOT use traits
-            raise self.bot.getBotExceptionLang(ctx, "string_error_not_d10")
+        # is it good that if the espression is just flat numbers we can parse it?
+        # for example ".roll 3d10 7" will parse the same as ".roll 3d10 +7"
 
         return DiceExprParsed(n, n_perm, n_extrasucc, faces, character)
 
@@ -385,8 +389,8 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
     def validateDifficulty(self, ctx: commands.Context,  args: list, i: int) -> utils.ValidatedIntSeq:
         return self.validateBoundedNumber(ctx, args, i, 2, 10, self.bot.getStringForUser(ctx, "string_errorpiece_valid_diff") )
 
-    def parseDiceExpressionIntoSummany(self, ctx: commands.Context, summary: dict, expression: str, firstNegative: bool = False, forced10: bool = False) -> dict:
-        parsed_expr = self.parseDiceExpression_Mixed(ctx, expression, firstNegative = firstNegative, forced10 = forced10, character = summary[RollArg.CHARACTER])
+    def parseDiceExpressionIntoSummary(self, ctx: commands.Context, summary: dict, expression: str, firstNegative: bool = False) -> dict:
+        parsed_expr = self.parseDiceExpression_Mixed(ctx, expression, firstNegative = firstNegative, character = summary[RollArg.CHARACTER])
         if RollArg.DADI in summary:
             summary[RollArg.DADI] += parsed_expr.n_dice
             summary[RollArg.DADI_PERMANENTI] += parsed_expr.n_dice_permanent 
@@ -403,9 +407,11 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         if parsed_expr.character != None:
             summary[RollArg.CHARACTER] = parsed_expr.character
 
-        if RollArg.NFACES in summary and summary[RollArg.NFACES] != parsed_expr.n_faces:
-            raise self.bot.getBotExceptionLang(ctx, "string_error_face_mixing")
-        summary[RollArg.NFACES] = parsed_expr.n_faces
+        # figure out if we are mixing faces
+        if parsed_expr.n_faces != 0: # if it's 0, it's just a flat number, compatible with all faces
+            if RollArg.NFACES in summary and summary[RollArg.NFACES] != parsed_expr.n_faces:
+                raise self.bot.getBotExceptionLang(ctx, "string_error_face_mixing")
+            summary[RollArg.NFACES] = parsed_expr.n_faces
 
         return summary
 
@@ -503,7 +509,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
                         parsed[RollArg.ADD] = add * sign
                 except ValueError as e_add: # not an integer -> try to parse it as a dice expression
                     # TODO: we're locked into d10s by this point, non-vtm dice rolls are limited to the first argument for .roll
-                    parsed = self.parseDiceExpressionIntoSummany(ctx, parsed, args[i+1], firstNegative = args[i] == SUB_CMD, forced10 = (i != 0))
+                    parsed = self.parseDiceExpressionIntoSummary(ctx, parsed, args[i+1], firstNegative = args[i] == SUB_CMD)
                     i += 1
             elif args[i] in PENALITA_CMD:
                 parsed[RollArg.PENALITA] = True
@@ -527,7 +533,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
             else:
                 #try parsing a dice expr
                 try:
-                    parsed = self.parseDiceExpressionIntoSummany(ctx, parsed, args[i], forced10 = (i != 0))
+                    parsed = self.parseDiceExpressionIntoSummary(ctx, parsed, args[i])
                 except gb.BotException as e:
                     # provo a staccare parametri attaccati
                     did_split = False
@@ -608,6 +614,8 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         else:
             ndice = parsed[RollArg.DADI]
 
+        if not RollArg.NFACES in parsed:
+            raise self.bot.getBotExceptionLang(ctx, "string_error_no_faces")
         nfaces = parsed[RollArg.NFACES]
 
         character = parsed[RollArg.CHARACTER] # might be None
