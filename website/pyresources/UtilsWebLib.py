@@ -1,3 +1,6 @@
+from configparser import ConfigParser
+from typing import Any, Callable
+import typing
 import web, time, sys, traceback, json
 from wsgilog import WsgiLog
 
@@ -18,15 +21,15 @@ http_status_map = {
     }
 
 class WebException(Exception):
-    def __init__(self, msg, errorcode = 0):
+    def __init__(self, msg: str , errorcode: int = 0):
         super(WebException, self).__init__(msg)
         self.code = errorcode
 
-def unvalidated(data):
+def unvalidated(data: Any) -> Any:
     return data
 
-def validator_str_maxlen(maxlen):
-    def validator(data):
+def validator_str_maxlen(maxlen: int) -> Callable[[str], str]:
+    def validator(data: str) -> str:
         string = str(data) #data.encode('utf-8')
         if len(string) > maxlen:
             raise WebException("Input too long", 400)
@@ -34,8 +37,8 @@ def validator_str_maxlen(maxlen):
             return string
     return validator
 
-def validator_str_range(minlen, maxlen):
-    def validator(data):
+def validator_str_range(minlen: int, maxlen: int) -> Callable[[str], str]:
+    def validator(data: str) -> str:
         string = str(data) #data.encode('utf-8')
         if len(string) > maxlen or len(string) < minlen:
             raise WebException("Input not in accepted length range", 400)
@@ -43,8 +46,8 @@ def validator_str_range(minlen, maxlen):
             return string
     return validator
 
-def validator_set(values):
-    def validator(data):
+def validator_set(values: typing.Iterable) -> Callable[[str], str]:
+    def validator(data: str) -> str:
         string = str(data) #data.encode('utf-8')
         if not string in values:
             raise WebException("Illegal value", 400)
@@ -52,7 +55,7 @@ def validator_set(values):
             return string
     return validator
 
-def validator_positive_integer(value):
+def validator_positive_integer(value: str) -> int:
     retval = int(value)
     if retval < 0:
         raise WebException("Integer must be positive", 400)
@@ -60,7 +63,7 @@ def validator_positive_integer(value):
         return retval
 
 class WebResponse:
-    def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
+    def __init__(self, config: ConfigParser, session: web.session.Session, properties: dict = {}, accepted_input: dict = {}, min_access_level: int= 0):
         self.config = config
         self.accepted_params = DEFAULT_INPUT_ACCEPT.copy()
         self.accepted_params.update(accepted_input)
@@ -72,7 +75,7 @@ class WebResponse:
         self.logger = web.ctx.env.get('wsgilog.logger')
         self.input_data = {}
         self.logger.info("WebResponse Class instantiated")
-    def validateInput(self, raw):
+    def validateInput(self, raw: dict):
         final_input = {}
         null_directive = self.accepted_params[None]
         for key in raw: # check all inputs for a validator directive
@@ -156,14 +159,14 @@ class WebResponse:
         raise WebException('HTTP METHOD NOT AVAILABLE')
 
 class WebPageResponse(WebResponse):
-    def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
+    def __init__(self, config: ConfigParser, session: web.session.Session, properties = {}, accepted_input = {}, min_access_level = 0):
         super(WebPageResponse, self).__init__(config, session, properties, accepted_input, min_access_level)
     def postHook(self, result):
         web.header('Content-Type', 'text/html')
         return super(WebPageResponse, self).postHook(result)
 
 class APIResponse(WebResponse):
-    def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
+    def __init__(self, config: ConfigParser, session: web.session.Session, properties = {}, accepted_input = {}, min_access_level = 0):
         super(APIResponse, self).__init__(config, session, properties, accepted_input, min_access_level)
     def postHook(self, result):
         web.header('Content-Type', 'application/json')

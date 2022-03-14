@@ -74,7 +74,7 @@ lp = lng.LanguageStringProvider(abspath+"lang")
 
 # --- STUFF ---
 
-def getLanguage(session, dbm):
+def getLanguage(session: web.session.Session, dbm: ghostDB.DBManager) -> str:
     try:
         return dbm.getUserLanguage(session.discord_userid)
     except ghostDB.DBException:
@@ -82,10 +82,10 @@ def getLanguage(session, dbm):
     except AttributeError:
         return default_language
 
-def token_updater(token):
+def token_updater(token: str):
     session.oauth2_token = token
 
-def make_session(token=None, state=None, scope=None):
+def make_session(token: str =None, state: str =None, scope: list =None) -> OAuth2Session:
     return OAuth2Session(
         client_id=OAUTH2_CLIENT_ID,
         token=token,
@@ -99,7 +99,7 @@ def make_session(token=None, state=None, scope=None):
         auto_refresh_url=TOKEN_URL,
         token_updater=token_updater)
 
-def validator_character(data):
+def validator_character(data: str) -> str:
     string = validator_str_range(1, 20)(data)
     vl, _ = dbm.isValidCharacter(data)
     if not vl:
@@ -107,7 +107,7 @@ def validator_character(data):
     else:
         return string
 
-def validator_language(data):
+def validator_language(data: str) -> str:
     string = validator_str_range(1, 3)(data)
     vl, _ = dbm.isValidLanguage(string)
     if not vl:
@@ -115,7 +115,7 @@ def validator_language(data):
     else:
         return string
 
-def validator_trait(data):
+def validator_trait(data: str) -> str:
     string = validator_str_range(1, 20)(data)
     vl, _ = dbm.isValidTrait(string)
     if not vl:
@@ -123,7 +123,7 @@ def validator_trait(data):
     else:
         return string
 
-def validator_trait_number(data):
+def validator_trait_number(data: str) -> str:
     string = validator_str_range(1, 20)(data)
     try:
         trait = dbm.getTraitInfo(string)
@@ -135,7 +135,7 @@ def validator_trait_number(data):
         raise WebException("Invalid trait", 400)
       
 
-def validator_trait_textbased(data):
+def validator_trait_textbased(data: str) -> str:
     string = validator_str_range(1, 20)(data)
     try:
         trait = dbm.getTraitInfo(string)
@@ -146,7 +146,7 @@ def validator_trait_textbased(data):
     except ghostDB.DBException as e:
         raise WebException("Invalid trait", 400)
 
-def validator_bot_user(data):
+def validator_bot_user(data: str) -> str:
     iu, _ = dbm.isUser(data)
     if not iu:
         raise WebException("Invalid user", 400)
@@ -167,44 +167,44 @@ class Log(WsgiLog): # this shit needs the config to be loaded so it can't be off
             )
 
 class WebExceptionLang(WebException):
-    def __init__(self, msg, langParams = (), errorcode = 0, lid = default_language):
+    def __init__(self, msg: str, langParams: tuple = (), errorcode: int = 0, lid: str = default_language):
         super(WebExceptionLang, self).__init__(lp.get(lid, msg, *langParams), errorcode)
 
-def translate_dbexc(dbexc, lid, errorcode = 0): # errorcode from dbexc is dumped
+def translate_dbexc(dbexc: ghostDB.DBException, lid: str, errorcode : int= 0) -> WebExceptionLang: # errorcode from dbexc is dumped
     return WebExceptionLang(dbexc.args[1], dbexc.args[2], errorcode = errorcode, lid = lid)
 
 class WebPageResponseLang(WebPageResponse):
     def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
         super(WebPageResponseLang, self).__init__(config, session, properties, accepted_input, min_access_level)
-    def getLangId(self):
+    def getLangId(self) -> str:
         try:
             return self.session.language
         except AttributeError:
             return getLanguage(self.session, dbm)
-    def getString(self, string_id, *args):
+    def getString(self, string_id: str, *args):
         return lp.get(self.getLangId(), string_id, *args)
     def getLanguageDict(self):
         return lp.languages[self.getLangId()]
     def getLangException(self, errorcode, string_id, args = ()):
         return WebExceptionLang(string_id, args, errorcode = errorcode, lid = self.getLangId())
-    def getLangExceptionFromBDExc(self, dbexc, errorcode = 0):
+    def getLangExceptionFromBDExc(self, dbexc: ghostDB.DBException, errorcode : int = 0):
         return translate_dbexc(dbexc, self.getLangId(), errorcode)
 
 class APIResponseLang(APIResponse):
     def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
         super(APIResponseLang, self).__init__(config, session, properties, accepted_input, min_access_level)
-    def getLangId(self):
+    def getLangId(self) -> str:
         try:
             return self.session.language
         except AttributeError:
             return getLanguage(self.session, dbm)
-    def getString(self, string_id, *args):
+    def getString(self, string_id: str , *args):
         return lp.get(self.getLangId(), string_id, *args)
-    def getLanguageDict(self):
+    def getLanguageDict(self) -> dict[str, str]:
         return lp.languages[self.getLangId()]
     def getLangException(self, errorcode, string_id, args = ()):
         return WebExceptionLang(string_id, args, errorcode = errorcode, lid = self.getLangId())
-    def getLangExceptionFromBDExc(self, dbexc, errorcode = 0):
+    def getLangExceptionFromBDExc(self, dbexc: ghostDB.DBException, errorcode : int = 0):
         return translate_dbexc(dbexc, self.getLangId(), errorcode)
         
 class main_page:
