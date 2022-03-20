@@ -49,9 +49,11 @@ def validateDiscordMention(mention : str) -> tuple:
         return False, ""
     return  True, mention[3:-1]
 
-def validateTraitName(traitid: str) -> bool:
-    forbidden_chars = [" ", "+", "-"]
-    return sum(map(lambda x: traitid.count(x), forbidden_chars)) == 0
+def validate_forbidden_chars(string: str, forbidden_chars: list) -> bool:
+    return sum(map(lambda x: string.count(x), forbidden_chars)) == 0
+
+def validate_id(string: str) -> bool:
+    return validate_forbidden_chars(string, [" ", "+", "-"])
 
 def prettyHighlightError(args: list, i: int, width : int = 3) -> str:
     return " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))

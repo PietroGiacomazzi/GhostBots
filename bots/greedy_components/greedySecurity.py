@@ -4,31 +4,17 @@ from greedy_components import greedyBase as gb
 from discord.ext import commands
 from lang.lang import LangSupportException
 
-async def _chronicle_validator(bot: gb.GreedyGhost, input_string: str) -> bool:
-    valid, _ = bot.dbm.isValidChronicle(input_string)
-    return valid
-
-async def _character_validator(bot: gb.GreedyGhost, input_string: str) -> bool:
-    valid, _ = bot.dbm.isValidCharacter(input_string)
-    return valid
-
-async def _user_validator(bot: gb.GreedyGhost, input_string: str) -> bool:
-    valid, userid = await bot.validateDiscordMentionOrID(input_string)
-    if valid:
-        valid, _ = bot.dbm.isUser(userid)
-    return valid
-
 class SecuritySetupError(Exception):
     pass
 
-class SecurityCheckException(LangSupportException):
+class SecurityCheckException(gb.GreedyCommandError):
     pass
 
-class MissingParameterException(LangSupportException):
+class MissingParameterException(gb.GreedyCommandError):
     pass
 
-class ParameterValidationFailedException(LangSupportException):
-    pass
+#class ParameterValidationFailedException(gb.GreedyCommandError):
+#    pass
 
 class CommandSecurity:
     def __init__(self, bot: gb.GreedyGhost, ctx: commands.Context, **kwargs):
@@ -60,96 +46,101 @@ class IsAdminOrStoryteller(CommandSecurity):
         st, _ = self.bot.dbm.isValidStoryteller(issuer)
         ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
         valid = st or ba
-        comment = None if valid else SecurityCheckException(0, "L'Utente non è Admin o Storyteller") 
+        comment = None if valid else SecurityCheckException("L'Utente non è Admin o Storyteller") 
         return valid, comment
 
 class CanEditRunningSession(CommandSecurity): # this needs to exist separately from genIsAdminOrChronicleStoryteller because the chronicle is not available in the command parameters
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
-        issuer = str(self.ctx.message.author.id)
+        issuer_id = str(self.ctx.message.author.id)
         sr, session = self.bot.dbm.isSessionRunning(self.ctx.channel.id)
         valid = sr
         comment = ''
         if valid:
-            ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
-            st, _ = self.bot.dbm.isChronicleStoryteller(issuer, session['chronicle'])
+            ba, _ = self.bot.dbm.isValidBotAdmin(issuer_id)
+            st, _ = self.bot.dbm.isChronicleStoryteller(issuer_id, session['chronicle'])
             valid = ba or st
-            comment = comment if valid else SecurityCheckException(0, "Non hai il ruolo di Storyteller per questa cronaca")
+            comment = comment if valid else SecurityCheckException("Non hai il ruolo di Storyteller per questa cronaca")
         else:
-            comment = SecurityCheckException(0, "Non c'è alcuna sessione attiva in questo canale") 
+            comment = SecurityCheckException("Non c'è alcuna sessione attiva in questo canale") 
         return valid, comment
 
+# secitems
 class ParametrizedCommandSecurity(CommandSecurity):
-    async def getParameter(self, param_idx: str, validator: Callable,  args: tuple): # TODO callable to something more precise
-        if param_idx >= len(args):
-            raise MissingParameterException(0, 'string_error_security_option_required', (param_idx,)) # this is the user's fault
-        param_content = args[param_idx]
-        valid = await validator(self.bot, param_content)
-        if not valid:
-            raise ParameterValidationFailedException(0, 'string_error_security_option_validation_failed', (param_content,)) # this is the user's fault
-        return param_content
-    async def tryGetParameter(self, param_idx: str, validator: Callable,  args: tuple, fallback):
+    async def getParameter(self, param_idx: str, args: tuple):
+        if param_idx >= len(args): # should almost never happen as we're moving to explicit parameters on command signatures
+            raise MissingParameterException('string_error_security_option_required', (param_idx,))
+        return args[param_idx]
+    async def tryGetParameter(self, param_idx: str, args: tuple, fallback):
         try:
-            return await self.getParameter(param_idx, validator, args)
+            value =  await self.getParameter(param_idx, args)
+            if not value == None:
+                return value
+            else:
+                return fallback
         except MissingParameterException:
             return fallback
 
 def genIsAdminOrChronicleStoryteller(target_chronicle):
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
         async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
-            issuer = str(self.ctx.message.author.id)  
-            chronid = await self.getParameter(target_chronicle, _chronicle_validator, args)
-            st, _ = self.bot.dbm.isChronicleStoryteller(issuer, chronid)
-            ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
+            issuer_id = str(self.ctx.message.author.id)  
+            chronicle = await self.getParameter(target_chronicle, args)
+            chronid = chronicle['id']
+            st, _ = self.bot.dbm.isChronicleStoryteller(issuer_id, chronid)
+            ba, _ = self.bot.dbm.isValidBotAdmin(issuer_id)
             valid = st or ba
-            comment = None if valid else SecurityCheckException(0, "L'Utente non è Admin o Storyteller della cronaca", (chronid,)) 
+            comment = None if valid else SecurityCheckException("L'Utente non è Admin o Storyteller della cronaca {}", (chronicle['name'],)) 
             return valid, comment
     return GeneratedCommandSecurity
 
-def genCanUnlinkStorytellerFromChronicle(target_chronicle, target_user):
+def genCanUnlinkStorytellerFromChronicle(target_chronicle, optional_target_user):
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
         async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
-            issuer = str(self.ctx.message.author.id)
-            chronid = await self.getParameter(target_chronicle, _chronicle_validator, args)
-            target_st = await self.tryGetParameter(target_user, _user_validator, args, issuer)
-            ba, _ = self.bot.dbm.isBotAdmin(issuer)
+            issuer_id = str(self.ctx.message.author.id)
+            chronicle = await self.getParameter(target_chronicle,  args)
+            target_storyteller = await self.tryGetParameter(optional_target_user, args, issuer_id)
+            target_st = target_storyteller['userid']
+            chronid = chronicle['id']
+            ba, _ = self.bot.dbm.isValidBotAdmin(issuer_id)
             st, _ = self.bot.dbm.isChronicleStoryteller(target_st, chronid)
             if st and ba: # Bot admin can unlink anything
                 return True, None
-            elif st and issuer == target_st: # ST can unlink themselves
+            elif st and issuer_id == target_st: # ST can unlink themselves
                 return True, None
             else:
                 msg = ''
                 if ba: #  was not a storyteller  
-                    msg = f"L'utente non è storyteller della cronaca '{chronid}'"
+                    msg = f"L'utente non è storyteller della cronaca {chronicle['name']}"
                 elif st: # target was not self
                     msg =  "Solo gli admin possono disassociare un utente diverso da loro stessi da una cronaca"
                 else:
                     msg = "string_error_permission_reason_generic"
-                return False, SecurityCheckException(0, msg)
+                return False, SecurityCheckException(msg)
     return GeneratedCommandSecurity
 
-def genCanCreateCharactertoSomeone(target_user):
+def genCanCreateCharactertoSomeone(optional_target_user):
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
         async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
-            issuer = str(self.ctx.message.author.id)  
-            target_usr = await self.tryGetParameter(target_user, _user_validator, args, issuer)
+            issuer_id = str(self.ctx.message.author.id)  
+            target_usr = await self.tryGetParameter(optional_target_user, args, issuer_id)
+            target_usr_id = target_usr['userid']
             valid = True
             comment = ''
-            if target_usr != issuer:
-                st, _ = self.bot.dbm.isValidStoryteller(issuer)
-                ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
+            if target_usr_id != issuer_id:
+                st, _ = self.bot.dbm.isValidStoryteller(issuer_id)
+                ba, _ = self.bot.dbm.isValidBotAdmin(issuer_id)
                 valid = st or ba
                 if not valid:
-                    comment = SecurityCheckException(0, "Per creare un pg ad un altra persona è necessario essere Admin o Storyteller") 
+                    comment = SecurityCheckException("Per creare un pg ad un altra persona è necessario essere Admin o Storyteller") 
             return valid, comment
     return GeneratedCommandSecurity
 
 def genCanEditCharacter(target_character):
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
-        async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
+        async def checkSecurity(self, *command_args, **command_kwargs) -> tuple: #[bool, Any]:
             issuer = str(self.ctx.message.author.id)  
-            charid = await self.getParameter(target_character, _character_validator, args)
-            character = self.bot.dbm.getCharacter(charid) # TODO prevent double DB read
+            character = await self.getParameter(target_character, command_args)
+            charid = character['id']
             owner = character['owner']
 
             st, _ = self.bot.dbm.isStorytellerForCharacter(issuer, charid)
@@ -163,27 +154,33 @@ def genCanEditCharacter(target_character):
                 co = co or (not cl) or sa            
 
             valid =  (st or ba or co)
-            comment = None if valid else SecurityCheckException(0, "Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller") 
+            comment = None if valid else SecurityCheckException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller") 
             return valid, comment
     return GeneratedCommandSecurity
 
-def command_security(security_item: type[CommandSecurity], **security_options):
-    """ setup command security for a command created in a GreedyGhostCog """
-    def decorator(func):
-        async def wrapper(self: gb.GreedyGhostCog, ctx: commands.Context, *args, **kwargs):
-            secItem: CommandSecurity = None
-            if isinstance(self, gb.GreedyGhostCog):
-                secItem = security_item(self.bot, ctx, **security_options)
-            elif isinstance(self, gb.GreedyGhost):
-                secItem = security_item(self, ctx, **security_options)
-            else:
-                raise SecuritySetupError(f"Command security is supported only for commands defined in a GreedyGhostCog or GreedyGhost object. Provided object type: {type(self)}")
-            if not issubclass(security_item, CommandSecurity):
-                raise SecuritySetupError(f"Type {secItem} is not a {CommandSecurity} object")
-            security_pass, security_comment = await secItem.checkSecurity(*args, **kwargs)
-            if security_pass:
-                await func(self, ctx, *args, **kwargs)
-            else:
-                raise SecurityCheckException(0, "string_error_permission_denied", (secItem.bot.formatException(ctx, security_comment), ))
-        return wrapper
-    return decorator
+def command_security(security_item: CommandSecurity, **security_options):
+    """ Add security checks to a command with before_invoke, needs a CommandSecurity object as parameter
+    
+    Example
+    ---------
+    
+    @commands.command(name = 'my_command')
+    @commands.before_invoke(command_security(gs.isUser))
+    async def my_command(self, ctx: commands.Context, *args):
+        pass
+
+    """
+    async def before_invoke_command_security(instance : gb.GreedyGhostCog, ctx: commands.Context):
+        secItem: CommandSecurity = None
+        if isinstance(instance, gb.GreedyGhostCog):
+            secItem = security_item(instance.bot, ctx, **security_options)
+        #elif isinstance(self, gb.GreedyGhost):
+        #    secItem = security_item(self, ctx, **security_options)
+        else:
+            raise SecurityCheckException(f"Command security is supported only for commands defined in a GreedyGhostCog. Provided object type: {type(instance)}")
+        if not issubclass(security_item, CommandSecurity):
+            raise SecurityCheckException(f"Type {secItem} is not a {CommandSecurity} object")
+        security_pass, security_comment = await secItem.checkSecurity(*ctx.args, **ctx.kwargs)
+        if not security_pass:
+            raise SecurityCheckException("string_error_permission_denied", (secItem.bot.formatException(ctx, security_comment), ))
+    return before_invoke_command_security

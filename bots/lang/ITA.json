@@ -96,6 +96,9 @@
 	"string_error_not_d10": "Solo i d10 sono ammessi in questo tiro",
 	"string_error_face_mixing": "Mischiare dadi di tipo diverso non è supportato",
 	"string_error_no_faces": "Non so quante facce dovrebbero avere i dadi!",
+	"string_error_usernotfound_bot": "Utente {} non trovato nel database utenti!",
+	"string_error_usernotfound_discord": "Utente {} non trovato da discord.py!",
+	"string_error_invalid_shortid": "'{}' non è un id valido",
 
 	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
 	"help_gmadm_stunlink": "Argomenti: <id cronaca>, [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",

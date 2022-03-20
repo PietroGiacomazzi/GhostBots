@@ -9,6 +9,11 @@ class BotException(Exception): # use this for 'known' error situations
     def __init__(self, msg):
         super(BotException, self).__init__(msg)
 
+class GreedyCommandError(commands.CommandError): # we're going to use this for almost everything in the future
+    def __init__(self, message: str, formats: tuple = ()):
+        """ Base command exception with language support. """
+        super(GreedyCommandError, self).__init__(message, formats)
+
 class GreedyLanguageStringProvider(lng.LanguageStringProvider):
     def __init__(self, configuration: configparser.ConfigParser, db_manager: ghostDB.DBManager,  lang_dir : str = os.path.abspath(__file__)):
         super(GreedyLanguageStringProvider, self).__init__(lang_dir)
@@ -19,6 +24,8 @@ class GreedyLanguageStringProvider(lng.LanguageStringProvider):
             return self.dbm.getUserLanguage(userid)
         except ghostDB.DBException:
             return self.config['BotOptions']['default_language']
+    def formatCommandError(self, lang_id: str, exception: GreedyCommandError) -> str: #identical to LanguageStringProvider.formatException
+        return self.get(lang_id, exception.args[0], *exception.args[1])
 
 class GreedyGhost(commands.Bot):
     def __init__(self, configuration: configparser.ConfigParser, db_manager: ghostDB.DBManager, *args, **options):

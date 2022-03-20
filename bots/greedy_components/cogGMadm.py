@@ -5,22 +5,35 @@ from discord.ext.commands import context
 
 from greedy_components import greedyBase as gb
 from greedy_components import greedySecurity as gs
+from greedy_components import greedyConverters as gc
 
 import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 
+#
+newTrait_description = """Argomenti: <id> <tipo> <tracker> <standard> <nome completo>
+
+<id> non ammette spazi, + e -.
+<standard> ammette [y, s, 1] per Sì e [n, 0] per No
+<tipo> ammette un tipo di tracker valido, usare .gmadm trackertypes per avere una lista
+<tracker> ammette un numero tra i seguenti:
+    0: Nessun tracker (Elementi normali di scheda)
+    1: Punti con massimo (Volontà, Sangue...)
+    2: Danni (salute...)
+    3: Punti senza massimo (esperienza...)
+"""
 
 listChronicles_description = "Nessun argomento richiesto"
 newChronicle_description = "Argomenti: <id> <nome completo> \n\nId non ammette spazi."
 unlink_description = "Argomenti: nome breve del pg, nome breve della cronaca"
-newTrait_description = "Argomenti: <id> <tipo> <tracker> <standard> <nome completo>\n\nInvocare il comando senza argomenti per ottenere più informazioni"
 updt_description = "Argomenti: <vecchio_id> <nuovo_id> <tipo> <tracker> <standard> <nome completo>\n\nInvocare il comando senza argomenti per ottenere più informazioni"
 #delet_description = "Argomenti: nome breve del pg, nome breve del tratto"
 link_description = "Argomenti: <id cronaca>,  [<@menzione storyteller/Discord ID>] (se diverso da se stessi)" # TODO help_gmadm_stlink
 unlink_description = "Argomenti: <id cronaca>, [<@menzione storyteller/Discord ID>] (se diverso da se stessi)" #TODO help_gmadm_stunlink
 name_description = "Argomenti: <@menzione utente/Discord ID>" # TODO help_gmadm_stname
 unname_description = "Argomenti: <@menzione utente/Discord ID>" # TODO help_gmadm_stunname
+traittypes_description = "Nessun argomento richiesto"
 
 gmadm_help = {
         "listChronicles": [listChronicles_description, "Elenca le cronache"],
@@ -31,7 +44,8 @@ gmadm_help = {
         "link": [link_description, "Associa uno storyteller ad una cronaca"],
         "unlink": [unlink_description, "Disassocia uno storyteller da una cronaca"],
         "name": [name_description, "Nomina storyteller"],
-        "unname": [unname_description, "De-nomina storyteller"]
+        "unname": [unname_description, "De-nomina storyteller"],
+        "traittypes": [traittypes_description, "Elenca i tipi di tratto"]
         # todo: lista storyteller
         # todo: dissociazioni varie
         }
@@ -82,17 +96,15 @@ query_addTraitLangs = """
 class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         
     @commands.group(brief='Gestione personaggi')
+    @commands.before_invoke(gs.command_security(gs.IsAdminOrStoryteller))
     async def gmadm(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
             response = 'Azioni disponibili:\n\n' + '\n'.join(list(map(lambda k: f'{k} - {gmadm_help[k][1]}', gmadm_help)))
             await self.bot.atSend(ctx, response)
 
-    @gmadm.command(name = 'listChronicles', brief = "Elenca le cronache", description = listChronicles_description)
-    @gs.command_security(gs.IsUser)
-    async def listChronicles(self, ctx: commands.Context, *args):
-        if len(args) != 0:
-            await self.bot.atSend(ctx, listChronicles_description)
-            return 
+    @gmadm.command(name = 'listChronicles', brief = gmadm_help['listChronicles'], description = listChronicles_description)
+    @commands.before_invoke(gs.command_security(gs.IsAdminOrStoryteller))
+    async def listChronicles(self, ctx: commands.Context):
 
         query = """
     SELECT cr.id as cid, cr.name as cname, p.name as pname
@@ -115,15 +127,14 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
 
         await self.bot.atSend(ctx, "Cronache:\n" + "\n".join(list(map(lambda x: f"**{chronicles[x]}** ({x}) (storyteller: {', '.join(crst[x])})", chronicles))))
 
-    @gmadm.command(name = 'newChronicle', brief = "Crea una nuova cronaca associata allo ST che invoca il comando", description = newChronicle_description)
-    @gs.command_security(gs.IsStoryteller)
-    async def newChronicle(self, ctx: commands.Context, *args):
-        if len(args) < 2:
-            self.bot.atSend(newChronicle_description)
+    @gmadm.command(name = 'newChronicle', brief = gmadm_help['newChronicle'], description = newChronicle_description)
+    @commands.before_invoke(gs.command_security(gs.IsAdminOrStoryteller))
+    async def newChronicle(self, ctx: commands.Context, shortname: gc.GreedyShortIdConverter,  *args):
+        if len(args) == 0:
+            self.bot.atSend(ctx, newChronicle_description)
             return 
 
-        shortname = args[0].lower()
-        fullname = " ".join(list(args[1:])) # squish
+        fullname = " ".join(list(args)) # squish
 
         issuer = str(ctx.message.author.id)
 
@@ -141,52 +152,20 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         
         await self.bot.atSend(ctx, f"Cronaca {fullname} inserita ed associata a {issuer_user}")
 
-    @gmadm.command(name = 'newTrait', brief = "Crea nuovo tratto", description = newTrait_description)
-    @gs.command_security(gs.IsAdminOrStoryteller)
-    async def newTrait(self, ctx: commands.Context, *args):
-        if len(args) < 5:
-            helptext = "Argomenti: <id> <tipo> <tracker> <standard> <nome completo>\n\n"
-            helptext += "Gli id non ammettono spazi.\n\n"
-            helptext += "<standard> ammette [y, s, 1] per Sì e [n, 0] per No\n\n"
-            ttypes = self.bot.dbm.db.select('TraitType', what = "id, name")
-            ttypesl = ttypes.list()
-            helptext += "Tipi di tratto: \n"
-            helptext += "\n".join(list(map(lambda x : f"\t**{x['id']}**: {x['name']}", ttypesl)))
-            #helptext += "\n".join(list(map(lambda x : ", ".join(list(map(lambda y: y+": "+str(x[y]), x.keys()))), ttypesl)))
-            helptext += """\n\nTipi di tracker:
-        **0**: Nessun tracker (Elementi normali di scheda)
-        **1**: Punti con massimo (Volontà, Sangue...)
-        **2**: Danni (salute...)
-        **3**: Punti senza massimo (esperienza...)
-    """
-            await self.bot.atSend(ctx, helptext)
+    @gmadm.command(name = 'newTrait', brief = gmadm_help['newTrait'], description = newTrait_description)
+    @commands.before_invoke(gs.command_security(gs.IsAdminOrStoryteller))
+    async def newTrait(self, ctx: commands.Context, traitid: gc.GreedyShortIdConverter, traittype: gc.TraitTypeConverter, tracktype: gc.TrackerTypeConverter, std: gc.NoYesConverter, *args):
+        if len(args) == 0:
+            await self.bot.atSend(ctx, newTrait_description)
             return
                 
-        traitid = args[0].lower()
-        istrait, trait = self.bot.dbm.isValidTrait(traitid)
+        istrait, _ = self.bot.dbm.isValidTrait(traitid)
         if istrait:
             raise gb.BotException(f"Il tratto {traitid} esiste già!")
-
-        if not utils.validateTraitName(traitid):
-            raise gb.BotException(f"'{traitid}' non è un id valido!")
-
-        traittypeid = args[1].lower()
-        istraittype, traittype = self.bot.dbm.isValidTraitType(traittypeid)
-        if not istraittype:
-            raise gb.BotException(f"Il tipo di tratto {traittypeid} non esiste!")
-
-        if not args[2].isdigit():
-            raise gb.BotException(f"{args[2]} non è un intero >= 0!")
-        tracktype = int(args[2])
-        if not tracktype in [0, 1, 2, 3]: # TODO dehardcode
-            raise gb.BotException(f"{tracktype} non è tracker valido!")
-
-        stdarg = args[3].lower()
-        std = stdarg in ['y', 's', '1']
-        if not std and not stdarg in ['n', '0']:
-            raise gb.BotException(f"{stdarg} non è un'opzione valida")
         
-        traitname = " ".join(args[4:])
+        traittypeid = traittype['id']
+
+        traitname = " ".join(args)
 
         response = ""
         t = self.bot.dbm.db.transaction()
@@ -198,7 +177,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             response = f'Il tratto {traitname} è stato inserito'
             if std:
                 self.bot.dbm.db.query(query_addTraitToPCs, vars = dict(traitid=traitid))
-                response +=  f'\nIl nuovo talento standard {traitname} è stato assegnato ai personaggi!'
+                response +=  f'\nIl nuovo tratto standard {traitname} è stato assegnato ai personaggi!'
         except:
             t.rollback()
             raise
@@ -207,58 +186,25 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
 
         await self.bot.atSend(ctx, response)
 
-    @gmadm.command(name = 'updt', brief = "Modifica un tratto", description = updt_description)
-    @gs.command_security(gs.IsAdminOrStoryteller)
-    async def updt(self, ctx: commands.Context, *args):    
+    @gmadm.command(name = 'updt', brief = gmadm_help['updt'], description = updt_description)
+    @commands.before_invoke(gs.command_security(gs.IsAdminOrStoryteller))
+    async def updt(self, ctx: commands.Context, old_traitid: gc.GreedyShortIdConverter, new_traitid: gc.GreedyShortIdConverter, traittype: gc.TraitTypeConverter, tracktype: gc.TrackerTypeConverter, std: gc.NoYesConverter, *args):    
         issuer = ctx.message.author.id
-        if len(args) < 6:
-            helptext = "Argomenti: <vecchio_id> <nuovo_id> <tipo> <tracker> <standard> <nome completo>\n\n"
-            helptext += "Gli id non ammettono spazi.\n\n"
-            helptext += "<standard> ammette [y, s, 1] per Sì e [n, 0] per No\n\n"
-            ttypes = self.bot.dbm.db.select('TraitType', what = "id, name")
-            ttypesl = ttypes.list()
-            helptext += "Tipi di tratto: \n"
-            helptext += "\n".join(list(map(lambda x : f"\t**{x['id']}**: {x['name']}", ttypesl)))
-            #helptext += "\n".join(list(map(lambda x : ", ".join(list(map(lambda y: y+": "+str(x[y]), x.keys()))), ttypesl)))
-            helptext += """\n\nTipi di tracker:
-        **0**: Nessun tracker (Elementi normali di scheda)
-        **1**: Punti con massimo (Volontà, Sangue...)
-        **2**: Danni (salute...)
-        **3**: Punti senza massimo (esperienza...)
-    """
-            await self.bot.atSend(ctx, helptext)
+        if len(args) == 0:
+            await self.bot.atSend(ctx, newTrait_description)
             return
         
-        old_traitid = args[0].lower()
         istrait, old_trait = self.bot.dbm.isValidTrait(old_traitid)
         if not istrait:
             raise gb.BotException(f"Il tratto {old_traitid} non esiste!")
         
-        new_traitid = args[1].lower()
         istrait, new_trait = self.bot.dbm.isValidTrait(new_traitid)
         if istrait and (old_traitid!=new_traitid):
             raise gb.BotException(f"Il tratto {new_traitid} esiste già!")
 
-        if not utils.validateTraitName(new_traitid):
-            raise gb.BotException(f"'{new_traitid}' non è un id valido!")
+        traittypeid = traittype['id']
 
-        traittypeid = args[2].lower()
-        istraittype, traittype = self.bot.dbm.isValidTraitType(traittypeid)
-        if not istraittype:
-            raise gb.BotException(f"Il tipo di tratto {traittypeid} non esiste!")
-
-        if not args[3].isdigit():
-            raise gb.BotException(f"{args[2]} non è un intero >= 0!")
-        tracktype = int(args[3])
-        if not tracktype in [0, 1, 2, 3]: # todo dehardcode
-            raise gb.BotException(f"{tracktype} non è tracker valido!")
-
-        stdarg = args[4].lower()
-        std = stdarg in ['y', 's', '1']
-        if not std and not stdarg in ['n', '0']:
-            raise gb.BotException(f"{stdarg} non è un'opzione valida")
-
-        traitname = " ".join(args[5:])
+        traitname = " ".join(list(args))
         
         response = f'Il tratto {traitname} è stato aggiornato'
         t = self.bot.dbm.db.transaction()
@@ -283,29 +229,18 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
 
         await self.bot.atSend(ctx, response)
 
-    @gmadm.command(name = 'link', brief = "Associa uno storyteller ad una cronaca", description = link_description)
-    @gs.command_security(gs.genIsAdminOrChronicleStoryteller(target_chronicle=0))
-    async def link(self, ctx: commands.Context, *args):
+    @gmadm.command(name = 'link', brief = gmadm_help['link'], description = link_description)
+    @commands.before_invoke(gs.command_security(gs.genIsAdminOrChronicleStoryteller(target_chronicle=2)))
+    async def link(self, ctx: commands.Context, chronicle: gc.ChronicleConverter, storyteller: gc.StorytellerConverter = None):
         issuer = str(ctx.message.author.id)
-        #lid = getLanguage(issuer, dbm)
-
-        if len(args) == 0 or len(args) > 2:
-            await self.bot.atSendLang(ctx, "help_gmadm_stlink")
-            return 
         
-        chronid = args[0].lower()
+        chronid = chronicle['id']
 
         target_st = None
-        if len(args) == 1:
-            target_st = issuer
-        else:
-            vt, target_st = await self.bot.validateDiscordMentionOrID(args[1])
-            if not vt:
-                raise gb.BotException(f"Menziona lo storyteller con @ o inserisci il suo Discord ID") 
+        if storyteller == None:
+            storyteller = await gc.StorytellerConverter().convert(ctx, issuer)
+        target_st = storyteller['userid']
         
-        t_st, _ = self.bot.dbm.isStoryteller(target_st)
-        if not t_st:
-            raise gb.BotException(f"L'utente selezionato non è uno storyteller") 
         t_stc, _ = self.bot.dbm.isChronicleStoryteller(target_st, chronid)
         if t_stc:
             raise gb.BotException(f"L'utente selezionato è già Storyteller per {chronid}")  
@@ -314,24 +249,17 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         self.bot.dbm.db.insert("StoryTellerChronicleRel", storyteller=target_st, chronicle=chronid)
         await self.bot.atSend(ctx, f"Cronaca associata")
 
-    @gmadm.command(name = 'unlink', brief = "Disassocia uno storyteller da una cronaca", description = unlink_description)
-    @gs.command_security(gs.genCanUnlinkStorytellerFromChronicle(target_chronicle = 0, target_user = 1))
-    async def unlink(self, ctx: context.Context, *args):
-
-        if len(args) == 0 or len(args) > 2:
-            await self.bot.atSendLang(ctx, "help_gmadm_stunlink")
-            return 
+    @gmadm.command(name = 'unlink', brief = gmadm_help['unlink'], description = unlink_description)
+    @commands.before_invoke(gs.command_security(gs.genCanUnlinkStorytellerFromChronicle(target_chronicle = 2, optional_target_user = 3)))
+    async def unlink(self, ctx: context.Context, chronicle: gc.ChronicleConverter, storyteller: gc.StorytellerConverter = None):
 
         issuer = str(ctx.message.author.id)
-        chronid = args[0].lower()
+        chronid = chronicle['id']
         
         target_st = None
-        if len(args) == 1:
-            target_st = issuer
-        else:
-            vt, target_st = await self.bot.validateDiscordMentionOrID(args[1])
-            if not vt:  # should never happen due to commmand security decorator
-                raise gb.BotException(f"Menziona lo storyteller con @ o inserisci il suo Discord ID") 
+        if storyteller == None:
+            storyteller = await gc.StorytellerConverter().convert(ctx, issuer)
+        target_st = storyteller['userid'] 
 
         # link
         n = self.bot.dbm.db.delete('StoryTellerChronicleRel', where='storyteller=$storyteller and chronicle=$chronicle', vars=dict(storyteller=target_st, chronicle=chronid))
@@ -340,46 +268,40 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         else:
             await self.bot.atSend(ctx, f"Nessuna cronaca da disassociare")
 
-    @gmadm.command(name = 'name', brief = "Nomina storyteller", description = name_description)
-    @gs.command_security(gs.IsAdmin)
-    async def name(self, ctx: commands.Context, *args):
-        if len(args) != 1:
-            await self.bot.atSendLang(ctx, "help_gmadm_stname")
-            return
+    @gmadm.command(name = 'name', brief = gmadm_help['name'], description = name_description)
+    @commands.before_invoke(gs.command_security(gs.IsAdmin))
+    async def name(self, ctx: commands.Context, user: gc.RegisteredUserConverter):
+        
+        target_st = user['userid'] 
+        name = user['name']
 
-        vt, target_st = await self.bot.validateDiscordMentionOrID(args[0])
-        if not vt:
-            raise gb.BotException(f"Menziona l'utente con @ o inserisci il suo Discord ID") 
-
-        t_st, _ = self.bot.dbm.isStoryteller(target_st)
+        t_st, _ = self.bot.dbm.isValidStoryteller(target_st)
         if t_st:
             raise gb.BotException(f"L'utente selezionato è già uno storyteller")
-        
-        usr = self.bot.dbm.getUser(target_st)
-        name = usr['name']
         
         self.bot.dbm.db.insert("Storyteller",  userid=target_st)
         await self.bot.atSend(ctx, f"{name} ora è Storyteller")
         
-    @gmadm.command(name = 'unname', brief = "De-nomina storyteller", description = unname_description)
-    @gs.command_security(gs.IsAdmin)
-    async def unname(self, ctx: commands.Context, *args):
+    @gmadm.command(name = 'unname', brief = gmadm_help['unname'], description = unname_description)
+    @commands.before_invoke(gs.command_security(gs.IsAdmin))
+    async def unname(self, ctx: commands.Context, storyteller: gc.StorytellerConverter):
 
-        if len(args) != 1:
-            await self.bot.atSendLang(ctx, "help_gmadm_stunname")
-            return 
-
-        vt, target_st = await self.bot.validateDiscordMentionOrID(args[0])
-        if not vt:
-            raise gb.BotException(f"Menziona l'utente con @ o inserisci il suo Discord ID") 
-
-        usr = self.bot.dbm.getStoryTeller(target_st) # will fail if user is not ST  
-        name = usr['name']
+        target_st = storyteller['userid'] 
+        name = storyteller['name']
         
         n = self.bot.dbm.unnameStoryTeller(target_st)
         if n:
             await self.bot.atSend(ctx, f"{name} non è più Storyteller")
         else:
             await self.bot.atSend(ctx, f"Nessuna modifica fatta")
+    
+    @gmadm.command(name = 'traittypes', brief = gmadm_help['traittypes'], description = traittypes_description)
+    @commands.before_invoke(gs.command_security(gs.IsAdmin))
+    async def traittypes(self, ctx: commands.Context):
         
-
+        ttypesl = self.bot.dbm.db.select('TraitType', what = "id, name").list()
+        response = "Tipi di tratto: \n"
+        response += "\n".join(list(map(lambda x : f"\t**{x['id']}**: {x['name']}", ttypesl)))
+        
+        await self.bot.atSend(ctx, response)
+    

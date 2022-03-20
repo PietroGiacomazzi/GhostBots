@@ -21,7 +21,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
         for guild in self.bot.guilds:
             print(f'{guild.name} (id: {guild.id})')
         #add self to user list
-        iu, _ = self.bot.dbm.isUser(self.bot.user.id)
+        iu, _ = self.bot.dbm.isValidUser(self.bot.user.id)
         if not iu:
             self.bot.dbm.registerUser(self.bot.user.id, self.bot.user.name, self.bot.config['BotOptions']['default_language'])
         # notify debug user that bot is online
@@ -57,6 +57,10 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, f'{error}')
         elif isinstance(error, lng.LangSupportException):
             await self.bot.atSend(ctx, self.bot.languageProvider.formatException(lid, error))
+        elif isinstance(error, gb.GreedyCommandError):
+            await self.bot.atSend(ctx, self.bot.languageProvider.formatCommandError(lid, error))
+        elif isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send_help(ctx.command)
         elif isinstance(error, lng.LangException):
             await self.bot.atSend(ctx, f'{error}')
         else:
@@ -85,7 +89,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
     
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        iu, _ = self.bot.dbm.isUser(member.id)
+        iu, _ = self.bot.dbm.isValidUser(member.id)
         if not iu:
             self.bot.dbm.registerUser(member.id, member.name, self.bot.config['BotOptions']['default_language'])
 
@@ -95,6 +99,6 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
 
     @commands.Cog.listener()
     async def on_member_update(self, member_before: discord.Member, member_after: discord.Member):
-        iu, _ = self.bot.dbm.isUser(member_after.id)
+        iu, _ = self.bot.dbm.isValidUser(member_after.id)
         if iu:
             self.bot.dbm.updateUser(member_after.id, member_after.name)

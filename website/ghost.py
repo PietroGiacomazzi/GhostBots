@@ -170,7 +170,7 @@ class WebExceptionLang(WebException):
     def __init__(self, msg: str, langParams: tuple = (), errorcode: int = 0, lid: str = default_language):
         super(WebExceptionLang, self).__init__(lp.get(lid, msg, *langParams), errorcode)
 
-def translate_dbexc(dbexc: ghostDB.DBException, lid: str, errorcode : int= 0) -> WebExceptionLang: # errorcode from dbexc is dumped
+def translate_dbexc(dbexc: ghostDB.DBException, lid: str, errorcode : int= 0) -> WebExceptionLang:
     return WebExceptionLang(dbexc.args[1], dbexc.args[2], errorcode = errorcode, lid = lid)
 
 class WebPageResponseLang(WebPageResponse):

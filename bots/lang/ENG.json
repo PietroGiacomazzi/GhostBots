@@ -96,6 +96,9 @@
 	"string_error_not_d10": "Only d10s are allowed on this roll",
 	"string_error_face_mixing": "Mixing different dice types is not supported",
 	"string_error_no_faces": "I don't know how many faces the dice should have!",
+	"string_error_usernotfound_bot": "User {} not found in the user database!",
+	"string_error_usernotfound_discord": "User {} not found by discord.py!",
+	"string_error_invalid_shortid": "'{}' is not a valid short id",
 
 	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
 	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",

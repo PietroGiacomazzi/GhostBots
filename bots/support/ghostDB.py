@@ -1,5 +1,6 @@
 from discord.ext import commands
 import web
+from deprecation import deprecated
 
 from lang.lang import LangSupportException
 from .utils import *
@@ -43,7 +44,7 @@ insert into CharacterTrait
 """, vars = dict(pcid=chid))
         except:
             t.rollback()
-            raise DBException(0, "db_failed_inserting_character", (chid,))
+            raise DBException("db_failed_inserting_character", (chid,))
         else:
             t.commit()
             return
@@ -53,7 +54,7 @@ insert into CharacterTrait
         if u == 1 or u == 0:
             return True
         else:
-            raise DBException(0, 'string_error_database_unexpected_update_rowcount', (u,))
+            raise DBException('string_error_database_unexpected_update_rowcount', (u,))
     def getActiveChar(self, ctx: commands.Context): # dato un canale e un utente, trova il pg interpretato
         playercharacters = self.db.query("""
     SELECT pc.*
@@ -63,24 +64,10 @@ insert into CharacterTrait
     where gs.channel = $channel and pc.player = $player
     """, vars=dict(channel=ctx.channel.id, player=ctx.message.author.id))
         if len(playercharacters) == 0:
-            raise DBException(0, "Non stai interpretando nessun personaggio!")
+            raise DBException("Non stai interpretando nessun personaggio!")
         if len(playercharacters) > 1:
-            raise DBException(0, "Stai interpretando più di un personaggio in questa cronaca, non so a chi ti riferisci!")
+            raise DBException("Stai interpretando più di un personaggio in questa cronaca, non so a chi ti riferisci!")
         return playercharacters[0]
-    def getTraitInfo(self, trait_id):
-        """Get trait info"""
-        traits = self.db.query("""
-    SELECT
-        t.*,
-        tt.textbased as textbased,
-        t.name as traitName
-    FROM Trait t
-    join TraitType tt on (t.traittype = tt.id)
-    WHERE t.id = $trait 
-    """, vars=dict(trait=trait_id))
-        if len(traits) == 0:
-            raise DBException(0, 'string_TRAIT_does_not_exist', (trait_id,))
-        return traits[0]
     def getTrait(self, pc_id, trait_id):
         """Get a character's trait (input is raw id, output is raw)"""
         traits = self.db.query("""
@@ -96,8 +83,7 @@ insert into CharacterTrait
     and ct.playerchar = $pc
     """, vars=dict(trait=trait_id, pc=pc_id))
         if len(traits) == 0:
-            raise DBException(0, 'string_PC_does_not_have_TRAIT', (pc_id, trait_id))
-            #raise DBException(0, '{} non ha il tratto {}', (pc_id, trait_id))
+            raise DBException('string_PC_does_not_have_TRAIT', (pc_id, trait_id))
         return traits[0]
     def getTrait_Lang(self, pc_id, trait_id, lang_id):
         """Get a character's trait (input needs to be translated, output is translated)"""
@@ -116,9 +102,9 @@ insert into CharacterTrait
     and lt.langId = $lid
     """, vars=dict(trait=trait_id, pc=pc_id, lid = lang_id))
         if len(traits) == 0:
-            raise DBException(0, 'string_PC_does_not_have_TRAIT', (pc_id, trait_id))
+            raise DBException('string_PC_does_not_have_TRAIT', (pc_id, trait_id))
         if len(traits) != 1:
-            raise DBException(0, 'string_TRAIT_is_ambiguous_N_found', (trait_id, len(traits)))
+            raise DBException('string_TRAIT_is_ambiguous_N_found', (trait_id, len(traits)))
         return traits[0]
     def getTrait_LangAndTranslate(self, pc_id, trait_id, lang_id):
         """Get a character's trait (input is raw id and output is translated)"""
@@ -137,9 +123,9 @@ insert into CharacterTrait
     and lt.langId = $lid
     """, vars=dict(trait=trait_id, pc=pc_id, lid = lang_id))
         if len(traits) == 0:
-            raise DBException(0, 'string_PC_does_not_have_TRAIT', (pc_id, trait_id))
+            raise DBException('string_PC_does_not_have_TRAIT', (pc_id, trait_id))
         if len(traits) != 1:
-            raise DBException(0, 'string_TRAIT_is_ambiguous_N_found', (trait_id, len(traits)))
+            raise DBException('string_TRAIT_is_ambiguous_N_found', (trait_id, len(traits)))
         return traits[0]
     def getTrait_LangSafe(self, pc_id, trait_id, lang_id):
         """Get a character's trait (input can be either translated or raw)"""
@@ -159,10 +145,11 @@ insert into CharacterTrait
     where gs.channel = $channel
     """, vars=dict(channel=channelid))
         if len(sts) == 0:
-            raise DBException(0, f'Non ci sono sessioni attive in questo canale, oppure questa cronoca non ha un storyteller')
+            raise DBException(f'Non ci sono sessioni attive in questo canale, oppure questa cronoca non ha un storyteller')
         return sts.list()
+    @deprecated()
     def isUser(self, userid):
-        """ Gets user info if present"""
+        """ Gets user info if present. DEPRECATED, USE isValidUser"""
         results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))
         if len(results):
             return True, results[0]
@@ -180,8 +167,8 @@ insert into CharacterTrait
         u = self.db.delete('People', where='userid=$userid', vars=dict(userid=userid))
     def tryRemoveUser(self, userid, dummyuserid) -> None:
         """ Attempts to remove an user but does not if the user is an admin or a storyteller with chronicles """
-        ba, _ = self.isBotAdmin(userid)
-        st, _ = self.isStoryteller(userid)
+        ba, _ = self.isValidBotAdmin(userid)
+        st, _ = self.isValidStoryteller(userid)
         st_hc = False
         if st:
             st_hc = self.hasSTAnyChronicles(userid)
@@ -205,13 +192,15 @@ insert into CharacterTrait
         if len(results):
             return results[0]['langId']
         else:
-            raise DBException(0, "Utente non trovato per la ricerca della lingua")
+            raise DBException("Utente non trovato per la ricerca della lingua")
+    @deprecated()
     def isBotAdmin(self, userid): # TODO remove
         """Is this user an admin?"""
         admins = self.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=userid))
         return bool(len(admins)), (admins[0] if (len(admins)) else None)
+    @deprecated()
     def isStoryteller(self, userid): # TODO remove
-        """Is this user a storyteller?"""
+        """Is this user a storyteller? DEPRECATED, USE isValidStoryTeller!"""
         storytellers = self.db.select('Storyteller',  where='userid = $userid', vars=dict(userid=userid))
         return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
     def isStorytellerForCharacter(self, userid, charid):
@@ -257,18 +246,7 @@ join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
 where cc.playerchar = $charid
 """, vars=dict(charid=charid))
         return bool(len(result)), result[0] if len(result) else None
-    def isValidTrait(self, traitid): # TODO lang Version
-        """Does this trait exist?"""
-        traits = self.db.select('Trait', where='id=$id', vars=dict(id=traitid))
-        return bool(len(traits)), (traits[0] if (len(traits)) else None)
-    def isValidTraitType(self, traittypeid):
-        """Does this trait type exist?"""
-        traittypes = self.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
-        return bool(len(traittypes)), (traittypes[0] if (len(traittypes)) else None)
-    def isValidLanguage(self, langId: str) -> tuple:
-        """ does this language exist? """
-        langs = self.db.select('Languages', where='langId=$id', vars=dict(id=langId))
-        return bool(len(langs)), (langs[0] if (len(langs)) else None)
+    
     def log(self, userid, charid, traitid, modtype, new_val, old_val = "", command = ""):
         self.db.insert("CharacterModLog", userid = userid, charid = charid, traitid = traitid, val_type = modtype, old_val = old_val, new_val = new_val, command = command)
     def unnameStoryTeller(self, userid):
@@ -277,13 +255,35 @@ where cc.playerchar = $charid
     ## New style validators here
     # the idea is: getter throws exception and returns only data
     # Setter returns a "validated" object with a bool and either the object OR the exception
+    # TODO: maybe do classes for these?
+    def getTraitInfo(self, trait_id: str):
+        """Get trait info"""
+        traits = self.db.query("""
+    SELECT
+        t.*,
+        tt.textbased as textbased,
+        t.name as traitName
+    FROM Trait t
+    join TraitType tt on (t.traittype = tt.id)
+    WHERE t.id = $trait 
+    """, vars=dict(trait=trait_id))
+        if len(traits) == 0:
+            raise DBException('string_TRAIT_does_not_exist', (trait_id,))
+        return traits[0]
+    def isValidTrait(self, traitid: str): # TODO lang Version
+        """Does this trait exist?"""
+        try:
+            traitinfo = self.getTraitInfo(traitid)
+            return True, traitinfo
+        except DBException as e:
+            return False, e
     def getUser(self, userid):
         """ Gets user info """
         results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))
         if len(results):
             return results[0]
         else:
-            raise DBException(0, "Utente non trovato")
+            raise DBException("Utente non trovato")
     def isValidUser(self, userid):
         """ Is this a valid User?  """
         try:
@@ -302,7 +302,7 @@ where s.userid = $userid
         if len(results):
             return results[0]
         else:
-            raise DBException(0, "L'utente specificato non è uno storyteller")
+            raise DBException("L'utente specificato non è uno storyteller")
     def isValidStoryteller(self, userid):
         """ Is this a valid Storyteller?  """
         try:
@@ -321,7 +321,7 @@ where ba.userid = $userid
         if len(results):
             return results[0]
         else:
-            raise DBException(0, "L'utente specificato non è un Bot Admin")
+            raise DBException("L'utente specificato non è un Bot Admin")
     def isValidBotAdmin(self, userid):
         """ Is this a valid BotAdmin?  """
         try:
@@ -335,7 +335,7 @@ where ba.userid = $userid
         if len(results):
             return results[0]
         else:
-            raise DBException(0, "La cronaca {} non esiste!", (chronicleid,))
+            raise DBException("La cronaca '{}' non esiste!", (chronicleid,))
     def isValidChronicle(self, chronicleid: str):
         """Is this a valid chronicle? """   
         try:
@@ -349,7 +349,7 @@ where ba.userid = $userid
         if len(results):
             return results[0]
         else:
-            raise DBException(0, "Il personaggio {} non esiste!", (charid,))
+            raise DBException("Il personaggio '{}' non esiste!", (charid,))
     def isValidCharacter(self, charid: str):
         """Is this a valid character? """   
         try:
@@ -363,7 +363,7 @@ where ba.userid = $userid
         if len(results):
             return results[0]
         else:
-            raise DBException(0, "Nessuna sessione attiva in questo canale!")
+            raise DBException("Nessuna sessione attiva in questo canale!")
     def isSessionRunning(self, channelid: str):
         """Is there a session running in channelid? """   
         try:
@@ -371,10 +371,38 @@ where ba.userid = $userid
             return True, result
         except DBException as e:
             return False, e
+    def isValidTraitType(self, traittypeid):
+        """Does this trait type exist?"""
+        try:
+            character = self.getTraitType(traittypeid)
+            return True, character
+        except DBException as e:
+            return False, e
+    def getTraitType(self, traittypeid):
+        """ validates traittypeid and returns the relevant trait type """
+        results =  self.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
+        if len(results):
+            return results[0]
+        else:
+            raise DBException("Il tipo di tratto '{}' non esiste!", (traittypeid,))
+    def isValidLanguage(self, langId: str):
+        """Does this language exist in the db?"""
+        try:
+            character = self.getLanguage(langId)
+            return True, character
+        except DBException as e:
+            return False, e
+    def getLanguage(self, langId: str):
+        """ Validates langId and returns the relevant Language """
+        results =  self.db.select('Languages', where='langId=$id', vars=dict(id=langId))
+        if len(results):
+            return results[0]
+        else:
+            raise DBException("string_error_invalid_language_X", (langId,))
     ## Validators without an underlying Getter go here
     def isChronicleStoryteller(self, userid, chronicle):
         """Is this user a Storyteller for this chronicle?"""
         storytellers = self.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=userid, chronicle = chronicle))
-        return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else DBException(0, "L'utente non è storyteller per questa cronaca"))
+        return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else DBException("L'utente non è storyteller per questa cronaca"))
 
 
