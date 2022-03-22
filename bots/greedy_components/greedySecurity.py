@@ -49,7 +49,7 @@ class IsAdminOrStoryteller(CommandSecurity):
         comment = None if valid else SecurityCheckException("L'Utente non è Admin o Storyteller") 
         return valid, comment
 
-class CanEditRunningSession(CommandSecurity): # this needs to exist separately from genIsAdminOrChronicleStoryteller because the chronicle is not available in the command parameters
+class CanEditRunningSession(CommandSecurity): # this needs to exist separately from genIsAdminOrChronicleStoryteller because the chronicle is not available in the command parameters, but rather is a property of the current channel
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer_id = str(self.ctx.message.author.id)
         sr, session = self.bot.dbm.isSessionRunning(self.ctx.channel.id)
@@ -145,15 +145,16 @@ def genCanEditCharacter(target_character):
 
             st, _ = self.bot.dbm.isStorytellerForCharacter(issuer, charid)
             ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
-            co = False
-            if owner == issuer and not (st or ba):
+            co = owner == issuer
+            ce = st or ba 
+            if co and (not ce):
                 #1: unlinked
                 cl, _ = self.bot.dbm.isCharacterLinked(charid)
                 #2 active session
                 sa, _ = self.bot.dbm.isSessionActiveForCharacter(charid, self.ctx.channel.id)
-                co = co or (not cl) or sa            
+                ce = (not cl) or sa            
 
-            valid =  (st or ba or co)
+            valid =  (st or ba or (co and ce))
             comment = None if valid else SecurityCheckException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller") 
             return valid, comment
     return GeneratedCommandSecurity

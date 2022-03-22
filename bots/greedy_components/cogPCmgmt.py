@@ -5,6 +5,7 @@ from discord.ext import commands
 
 from greedy_components import greedyBase as gb
 from greedy_components import greedySecurity as gs
+from greedy_components import greedyConverters as gc
 
 import lang.lang as lng
 import support.utils as utils
@@ -332,24 +333,23 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
         if not isChar:
             raise gb.BotException(f"Il personaggio {charid} non esiste!")
 
+        # TODO move to security. The reason why we do this here is because "ce" is computed in security checks, but is needed in the command (to be passed to pc_interact)
+        # we need a way for security checks to pass on some stuff to the command (maybe with the ctx object?)
+
         # permission checks
         issuer = str(ctx.message.author.id)
         playerid = character['player']
-        co = playerid == issuer
         
         st, _ = self.bot.dbm.isStorytellerForCharacter(issuer, charid)
-        ba, _ = self.bot.dbm.isValidBotAdmin(issuer)    
+        ba, _ = self.bot.dbm.isValidBotAdmin(issuer)  
+        co = playerid == issuer  
         ce = st or ba # can edit
         if co and (not ce):
             #1: unlinked
-            ce = ce or not len(self.bot.dbm.db.select('ChronicleCharacterRel', where='playerchar=$id', vars=dict(id=charid)))
+            cl, _ = self.bot.dbm.isCharacterLinked(charid)
             #2 active session
-            ce = ce or len(self.bot.dbm.db.query("""
-    SELECT cc.playerchar
-    FROM GameSession gs
-    join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
-    where gs.channel = $channel and cc.playerchar = $charid
-    """, vars=dict(channel=ctx.channel.id, charid=charid)))
+            sa, _ = self.bot.dbm.isSessionActiveForCharacter(charid, ctx.channel.id)
+            ce = (not cl) or sa   
         if not (st or ba or co):
             return # non vogliamo che .rossellini faccia cose
             #raise BotException("Per modificare un personaggio è necessario esserne proprietari e avere una sessione aperta, oppure essere Admin o Storyteller")

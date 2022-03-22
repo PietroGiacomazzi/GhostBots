@@ -9,7 +9,7 @@ class BotException(Exception): # use this for 'known' error situations
     def __init__(self, msg):
         super(BotException, self).__init__(msg)
 
-class GreedyCommandError(commands.CommandError): # we're going to use this for almost everything in the future
+class GreedyCommandError(commands.CommandError):
     def __init__(self, message: str, formats: tuple = ()):
         """ Base command exception with language support. """
         super(GreedyCommandError, self).__init__(message, formats)
@@ -71,6 +71,10 @@ class GreedyGhost(commands.Bot):
         issuer = ctx.message.author.id
         lid = self.getLID(issuer)
         return self.languageProvider.formatException(lid, exc)
+    def formatCommandError(self, ctx: commands.Context, exc: GreedyCommandError) -> str:
+        issuer = ctx.message.author.id
+        lid = self.getLID(issuer)
+        return self.languageProvider.formatCommandError(lid, exc)
 
 class GreedyGhostCog(commands.Cog): 
     def __init__(self, bot: GreedyGhost):

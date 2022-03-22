@@ -72,8 +72,8 @@ class LanguageConverter(Converter):
         return bot.dbm.getLanguage(argument.upper())
 
 class TraitConverter(Converter):
-    """ Validates a language id """
-
+    """ Validates a trait id NOTE: LANGUAGE NOT YET SUPPORTED"""
+    #TODO language support!
     async def convert(self, ctx: Context, argument: str) -> bool:
         bot: gb.GreedyGhost = ctx.bot
         return bot.dbm.getTraitInfo(argument.lower())
