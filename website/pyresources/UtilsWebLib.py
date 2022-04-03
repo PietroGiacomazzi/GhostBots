@@ -17,6 +17,9 @@ DEFAULT_INPUT_ACCEPT = {None: (MUST_NOT, str)}
 http_status_map = {
     401: "401 Unauthorized",
     400: "400 Bad Request",
+    403: "403 Forbidden",
+    404: "404 Not Found",
+    405: "405 Method Not Allowed",
     500: "500 Internal Server Error"
     }
 
@@ -135,6 +138,8 @@ class WebResponse:
                     web.ctx.status = http_status_map[e.code]
                 except:
                     self.logger.warning("Invalid error status: "+str(e.code))
+            else:
+                web.ctx.status = http_status_map[400]
             sendback = str(e)
             result = self.postHook(sendback)
         except:
@@ -154,9 +159,9 @@ class WebResponse:
         result = self.request("POST")
         return result
     def mGET(self):
-        raise WebException('HTTP METHOD NOT AVAILABLE')
+        raise WebException('HTTP METHOD NOT AVAILABLE', 405)
     def mPOST(self):
-        raise WebException('HTTP METHOD NOT AVAILABLE')
+        raise WebException('HTTP METHOD NOT AVAILABLE', 405)
 
 class WebPageResponse(WebResponse):
     def __init__(self, config: ConfigParser, session: web.session.Session, properties = {}, accepted_input = {}, min_access_level = 0):

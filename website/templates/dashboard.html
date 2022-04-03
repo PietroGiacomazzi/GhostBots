@@ -6,6 +6,7 @@ $def with (global_params, language_strings, username, btntext, action, msg)
     <title>$language_strings['web_label_dashboard']</title>
     <!--<link rel="stylesheet" href="/res/W3CSS/w3.css">-->
 	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css"> 
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="../css/custom.css">
     <link rel="shortcut icon" type="image/x-icon" href="../img_res/favicon.ico" />
@@ -19,6 +20,8 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 	<div id = "modlog_area">
 	</div>
 	<div id = "inputmodal_area">
+	</div>
+	<div id = "noyesbox_area">
 	</div>
 	<div id = "newchar_modal_area">
 	</div>
@@ -38,10 +41,12 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 			<div id = "action-menu">
 				<h3>$language_strings['web_label_actions']:</h3>
 				<a href="editTranslations" id = "traittranslation" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_trait_translation']</a>
-				<a href="#" id = "modregister" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_mod_register']</a>
 				<a href="#" id = "newchar" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_new_character']</a>
+				<a href="#" id = "modregister" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_mod_register']</a>
 				<a href="#" id = "editchar" class="w3-bar-item w3-button" onclick="switchEditMode()" style="display:none">$language_strings['web_label_edit_character']</a>
 				<a href="#" id = "addtraitchar" class="w3-bar-item w3-button" onclick="openNewTrait()" style="display:none">$language_strings['web_label_addt_character']</a>
+				<a href="#" id = "charnotes" class="w3-bar-item w3-button" onclick="ui_notes()" style="display:none">$language_strings['web_label_character_notes']</a>
+				<a href="#" id = "chartab" class="w3-bar-item w3-button" onclick="tabswitch('charsheet')" style="display:none">$language_strings['web_label_character_tab']</a>
 			</div>
 		</div>
 
@@ -196,7 +201,7 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 			</div>
 		</div>
     </div>
-	<div id="error_toast">Sample text</div>
+	<div id="msg_toast">Sample text</div>
 	<script src="../script.js"></script>
 </body>
 </html>

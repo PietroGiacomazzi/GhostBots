@@ -49,7 +49,13 @@ urls = (
     "/getModal", "getModal",
     "/newCharacter", "newCharacter",
     "/userList", "userList",
-    "/editCharacterReassign", "editCharacterReassign"
+    "/editCharacterReassign", "editCharacterReassign",
+    '/getCharacterNote', 'getCharacterNote',
+    '/saveCharacterNote', 'saveCharacterNote',
+    '/newCharacterNote', 'newCharacterNote',
+    '/getCharacterNotesList', 'getCharacterNotesList',
+    '/characterNotesPage', 'characterNotesPage',
+    '/deleteCharacterNote', 'deleteCharacterNote'
     )
 
 
@@ -794,6 +800,161 @@ class editCharacterReassign(APIResponse): #textbased
             return user
         else:
             raise WebException("Permission denied", 403)
+
+class getCharacterNote(APIResponse):
+    def __init__(self):
+        super(getCharacterNote, self).__init__(config, session, min_access_level=2, accepted_input = {
+            'noteId': (MUST, validator_str_range(1, 50)), 
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+        })
+    def mGET(self):
+        charId = self.input_data['charId']
+        noteId = self.input_data['noteId']
+        issuer = self.session.discord_userid
+
+        vl, character = dbm.isValidCharacter(charId)
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if not can_edit:
+            raise WebException("Permission denied", 403)
+        
+        vn, note = dbm.isValidCharacterNote(charId, noteId, issuer)
+        if not vn:
+            raise WebException("No such note", 404)
+            
+        return note
+
+class getCharacterNotesList(APIResponse):
+    def __init__(self):
+        super(getCharacterNotesList, self).__init__(config, session, min_access_level=2, accepted_input = {
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+        })
+    def mGET(self):
+        charId = self.input_data['charId']
+        issuer = self.session.discord_userid
+
+        vl, character = dbm.isValidCharacter(charId)
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if not can_edit:
+            raise WebException("Permission denied", 403)
+        
+        results = dbm.db.select('CharacterNotes', where='charid=$charId and userid=$userId', vars=dict(charId=charId, userId=issuer), what='noteid')
+        return results.list()
+
+class saveCharacterNote(APIResponse):
+    def __init__(self):
+        super(saveCharacterNote, self).__init__(config, session, min_access_level=2, accepted_input = {
+            'noteId': (MUST, validator_str_range(1, 50)), 
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'noteText':  (MUST, validator_str_range(0, 65535)),
+        })
+    def mPOST(self):
+        charId = self.input_data['charId']
+        noteId = self.input_data['noteId']
+        noteText = self.input_data['noteText']
+        issuer = self.session.discord_userid
+
+        vl, character = dbm.isValidCharacter(charId)
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if not can_edit:
+            raise WebException("Permission denied", 403)
+
+        vn, _ = dbm.isValidCharacterNote(charId, noteId, issuer)
+        if not vn:
+            raise WebException("No such note", 404)
+        
+        updated_rows = dbm.db.update("CharacterNotes", where='charid=$charId and userid=$userId and noteid=$noteId', vars=dict(charId=charId, noteId=noteId, userId=issuer), notetext = noteText)
+            
+        return [updated_rows]
+
+class deleteCharacterNote(APIResponse):
+    def __init__(self):
+        super(deleteCharacterNote, self).__init__(config, session, min_access_level=2, accepted_input = {
+            'noteId': (MUST, validator_str_range(1, 50)), 
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+        })
+    def mPOST(self):
+        charId = self.input_data['charId']
+        noteId = self.input_data['noteId']
+        issuer = self.session.discord_userid
+
+        vl, character = dbm.isValidCharacter(charId)
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if not can_edit:
+            raise WebException("Permission denied", 403)
+
+        vn, _ = dbm.isValidCharacterNote(charId, noteId, issuer)
+        if not vn:
+            raise WebException("No such note", 404)
+        
+        updated_rows = dbm.db.delete("CharacterNotes", where='charid=$charId and userid=$userId and noteid=$noteId', vars=dict(charId=charId, noteId=noteId, userId=issuer))
+            
+        return [updated_rows]
+
+class newCharacterNote(APIResponse):
+    def __init__(self):
+        super(newCharacterNote, self).__init__(config, session, min_access_level=2, accepted_input = {
+            'noteId': (MUST, validator_str_range(1, 50)), 
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+        })
+    def mPOST(self):
+        charId = self.input_data['charId']
+        noteId = self.input_data['noteId']
+        issuer = self.session.discord_userid
+
+        vl, character = dbm.isValidCharacter(charId)
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if not can_edit:
+            raise WebException("Permission denied", 403)
+        
+        dbm.db.insert("CharacterNotes", charid=charId, noteid=noteId, userid=issuer)
+            
+        return [noteId]
+
+class characterNotesPage(WebPageResponseLang):
+    def __init__(self):
+        super(characterNotesPage, self).__init__(config, session, min_access_level=2, accepted_input = {
+            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+        })
+    def mGET(self):
+        charId = self.input_data['charId']
+        issuer = self.session.discord_userid
+
+        vl, character = dbm.isValidCharacter(charId)
+        if not vl:
+            raise WebException("Invalid character", 400)
+
+        issuer = self.session.discord_userid
+        can_edit = pgmodPermissionCheck_web(issuer, character)
+
+        if not can_edit:
+            raise WebException("Permission denied", 403)
+        
+        return render.characterNotes(global_template_params, self.getLanguageDict())
 
 if __name__ == "__main__":
     app.run(Log)

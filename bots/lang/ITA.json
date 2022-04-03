@@ -99,6 +99,11 @@
 	"string_error_usernotfound_bot": "Utente {} non trovato nel database utenti!",
 	"string_error_usernotfound_discord": "Utente {} non trovato da discord.py!",
 	"string_error_invalid_shortid": "'{}' non è un id valido",
+	"string_error_no_character_loaded": "Nessun personaggio selezionato",
+	"string_error_no_note_loaded": "Nessuna nota selezionata",
+	"string_error_invalid_note": "La nota non esiste",
+	"string_msg_note_saved": "Nota salvata",
+	"string_msg_note_deleted": "Nota eliminata",
 
 	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
 	"help_gmadm_stunlink": "Argomenti: <id cronaca>, [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
@@ -191,5 +196,14 @@
 	"web_label_valtype_4": "Aggiunta",
 	"web_label_valtype_5": "Rimozione",
 	"web_label_sidebar_close": "X Chiudi",
-	"web_label_change_player": "Riassegna personaggio"
+	"web_label_change_player": "Riassegna personaggio",
+	"web_label_character_notes": "Note personaggio",
+	"web_label_character_tab": "Personaggio",
+	"web_label_note_new": "Nuova nota",
+	"web_label_note_save": "Salva nota",
+	"web_label_note_delet": "Elimina nota",
+	"web_label_note_name": "Nome della nota",
+	"web_label_ok": "OK",
+	"web_label_cancel": "Annulla",
+	"web_error_invalid_tab": "Id tab '{0}' non valido"
 }

@@ -388,8 +388,8 @@ where ba.userid = $userid
     def isValidLanguage(self, langId: str):
         """Does this language exist in the db?"""
         try:
-            character = self.getLanguage(langId)
-            return True, character
+            language = self.getLanguage(langId)
+            return True, language
         except DBException as e:
             return False, e
     def getLanguage(self, langId: str):
@@ -399,6 +399,21 @@ where ba.userid = $userid
             return results[0]
         else:
             raise DBException("string_error_invalid_language_X", (langId,))
+    def isValidCharacterNote(self, charid: str, noteid: str, userid: str):
+        """Does this character note exist in the db?"""
+        try:
+            note = self.getCharacterNote(charid, noteid, userid)
+            return True, note
+        except DBException as e:
+            return False, e
+    def getCharacterNote(self,  charid: str, noteid: str, userid: str):
+        """ Validates character note and returns it """
+        results = self.db.select('CharacterNotes', where='charid=$charId and userid=$userId and noteid=$noteId', vars=dict(charId=charid, noteId=noteid, userId=userid))
+        if len(results):
+            return results[0]
+        else:
+            raise DBException("string_error_invalid_note")
+        
     ## Validators without an underlying Getter go here
     def isChronicleStoryteller(self, userid, chronicle):
         """Is this user a Storyteller for this chronicle?"""

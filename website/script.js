@@ -1,6 +1,7 @@
-window.sheet_template = null;
-window.selected_charid = null;
-window.language_dictionary = null;
+window.WepAppState = null;
+
+var _note_autosavetimer = 0;
+
 window.dot_data = {
 	dot: "&#9899;", //"⚫"; //9899
 	emptydot: "&#9898;", //"⚪"; //9898
@@ -10,13 +11,6 @@ window.dot_data = {
 	square_empty: "&#11036;",
 };
 var urlParams = new URLSearchParams(window.location.search);
-
-window.charEditMode = false;
-window.editElements = Array();
-window.traitList = null;
-window.userList = null;
-window.input_modal = null;
-window.newchar_modal = null;
 
 var replace_HTMLElement = [];
 replace_HTMLElement['&'] = '&amp;';
@@ -30,6 +24,123 @@ PLAYER_NAME_CONTROL = 'PLAYER_NAME_CONTROL';
 
 //var replace_HTMLattribute = []
 //replace_HTMLattribute
+
+class TabManager{
+	constructor(tab_id){
+		this.tab_id = tab_id;
+	}
+	switch(){
+		throw "Implement me!";
+	}
+	runswitch()
+	{
+		state = getState();
+		try{
+			// perform exit logic for prev tab
+			state.tabs[state.current_tab].tabPost();
+
+			// run pre
+			this.tabPre();
+
+			//attempt switch
+			this.switch();
+
+			// hide current tab if different
+			if (state.current_tab != this.tab_id)
+			{
+				var old = document.getElementById(state.current_tab);
+				if (old !== null) // can happen
+				{
+					old.style.display = 'none';
+				}
+			}
+
+			// set current tab
+			state.current_tab = this.tab_id;
+		}
+		catch(err)
+		{
+			post_error(err);
+		}
+	}
+	tabPost(){}
+	tabPre(){} // maybe add a selftab member so each tab can auto disable its own menu item
+}
+
+class TabMsg extends TabManager
+{
+	constructor() {super("central_msg")}
+	switch() {
+		document.getElementById("central_msg").style.display = 'block';
+	}
+}
+class TabCharSheet extends TabManager
+{
+	constructor() {super("charsheet")}
+	switch() {
+		state = getState();
+		document.getElementById("chartab").style.display = 'none';  // hide own item
+		if (state.selected_character === null){
+			throw "No character selected!";
+		}
+		load_charSheet(state.selected_character);
+	}
+	tabPost(){
+		super.tabPost();
+		disableCharEditMode();
+		// hide edit controls
+		document.getElementById("editchar").style.display = 'none';	
+		document.getElementById("addtraitchar").style.display = 'none';
+	}
+}
+class TabCharNotes extends TabManager
+{
+	constructor() {super("character_notes")}
+	switch() {
+		document.getElementById("charnotes").style.display = 'none'; // hide own item
+		
+		document.getElementById("chartab").style.display = 'block';
+		load_charNotes(state.selected_character);
+	}
+	tabPost(){
+		super.tabPost();
+		save_note(false);
+		getState().selected_noteid = null;
+	}
+}
+
+class AppState {
+	constructor() {
+		this.tabs = [];
+		this.tabs["central_msg"] = new TabMsg();
+		this.tabs["charsheet"] = new TabCharSheet();
+		//this.tabs["translations"] = TODO;
+		this.tabs["character_notes"] = new TabCharNotes();
+		this.current_tab = "central_msg";
+
+		this.charEditMode = false;
+		this.editElements = Array();
+		this.traitList = null;
+		this.userList = null;
+		this.input_modal = null;
+		this.noyes_modal = null;
+		this.newchar_modal = null;
+
+		this.sheet_template = null;
+		this.selected_charid = null;
+		this.selected_character = null;
+		this.selected_noteid = null;
+		this.language_dictionary = null;
+	}
+}
+
+function getState(){
+	if (window.WepAppState === null)
+	{
+		window.WepAppState = new AppState();
+	}
+	return window.WepAppState;
+}
 
 function out_sanitize(string, sanitization_array = replace_HTMLElement){
 	var final_string = string.toString();
@@ -51,10 +162,17 @@ if (!String.format) {
 	};
   }
 
+
+function getLangStringFormatted(string_id){
+	var args = Array.prototype.slice.call(arguments, 1);
+	return String.format(getLangString(string_id), ...args);
+}
+
 function getLangString(string_id){
 	// output sanitization is a bit overkill here
-	if (window.language_dictionary && window.language_dictionary[string_id]){
-		return out_sanitize(window.language_dictionary[string_id], replace_HTMLElement)
+	state = getState();
+	if (state.language_dictionary && state.language_dictionary[string_id]){
+		return out_sanitize(state.language_dictionary[string_id], replace_HTMLElement)
 	}
 	else
 	{
@@ -68,15 +186,16 @@ function getCharMenuItem(characters){
 }
 
 function getMyCharacters(dictionary){
-	window.language_dictionary = dictionary;
+	getState().language_dictionary = dictionary;
     get_remote_resource('./getMyCharacters', 'json',  getCharMenuItem);
 }
 
 function openNewChar(event){
-	if (window.newchar_modal){
+	state = getState();
+	if (state.newchar_modal){
 		// inject the modal
 		var modal_area = document.getElementById('newchar_modal_area');	
-		modal_area.innerHTML = window.newchar_modal
+		modal_area.innerHTML = state.newchar_modal
 
 		var modal = document.getElementById('new_char_modal')
 		modal.style.display = 'block';
@@ -104,10 +223,10 @@ function openNewChar(event){
 }
 
 function openNewTrait(){
-	if (window.charEditMode && window.input_modal != null  && window.traitList != null ){
+	if (getState().charEditMode && getState().input_modal != null  && getState().traitList != null ){
 		// inject the modal
 		var modal_area = document.getElementById('inputmodal_area');	
-		modal_area.innerHTML = window.input_modal
+		modal_area.innerHTML = getState().input_modal
 
 		var modal = document.getElementById('input_modal')
 		modal.style.display = 'block';
@@ -125,7 +244,7 @@ function openNewTrait(){
 			// todo post
 			const params = new URLSearchParams({
 				traitId: inp.value,
-				charId: window.selected_charid
+				charId: getState().selected_charid
 			});
 			get_remote_resource('./editCharacterTraitAdd?'+params.toString(), 'json', 
 			function (traitdata){
@@ -140,9 +259,9 @@ function openNewTrait(){
 			}*/)
 			modal.style.display='none';
 			modal.remove();
-		 });
+		});
 
-		autocomplete(document.getElementById("input_modal_myInput"), window.traitList);
+		autocomplete(document.getElementById("input_modal_myInput"), getState().traitList);
 	}
 	else{
 		console.log("not yet!");
@@ -150,10 +269,10 @@ function openNewTrait(){
 }
 
 function openChangePlayer(){
-	if (window.charEditMode && window.input_modal != null  && window.userList != null ){
+	if (getState().charEditMode && getState().input_modal != null  && getState().userList != null ){
 		// inject the modal
 		var modal_area = document.getElementById('inputmodal_area');	
-		modal_area.innerHTML = window.input_modal
+		modal_area.innerHTML = getState().input_modal
 
 		var modal = document.getElementById('input_modal')
 		modal.style.display = 'block';
@@ -171,7 +290,7 @@ function openChangePlayer(){
 			// todo post
 			const params = new URLSearchParams({
 				userId: inp.value,
-				charId: window.selected_charid
+				charId: getState().selected_charid
 			});
 			get_remote_resource('./editCharacterReassign?'+params.toString(), 'json', 
 			function (data){
@@ -185,7 +304,7 @@ function openChangePlayer(){
 			modal.remove();
 		 });
 
-		autocomplete(document.getElementById("input_modal_myInput"), window.userList);
+		autocomplete(document.getElementById("input_modal_myInput"), getState().userList);
 	}
 	else{
 		console.log("not yet!");
@@ -193,14 +312,12 @@ function openChangePlayer(){
 }
 
 function enableCharEditMode(){
-	if (window.input_modal == null){
-		get_remote_resource('../html_res/InputFieldModal.html', 'text',  function(modaldata){window.input_modal = modaldata;});
-	}
-	if (window.traitList == null){
-		get_remote_resource('./traitList', 'json', function(data){window.traitList = data});
+	state = getState();
+	if (state.traitList == null){
+		get_remote_resource('./traitList', 'json', function(data){state.traitList = data});
 	}	
-	if (window.userList == null){
-		get_remote_resource('./userList', 'json', function(data){window.userList = data});
+	if (state.userList == null){
+		get_remote_resource('./userList', 'json', function(data){state.userList = data});
 	}
 
 	var editcontrol = document.getElementById("editchar");
@@ -208,12 +325,12 @@ function enableCharEditMode(){
 	var addtraitcharcontrol = document.getElementById("addtraitchar");
 	addtraitcharcontrol.style.display = 'block';
 
-	window.charEditMode = true;
-	for (i = 0; i<window.editElements.length; ++i)
+	state.charEditMode = true;
+	for (i = 0; i<state.editElements.length; ++i)
 	{
-		el = document.getElementById(window.editElements[i]);
+		el = document.getElementById(state.editElements[i]);
 		if (el == null){
-			console.log(window.editElements[i])
+			console.log(state.editElements[i])
 		}
 		else{
 			el.style.display = 'inline';
@@ -222,17 +339,18 @@ function enableCharEditMode(){
 }
 
 function disableCharEditMode(){
+	state = getState();
 	var editcontrol = document.getElementById("editchar");
 	editcontrol.innerHTML = getLangString("web_label_edit_character");
 	var addtraitcharcontrol = document.getElementById("addtraitchar");
 	addtraitcharcontrol.style.display = 'none';
 
-	window.charEditMode = false;
-	for (i = 0; i<window.editElements.length; ++i)
+	state.charEditMode = false;
+	for (i = 0; i<state.editElements.length; ++i)
 	{
-		el = document.getElementById(window.editElements[i]);
+		el = document.getElementById(state.editElements[i]);
 		if (el == null){
-			console.log(window.editElements[i])
+			console.log(state.editElements[i])
 		}
 		else{
 			el.style.display = 'none';
@@ -241,7 +359,7 @@ function disableCharEditMode(){
 }
 
 function switchEditMode(){
-	if (window.charEditMode){
+	if (getState().charEditMode){
 		disableCharEditMode();
 	}
 	else{
@@ -370,7 +488,7 @@ function populate_clan_img(clan_name){
 function editTrait(event) {
     var span = event.target;
 	//console.log(span);
-	if (window.charEditMode)
+	if (getState().charEditMode)
 	{
 		if (span.dataset.traitid)
 		{
@@ -378,7 +496,7 @@ function editTrait(event) {
 				// todo post
 				const params = new URLSearchParams({
 					traitId: span.dataset.traitid,
-					charId: window.selected_charid
+					charId: getState().selected_charid
 				});
 				get_remote_resource('./editCharacterTraitRemove?'+params.toString(), 'json', 
 				function (data){
@@ -394,7 +512,7 @@ function editTrait(event) {
 						// todo post
 						const params = new URLSearchParams({
 							traitId: span.dataset.traitid,
-							charId: window.selected_charid,
+							charId: getState().selected_charid,
 							newValue: span.dataset.dot_id
 						});
 						get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
@@ -414,7 +532,7 @@ function editTrait(event) {
 								// todo post
 								const params = new URLSearchParams({
 									traitId: span.dataset.traitid,
-									charId: window.selected_charid,
+									charId: getState().selected_charid,
 									newValue: input_tag.value
 								});
 								get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
@@ -438,7 +556,7 @@ function editTrait(event) {
 						// todo post
 						const params = new URLSearchParams({
 							traitId: span.dataset.traitid,
-							charId: window.selected_charid,
+							charId: getState().selected_charid,
 							newValue: span.dataset.dot_id
 						});
 						get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
@@ -458,7 +576,7 @@ function editTrait(event) {
 								// todo post
 								const params = new URLSearchParams({
 									traitId: span.dataset.traitid,
-									charId: window.selected_charid,
+									charId: getState().selected_charid,
 									newValue: input_tag.value
 								});
 								get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
@@ -486,7 +604,7 @@ function editTrait(event) {
 						// todo post
 						const params = new URLSearchParams({
 							traitId: span.dataset.traitid,
-							charId: window.selected_charid,
+							charId: getState().selected_charid,
 							newValue: input_tag.value
 						});
 						get_remote_resource('./editCharacterTraitText?'+params.toString(), 'json', 
@@ -529,11 +647,11 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 		zdot_span.id = zdot_span.id+"-current";
 	}
 	zdot_span.innerHTML = window.dot_data.red_dot;
-	if (window.charEditMode == false){
+	if (getState().charEditMode == false){
 		zdot_span.style.display = "none";
 	}
-	if (!window.editElements.includes(zdot_span.id)){
-		window.editElements.push(zdot_span.id);
+	if (!getState().editElements.includes(zdot_span.id)){
+		getState().editElements.push(zdot_span.id);
 	}
 	current_line.appendChild(zdot_span);
 	
@@ -561,7 +679,7 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 function createMaxModElement(traitdata){
 	var trait_maxmod = document.createElement('p');
 	trait_maxmod.id = traitdata.trait+"-maxmod"
-	if (window.charEditMode == false){
+	if (getState().charEditMode == false){
 		trait_maxmod.style.display = "none";
 	}	
 
@@ -575,8 +693,8 @@ function createMaxModElement(traitdata){
 	val.dataset.editable = "1"
 	trait_maxmod.appendChild(val);
 
-	if (!window.editElements.includes(trait_maxmod.id)){
-		window.editElements.push(trait_maxmod.id)
+	if (!getState().editElements.includes(trait_maxmod.id)){
+		getState().editElements.push(trait_maxmod.id)
 	}		
 	return trait_maxmod;
 }
@@ -591,11 +709,11 @@ function createTraitElement(traitdata){
 	deletecontrol.innerHTML = "delete_forever";
 	deletecontrol.dataset.traitid = traitdata.trait;
 	deletecontrol.dataset.removetrait = "1"
-	if (window.charEditMode == false){
+	if (getState().charEditMode == false){
 		deletecontrol.style.display = "none";
 	}	
-	if (!window.editElements.includes(deletecontrol.id)){
-		window.editElements.push(deletecontrol.id)
+	if (!getState().editElements.includes(deletecontrol.id)){
+		getState().editElements.push(deletecontrol.id)
 	}
 	c.appendChild(deletecontrol);
 
@@ -790,17 +908,17 @@ function createTraitElement(traitdata){
 
 		if (traitdata.text_value === "-" || traitdata.text_value === "")
 		{
-			if (!window.charEditMode){
+			if (!getState().charEditMode){
 				trait_text.style.display = "none";
 				ddot.style.display = "none";
 			}
-			if (! window.editElements.includes(trait_text.id))
+			if (! getState().editElements.includes(trait_text.id))
 			{
-				window.editElements.push(trait_text.id);
+				getState().editElements.push(trait_text.id);
 			}
-			if (! window.editElements.includes(ddot.id))
+			if (! getState().editElements.includes(ddot.id))
 			{
-				window.editElements.push(ddot.id);
+				getState().editElements.push(ddot.id);
 			}
 			if (traitdata.text_value === ""){
 				trait_text.className = "empty_space_tofill";
@@ -823,10 +941,10 @@ function createPlayerNameControl(ownername){
 	player_edit.id = PLAYER_EDIT_CONTROL;
 	player_edit.className = "material-icons md-18";
 	player_edit.innerHTML = 'edit';
-	if (!window.charEditMode)
+	if (!getState().charEditMode)
 		player_edit.style.display = 'none';
-	if (!window.editElements.includes(player_edit.id)){
-		window.editElements.push(player_edit.id)
+	if (!getState().editElements.includes(player_edit.id)){
+		getState().editElements.push(player_edit.id)
 	}
 	c.appendChild(player_edit);
 
@@ -839,10 +957,11 @@ function createPlayerNameControl(ownername){
 }
 
 function populateSheet(characterTraits, character){
-	window.editElements = Array();
+	state = getState();
+	state.editElements = Array();
 	disableCharEditMode(); // doing this here makes it faster because we don't have many items to disable
 	// create new sheet
-	var charsheet = window.sheet_template.cloneNode(true);
+	var charsheet = state.sheet_template.cloneNode(true);
 	charsheet.id ='charsheet';
 	// insert new sheet
 	var main = document.getElementById('main_content');
@@ -868,6 +987,10 @@ function populateSheet(characterTraits, character){
 					}/*, 
 					function(xhr){
 					}*/)
+
+	//notes
+	var notescontrol = document.getElementById("charnotes");
+	notescontrol.style.display = 'block';
 
 	// do stuff
 	document.getElementById('title_pgname').innerHTML = '<b>'+character.fullname+'</b>';
@@ -975,7 +1098,8 @@ function populateSheet(characterTraits, character){
 		});
 	}
 
-	window.selected_charid = character.id;
+	state.selected_charid = character.id;
+	state.selected_character = character;
 	var modregisterbtn = document.getElementById('modregister');
 	modregisterbtn.style.display = "block";
 	var central_msg = document.getElementById('central_msg');
@@ -990,7 +1114,7 @@ function load_charSheet(character){
 		charsheet.remove();
 	}
 	var central_msg = document.getElementById('central_msg');
-	central_msg.innerHTML = '<i class="fa fa-refresh"></i>';
+	central_msg.innerHTML = '<i class="fa fa-refresh w3-spin"></i>';
 	central_msg.style.display = "inline";
 	get_remote_resource('./getCharacterTraits?charid='+character.id, 'json', function(data){populateSheet(data, character)});
 }
@@ -1040,11 +1164,21 @@ function populate_charmenu(menuItem, chars){
 		c.id = character.id;
 		c.innerHTML = character.fullname
         chronicle_container.appendChild(c);
-		c.addEventListener('click', function(chardata){var c = chardata; return function() {load_charSheet(c);}}(character))
+		c.addEventListener('click', function(chardata){
+				var c = chardata; 
+				return function() {
+					//load_charSheet(c);
+					getState().selected_character = c;
+					tabswitch("charsheet");
+				}
+			}(character)
+		)
 		// load the character if needed:
 		if (character.id === urlParams.get('character') && !loaded)
 		{
-			load_charSheet(character);
+			//load_charSheet(character);
+			state.selected_character = character;
+			tabswitch("charsheet");
 			loaded = true;
 		}
 	}
@@ -1075,7 +1209,7 @@ function accordionSwitch(id) {
 
 function load_modlog()
 {
-	get_remote_resource('./getCharacterModLog?charid='+window.selected_charid, 'text',  view_modlog);
+	get_remote_resource('./getCharacterModLog?charid='+getState().selected_charid, 'text',  view_modlog);
 }
 
 function default_error_callback(xhr){
@@ -1089,14 +1223,33 @@ function get_remote_resource(url, res_type, callback, error_callback = default_e
     xhr.open('GET', url, true);
     xhr.responseType = res_type;
     xhr.onload = function() {
-      var status = xhr.status;
-      if (status === 200) {
-        callback(xhr.response);
-      } else {
-        error_callback(xhr);
-      }
+		var status = xhr.status;
+		if (status === 200) {
+			callback(xhr.response);
+		}
+		else {
+			error_callback(xhr);
+		}
     };
     xhr.send();
+}
+
+function post_request(url, res_type, params, success_callback, error_callback = default_error_callback)
+{
+	var xhr = new XMLHttpRequest();
+	xhr.open('POST', url, true);
+    xhr.responseType = res_type;
+	xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+	xhr.onload = function() {//Call a function when the state changes.
+		var status = xhr.status;
+		if (status === 200) {
+			success_callback(xhr.response);
+		} 
+		else {
+			error_callback(xhr);
+		}
+	}
+	xhr.send(params);
 }
 
 function post_error(text){
@@ -1112,9 +1265,15 @@ function post_error(text){
 	//alert(text);
 }
 
+
+function post_message(text){
+	show_msg_toast(text);
+}
+
 function populate_page(){
-	window.sheet_template = document.getElementById('charsheet_template');
-	window.sheet_template.remove();
+	state = getState();
+	state.sheet_template = document.getElementById('charsheet_template');
+	state.sheet_template.remove();
 	var modlog = document.getElementById('modregister');
 	modlog.addEventListener('click', load_modlog);
     //var side_menu = document.getElementById('side_menu');
@@ -1129,7 +1288,7 @@ function populate_page(){
 				modalId: 'new_char_modal'
 			});
 			get_remote_resource('./getModal?'+params.toString(), 'html', function(data){
-				window.newchar_modal = data;
+				getState().newchar_modal = data;
 			}) 
 			el.addEventListener('click', openNewChar);
 		}
@@ -1138,6 +1297,13 @@ function populate_page(){
 		}
 	})
 	
+	if (state.input_modal == null){
+		get_remote_resource('../html_res/InputFieldModal.html', 'text',  function(modaldata){getState().input_modal = modaldata;});
+	}
+	if (state.noyes_modal == null){
+		get_remote_resource('../html_res/noYesBox.html', 'text',  function(modaldata){getState().noyes_modal = modaldata;});
+	}
+
 	get_remote_resource('./getLanguageDictionary', 'json', getMyCharacters)
 }
 
@@ -1234,7 +1400,7 @@ function translationEdit_page(){
 		});
 	}
 	get_remote_resource('./getLanguageDictionary', 'json', function (dictionary){
-		window.language_dictionary = dictionary;
+		getState().language_dictionary = dictionary;
 	})
 }
 
@@ -1335,6 +1501,240 @@ function autocomplete(inp, arr) {
 	});
 } 
 
+function tabswitch(tab_id){
+	var state = getState();
+
+	//note: we currently reload the tab by design even if it's the same because the target char changes
+
+	if (state.tabs[tab_id] === undefined)
+	{
+		post_error(getLangStringFormatted("web_error_invalid_tab", tab_id));
+		return;
+	}
+	state.tabs[tab_id].runswitch();
+}
+
+function ui_notes()
+{
+	if (getState().selected_character === null)
+	{
+		post_error(getLangString('string_error_no_character_loaded'));
+	}
+	else
+	{
+		tabswitch("character_notes");
+	}
+}
+
+function load_charNotes()
+{
+	get_remote_resource('./characterNotesPage?charId='+getState().selected_charid, 'text',  view_notestab);
+}
+
+function load_note(noteid){
+	save_note(true);
+	state = getState();
+	const params = new URLSearchParams({
+		noteId: noteid,
+		charId: state.selected_charid
+	});
+	get_remote_resource('./getCharacterNote?'+params.toString(), 'json', function(notedata){
+		var textarea = document.getElementById("note_text");
+		textarea.value = notedata.notetext;
+		textarea.removeAttribute('disabled');
+		state = getState();
+		state.selected_noteid = notedata.noteid;
+		document.getElementById("note_title").innerHTML = state.selected_character.fullname+": "+ notedata.noteid;
+		//setup autosave
+		textarea.addEventListener("keyup", function (event) {
+			if (_note_autosavetimer){
+				window.clearTimeout(_note_autosavetimer);
+			}
+			_note_autosavetimer = window.setTimeout(function() {
+				save_note();
+			}, 5000);
+		})
+	}) 
+}
+
+function save_note(silent=true){
+	if (_note_autosavetimer){ // clear autosave timer so that we don't save if the user saves manually
+		window.clearTimeout(_note_autosavetimer);
+	}
+	state = getState();
+	note_text_node = document.getElementById("note_text");
+	if (state.selected_noteid === null || note_text_node === null)
+	{
+		if (!silent) {
+			post_error(getLangString("string_error_no_note_loaded"));
+		}
+		return;
+	}
+	const params = new URLSearchParams({
+		noteId: state.selected_noteid,
+		charId: state.selected_charid,
+		noteText: note_text_node.value
+	});
+
+	post_request('./saveCharacterNote', 'json', params, function(silent_save)
+	{
+		return function(notedata){
+			console.log("Note saved, updated rows:", notedata[0])
+			if (!silent_save)
+			{
+				post_message(getLangString("string_msg_note_saved"));
+			}
+		}
+
+	} (silent));
+}
+
+function new_note(){
+	save_note(true);
+	if (getState().input_modal != null){
+		// inject the modal
+		var modal_area = document.getElementById('inputmodal_area');	
+		modal_area.innerHTML = getState().input_modal
+
+		var modal = document.getElementById('input_modal')
+		modal.style.display = 'block';
+		// setup the modal
+		document.getElementById('input_modal_title').innerHTML = getLangString("web_label_note_new");
+		var form = document.getElementById('input_modal_form');
+
+		var input_tag = document.getElementById('input_modal_myInput');
+		input_tag.setAttribute("placeholder", getLangString("web_label_note_name")+"...");
+
+		var input_save = document.getElementById('input_modal_submit');
+		input_save.innerHTML = getLangString("web_label_save");
+		input_save.addEventListener('click', function(event){
+			var inp = document.getElementById('input_modal_myInput');
+			const params = new URLSearchParams({
+				noteId: inp.value,
+				charId: getState().selected_charid
+			});
+			post_request('./newCharacterNote', 'json', params, 
+			function (data){
+				var menuDropDown = document.getElementById('note_list');
+				createNoteItem(menuDropDown, data[0]);
+				load_note(data[0]);
+			}/*, 
+			function(xhr){
+			}*/)
+			modal.style.display='none';
+			modal.remove();
+		});
+
+		//autocomplete(document.getElementById("input_modal_myInput"), getState().traitList);
+	}
+	else{
+		console.log("not yet!");
+	}
+}
+
+function delete_note(){
+	if (_note_autosavetimer){ // clear autosave timer
+		window.clearTimeout(_note_autosavetimer);
+	}
+	state = getState();
+	if (state.selected_noteid === null)
+	{
+		post_error(getLangString("string_error_no_note_loaded"));
+		return;
+	}
+	const params = new URLSearchParams({
+		noteId: state.selected_noteid,
+		charId: state.selected_charid
+	});
+
+	post_request('./deleteCharacterNote', 'json', params, function(notedata){
+		console.log("Note deleted, updated rows:", notedata[0]);
+		post_message(getLangString("string_msg_note_deleted"));
+		// cleanup
+		getState().selected_noteid = null;
+		document.getElementById("note_title").innerHTML = '';
+		note_textarea = document.getElementById("note_text");
+		note_textarea.value = '';
+		note_textarea.setAttribute("disabled", 1);
+		// reload notes
+		get_remote_resource('./getCharacterNotesList?charId='+state.selected_charid, 'json',  setupNoteList);
+	});
+}
+
+function createNoteItem(menu, noteid)
+{
+	var noteItem = document.createElement('a');
+	noteItem.href = '#';
+	noteItem.className = 'w3-bar-item w3-button';
+	noteItem.innerText = noteid;
+	noteItem.addEventListener("click", function (note_id) {
+			return function(event)
+			{
+				load_note(note_id);
+			}
+		}(noteid)
+	);
+	menu.appendChild(noteItem);
+}
+
+function setupNoteList(notesList, load_noteid = null){
+	var i;
+	var menuDropDown = document.getElementById('note_list');
+	while (menuDropDown.firstChild) { // clear garbage from note deletes
+		menuDropDown.removeChild(menuDropDown.lastChild);
+	}
+	var load_id = 0;
+
+	for (i = 0; i<notesList.length; ++i){
+		createNoteItem(menuDropDown, notesList[i].noteid)
+		if (notesList[i].noteid === load_noteid)
+		{
+			load_id = i;
+		}
+	}
+	if (notesList.length){
+		load_note(notesList[load_id].noteid)
+	}
+
+}
+
+function view_notestab(content)
+{
+	state = getState();
+	notes = document.getElementById("character_notes");
+	if (notes === null)
+	{
+		notes = document.createElement('div');
+		notes.id = "character_notes";
+		notes.className = "w3-display-topmiddle under-navbar central_content tab-page"
+		document.getElementById("main_content").appendChild(notes);
+	}
+
+	notes.innerHTML = content
+
+	document.getElementById("note_save").addEventListener("click", function(event) {save_note(false);});
+	document.getElementById("note_delete").addEventListener("click", function(event){
+		if (state.selected_noteid === null)
+		{
+			post_error(getLangString("string_error_no_note_loaded"));
+			return;
+		}
+		noYesConfirm(
+			getLangString("web_label_note_delet")+"?",
+			function (){
+				delete_note();
+			},
+			getLangString("web_label_ok"),
+			getLangString("web_label_cancel")
+		);
+	});
+	document.getElementById("note_new").addEventListener("click", function(event) {new_note();}); 
+
+	get_remote_resource('./getCharacterNotesList?charId='+state.selected_charid, 'json',  setupNoteList);
+
+	notes.style.display = 'block';
+}
+
 
 // todo: 
 function w3_open() {
@@ -1350,11 +1750,60 @@ function w3_close() {
 	document.getElementById("openNav").style.display = "inline-block";
 }
 
+//noyes
+
+function noYesConfirm(title, yes_func, yes_text = "Y", no_text = "N", details="", no_func = function(){})
+{
+	state = getState();
+	if (state.noyes_modal != null){
+		// inject the modal
+		var modal_area = document.getElementById('noyesbox_area');	
+		modal_area.innerHTML = state.noyes_modal;
+	
+		var modal = document.getElementById('noyes_modal');
+		modal.style.display = 'block';
+
+		// setup the modal
+		document.getElementById('noyes_modal_title').innerHTML = title;
+	
+		var yes_button = document.getElementById('input_modal_yes');
+		yes_button.innerHTML = yes_text;
+		yes_button.addEventListener('click', function(event){
+			yes_func();
+			modal.style.display='none';
+			modal.remove();
+		});
+
+		var no_button = document.getElementById('input_modal_no');
+		no_button.innerHTML = no_text;
+		no_button.addEventListener('click', function(event){
+			no_func();
+			modal.style.display='none';
+			modal.remove();
+		});
+	
+	}
+	else{
+		console.log("not yet! executing yes_func directly!");
+		yes_func(); // this is going to bite me in the ass lol
+	}
+}
+
+
+
 //error
 
+function show_toast(message, toast_class, showtime = 3000){
+	var x = document.getElementById("msg_toast");
+	x.className = "show "+toast_class;
+	x.innerHTML = message;
+	setTimeout(function(){ x.className = x.className.replace("show", ""); }, showtime);
+}
+
 function show_error_toast(text = 'Error') {
-	var x = document.getElementById("error_toast");
-	x.className = "show";
-	x.innerHTML = text;
-	setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
-  }
+	show_toast(text, "error_toast");
+}
+
+function show_msg_toast(text = 'Message') {
+	show_toast(text, "msg_toast");
+}

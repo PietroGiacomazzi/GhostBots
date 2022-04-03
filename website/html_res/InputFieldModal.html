@@ -2,14 +2,14 @@
     <div class="w3-modal-content">
       <div class="w3-container">
         <span onclick="document.getElementById('input_modal').style.display='none'" class="w3-button w3-display-topright">&times;</span>
-            <h2 id="input_modal_title"> </h2>
-            <form id="input_modal_form" autocomplete="off" action="">
-            <div class="autocomplete">
-              <input id="input_modal_myInput" type="text" name="myInput" placeholder="">
-            </div>
-            <input type="submit" style="display:none">
+        <h2 id="input_modal_title"> </h2>
+        <form id="input_modal_form" autocomplete="off" action="" onsubmit="return false;">
+          <div class="autocomplete">
+            <input id="input_modal_myInput" type="text" name="myInput" placeholder="">
+          </div>
+          <input type="submit" style="display:none">
         </form>
-        <button id="input_modal_submit" class="w3-btn w3-green modal-submit"></button>
+        <button id="input_modal_submit" class="w3-btn w3-green modal-submit modal-button"></button>
       </div>
     </div>
 </div>

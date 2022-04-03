@@ -99,6 +99,11 @@
 	"string_error_usernotfound_bot": "User {} not found in the user database!",
 	"string_error_usernotfound_discord": "User {} not found by discord.py!",
 	"string_error_invalid_shortid": "'{}' is not a valid short id",
+	"string_error_no_character_loaded": "No character loaded",
+	"string_error_no_note_loaded": "No note is selected",
+	"string_error_invalid_note": "Note does not exist",
+	"string_msg_note_saved": "Note saved",
+	"string_msg_note_deleted": "Note deleted",
 
 	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
 	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
@@ -191,5 +196,14 @@
 	"web_label_valtype_4": "Add",
 	"web_label_valtype_5": "Delete",
 	"web_label_sidebar_close": "X Close",
-	"web_label_change_player": "Reassign character"
+	"web_label_change_player": "Reassign character",
+	"web_label_character_notes": "Character notes",
+	"web_label_character_tab": "Character",
+	"web_label_note_new": "New note",
+	"web_label_note_save": "Save note",
+	"web_label_note_delet": "Delete note",
+	"web_label_note_name": "Note name",
+	"web_label_ok": "OK",
+	"web_label_cancel": "Cancel",
+	"web_error_invalid_tab": "Tab id '{0}' is not valid"
 }
