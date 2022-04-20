@@ -259,7 +259,7 @@ class GetValidateRecord:
             return results[0]
         else:
             raise self.constructNotFoundError()
-    def validate(self) -> tuple[bool, web.utils.Storage | DBException]:
+    def validate(self):# -> tuple[bool, web.utils.Storage | DBException]:
         """ Performs validation logic with the parameters specified when the GetValidateRecord object was created:
 
         If at least one record is found, this method returns (True, Record) 
