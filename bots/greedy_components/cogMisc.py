@@ -6,6 +6,7 @@ from greedy_components import greedyBase as gb
 from greedy_components import greedySecurity as gs
 
 import lang.lang as lng
+from support import ghostDB
 import support.utils as utils
 
 class GreedyGhostCog_Misc(gb.GreedyGhostCog):
@@ -62,7 +63,7 @@ class GreedyGhostCog_Misc(gb.GreedyGhostCog):
 
         userid = user.id
 
-        iu, _ = self.bot.dbm.isValidUser(userid)
+        iu, _ = ghostDB.GetValidateBotUser(self.bot.dbm.db, userid).validate()
         if not iu:
             self.bot.dbm.registerUser(userid, user.name, self.bot.config['BotOptions']['default_language'])
             await self.bot.atSendLang(ctx, "string_mgs_user_registered")

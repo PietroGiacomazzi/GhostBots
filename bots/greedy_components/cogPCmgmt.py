@@ -329,7 +329,7 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
             raise gb.BotException('Specifica un pg!')
 
         charid = args[0].lower()
-        isChar, character = self.bot.dbm.isValidCharacter(charid)
+        isChar, character = ghostDB.GetValidateCharacter(self.bot.dbm.db, charid).validate()
         if not isChar:
             raise gb.BotException(f"Il personaggio {charid} non esiste!")
 
@@ -341,7 +341,7 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
         playerid = character['player']
         
         st, _ = self.bot.dbm.isStorytellerForCharacter(issuer, charid)
-        ba, _ = self.bot.dbm.isValidBotAdmin(issuer)  
+        ba, _ = ghostDB.GetValidateBotAdmin(self.bot.dbm.db, issuer).validate()
         co = playerid == issuer  
         ce = st or ba # can edit
         if co and (not ce):

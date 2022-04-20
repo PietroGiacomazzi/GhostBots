@@ -11,14 +11,14 @@ class CharacterConverter(Converter):
 
     async def convert(self, ctx: Context, argument: str) -> Any:
         bot: gb.GreedyGhost = ctx.bot
-        return bot.dbm.getCharacter(argument)
+        return ghostDB.GetValidateCharacter(bot.dbm.db, argument).get()
 
 class ChronicleConverter(Converter):
     """Convert the given character id into a character object."""
 
     async def convert(self, ctx: Context, argument: str) -> Any:
         bot: gb.GreedyGhost = ctx.bot
-        return bot.dbm.getChronicle(argument)
+        return ghostDB.GetValidateChronicle(bot.dbm.db, argument).get()
 
 class RegisteredUserConverter(UserConverter):
     """Convert the given user into a registered bot user"""
@@ -29,7 +29,7 @@ class RegisteredUserConverter(UserConverter):
         except UserNotFound:
             raise gb.GreedyCommandError('string_error_usernotfound_discord', (argument,))
         bot: gb.GreedyGhost = ctx.bot
-        return bot.dbm.getUser(user.id)
+        return ghostDB.GetValidateBotUser(bot.dbm.db, user.id).get()
 
 class StorytellerConverter(RegisteredUserConverter):
     """Convert the given user into a storyteller"""
@@ -37,7 +37,7 @@ class StorytellerConverter(RegisteredUserConverter):
     async def convert(self, ctx: Context, argument: str) -> Any:
         user = await super().convert(ctx, argument)
         bot: gb.GreedyGhost = ctx.bot
-        return bot.dbm.getStoryTeller(user['userid'])
+        return ghostDB.GetValidateBotStoryTeller(bot.dbm.db, user['userid']).get()
 
 class GreedyShortIdConverter(Converter):
     """ Validates the input string as having no spaces """
@@ -53,7 +53,7 @@ class TraitTypeConverter(Converter):
 
     async def convert(self, ctx: Context, argument: str) -> Any:
         bot: gb.GreedyGhost = ctx.bot
-        return ghostDB.GetValidateTraitType(argument.lower()).get(bot.dbm.db)
+        return ghostDB.GetValidateTraitType(bot.dbm.db, argument.lower()).get()
 
 class NoYesConverter(Converter):
     """ Converts all accepted true/false inputs to a boolean """
@@ -70,15 +70,14 @@ class LanguageConverter(Converter):
 
     async def convert(self, ctx: Context, argument: str) -> bool:
         bot: gb.GreedyGhost = ctx.bot
-        return ghostDB.GetValidateLanguage(argument.upper()).get(bot.dbm.db)
+        return ghostDB.GetValidateLanguage(bot.dbm.db, argument.upper()).get()
 
 class TraitConverter(Converter):
     """ Validates a trait id NOTE: LANGUAGE NOT YET SUPPORTED"""
     #TODO language support!
     async def convert(self, ctx: Context, argument: str) -> bool:
         bot: gb.GreedyGhost = ctx.bot
-        return bot.dbm.getTraitInfo(argument.lower())
-
+        return ghostDB.GetValidateTrait(bot.dbm.db, argument.lower()).get()
 
 # numeric stuff
 

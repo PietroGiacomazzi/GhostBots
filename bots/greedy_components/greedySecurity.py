@@ -29,23 +29,23 @@ class CommandSecurity:
 class IsUser(CommandSecurity):
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
-        return self.bot.dbm.isValidUser(issuer)
+        return ghostDB.GetValidateBotUser(self.bot.dbm.db, issuer).validate()
 
 class IsStoryteller(CommandSecurity):
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
-        return self.bot.dbm.isValidStoryteller(issuer)
+        return ghostDB.GetValidateBotStoryTeller(self.bot.dbm.db, issuer).validate()
 
 class IsAdmin(CommandSecurity):
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
-        return self.bot.dbm.isValidBotAdmin(issuer)
+        return ghostDB.GetValidateBotAdmin(self.bot.dbm.db, issuer).validate()
 
 class IsAdminOrStoryteller(CommandSecurity):
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
-        st, _ = self.bot.dbm.isValidStoryteller(issuer)
-        ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
+        st, _ = ghostDB.GetValidateBotStoryTeller(self.bot.dbm.db, issuer).validate()
+        ba, _ = ghostDB.GetValidateBotAdmin(self.bot.dbm.db, issuer).validate()
         valid = st or ba
         comment = None if valid else SecurityCheckException("L'Utente non è Admin o Storyteller") 
         return valid, comment
@@ -53,11 +53,11 @@ class IsAdminOrStoryteller(CommandSecurity):
 class CanEditRunningSession(CommandSecurity): # this needs to exist separately from genIsAdminOrChronicleStoryteller because the chronicle is not available in the command parameters, but rather is a property of the current channel
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer_id = str(self.ctx.message.author.id)
-        sr, session = ghostDB.GetValidateRunningSession(self.ctx.channel.id).validate(self.bot.dbm.db)
+        sr, session = ghostDB.GetValidateRunningSession(self.bot.dbm.db, self.ctx.channel.id).validate()
         valid = sr
         comment = ''
         if valid:
-            ba, _ = self.bot.dbm.isValidBotAdmin(issuer_id)
+            ba, _ = ghostDB.GetValidateBotAdmin(self.bot.dbm.db, issuer_id).validate()
             st, _ = self.bot.dbm.isChronicleStoryteller(issuer_id, session['chronicle'])
             valid = ba or st
             comment = comment if valid else SecurityCheckException("Non hai il ruolo di Storyteller per questa cronaca")
@@ -88,7 +88,7 @@ def genIsAdminOrChronicleStoryteller(target_chronicle):
             chronicle = await self.getParameter(target_chronicle, args)
             chronid = chronicle['id']
             st, _ = self.bot.dbm.isChronicleStoryteller(issuer_id, chronid)
-            ba, _ = self.bot.dbm.isValidBotAdmin(issuer_id)
+            ba, _ = ghostDB.GetValidateBotAdmin(self.bot.dbm.db, issuer_id).validate()
             valid = st or ba
             comment = None if valid else SecurityCheckException("L'Utente non è Admin o Storyteller della cronaca {}", (chronicle['name'],)) 
             return valid, comment
@@ -102,7 +102,7 @@ def genCanUnlinkStorytellerFromChronicle(target_chronicle, optional_target_user)
             target_storyteller = await self.tryGetParameter(optional_target_user, args, issuer_id)
             target_st = target_storyteller['userid']
             chronid = chronicle['id']
-            ba, _ = self.bot.dbm.isValidBotAdmin(issuer_id)
+            ba, _ = ghostDB.GetValidateBotAdmin(self.bot.dbm.db, issuer_id).validate()
             st, _ = self.bot.dbm.isChronicleStoryteller(target_st, chronid)
             if st and ba: # Bot admin can unlink anything
                 return True, None
@@ -128,8 +128,8 @@ def genCanCreateCharactertoSomeone(optional_target_user):
             valid = True
             comment = ''
             if target_usr_id != issuer_id:
-                st, _ = self.bot.dbm.isValidStoryteller(issuer_id)
-                ba, _ = self.bot.dbm.isValidBotAdmin(issuer_id)
+                st, _ = ghostDB.GetValidateBotStoryTeller(self.bot.dbm.db, issuer_id).validate()
+                ba, _ = ghostDB.GetValidateBotAdmin(self.bot.dbm.db, issuer_id).validate()
                 valid = st or ba
                 if not valid:
                     comment = SecurityCheckException("Per creare un pg ad un altra persona è necessario essere Admin o Storyteller") 
@@ -145,7 +145,7 @@ def genCanEditCharacter(target_character):
             owner = character['owner']
 
             st, _ = self.bot.dbm.isStorytellerForCharacter(issuer, charid)
-            ba, _ = self.bot.dbm.isValidBotAdmin(issuer)
+            ba, _ = ghostDB.GetValidateBotAdmin(self.bot.dbm.db, issuer).validate()
             co = owner == issuer
             ce = st or ba 
             if co and (not ce):

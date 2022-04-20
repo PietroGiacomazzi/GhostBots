@@ -1,7 +1,6 @@
 from typing import Type
 from discord.ext import commands
 import web
-from deprecation import deprecated
 
 from lang.lang import LangSupportException
 from .utils import *
@@ -148,14 +147,6 @@ insert into CharacterTrait
         if len(sts) == 0:
             raise DBException(f'Non ci sono sessioni attive in questo canale, oppure questa cronoca non ha un storyteller')
         return sts.list()
-    @deprecated()
-    def isUser(self, userid):
-        """ Gets user info if present. DEPRECATED, USE isValidUser"""
-        results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))
-        if len(results):
-            return True, results[0]
-        else:
-            return False, None
     def registerUser(self, userid, name, langId):
         """ Registers a user """
         self.db.insert('People', userid=userid, name=name, langId = langId)
@@ -168,8 +159,8 @@ insert into CharacterTrait
         u = self.db.delete('People', where='userid=$userid', vars=dict(userid=userid))
     def tryRemoveUser(self, userid, dummyuserid) -> None:
         """ Attempts to remove an user but does not if the user is an admin or a storyteller with chronicles """
-        ba, _ = self.isValidBotAdmin(userid)
-        st, _ = self.isValidStoryteller(userid)
+        ba, _ = GetValidateBotAdmin(self.db, userid).validate()
+        st, _ = GetValidateBotStoryTeller(self.db, userid).validate()
         st_hc = False
         if st:
             st_hc = self.hasSTAnyChronicles(userid)
@@ -182,7 +173,7 @@ insert into CharacterTrait
         return False
     def updateUser(self, userid, name) -> None:
         """ Updates a user's name """
-        if self.getUser(userid)['name'] != name:
+        if GetValidateBotUser(self.db, userid).get()['name'] != name:
             u = self.db.update("People", where='userid = $userid', vars=dict(userid=userid), name = name)
     def getUsers(self) -> list:
         """ Get all registered users """
@@ -194,16 +185,6 @@ insert into CharacterTrait
             return results[0]['langId']
         else:
             raise DBException("Utente non trovato per la ricerca della lingua")
-    @deprecated()
-    def isBotAdmin(self, userid): # TODO remove
-        """Is this user an admin?"""
-        admins = self.db.select('BotAdmin',  where='userid = $userid', vars=dict(userid=userid))
-        return bool(len(admins)), (admins[0] if (len(admins)) else None)
-    @deprecated()
-    def isStoryteller(self, userid): # TODO remove
-        """Is this user a storyteller? DEPRECATED, USE isValidStoryTeller!"""
-        storytellers = self.db.select('Storyteller',  where='userid = $userid', vars=dict(userid=userid))
-        return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else None)
     def isStorytellerForCharacter(self, userid, charid):
         """Is this user a storyteller for this character?"""
         query = """
@@ -253,111 +234,7 @@ where cc.playerchar = $charid
     def unnameStoryTeller(self, userid):
         """ Remove storyteller status """
         return self.db.delete('Storyteller', where='userid=$userid', vars=dict(userid=userid)) #foreign key is set to cascade. this will also unlink from all chronicles
-    ## New style validators here
-    # the idea is: getter throws exception and returns only data
-    # Setter returns a "validated" object with a bool and either the object OR the exception
-    # TODO: maybe do classes for these?
-    def getTraitInfo(self, trait_id: str):
-        """Get trait info"""
-        traits = self.db.query("""
-    SELECT
-        t.*,
-        tt.textbased as textbased,
-        t.name as traitName
-    FROM Trait t
-    join TraitType tt on (t.traittype = tt.id)
-    WHERE t.id = $trait 
-    """, vars=dict(trait=trait_id))
-        if len(traits) == 0:
-            raise DBException('string_TRAIT_does_not_exist', (trait_id,))
-        return traits[0]
-    def isValidTrait(self, traitid: str): # TODO lang Version
-        """Does this trait exist?"""
-        try:
-            traitinfo = self.getTraitInfo(traitid)
-            return True, traitinfo
-        except DBException as e:
-            return False, e
-    def getUser(self, userid):
-        """ Gets user info """
-        results = self.db.select('People', where='userid=$userid', vars=dict(userid=userid))
-        if len(results):
-            return results[0]
-        else:
-            raise DBException("Utente non trovato")
-    def isValidUser(self, userid):
-        """ Is this a valid User?  """
-        try:
-            userdata = self.getUser(userid)
-            return True, userdata
-        except DBException as e:
-            return False, e
-    def getStoryTeller(self, userid):
-        """ Gets storyteller info """
-        results = self.db.query("""
-SELECT p.*
-FROM Storyteller s
-join People p on (p.userid = s.userid)
-where s.userid = $userid
-""", vars=dict(userid=userid))
-        if len(results):
-            return results[0]
-        else:
-            raise DBException("L'utente specificato non è uno storyteller")
-    def isValidStoryteller(self, userid):
-        """ Is this a valid Storyteller?  """
-        try:
-            userdata = self.getStoryTeller(userid)
-            return True, userdata
-        except DBException as e:
-            return False, e
-    def getBotAdmin(self, userid):
-        """ Gets storyteller info """
-        results = self.db.query("""
-SELECT p.*
-FROM BotAdmin ba
-join People p on (p.userid = ba.userid)
-where ba.userid = $userid
-""", vars=dict(userid=userid))
-        if len(results):
-            return results[0]
-        else:
-            raise DBException("L'utente specificato non è un Bot Admin")
-    def isValidBotAdmin(self, userid):
-        """ Is this a valid BotAdmin?  """
-        try:
-            userdata = self.getBotAdmin(userid)
-            return True, userdata
-        except DBException as e:
-            return False, e
-    def getChronicle(self, chronicleid):
-        """ Gets chronicle info """
-        results = self.db.select('Chronicle', where='id=$id', vars=dict(id=chronicleid))
-        if len(results):
-            return results[0]
-        else:
-            raise DBException("La cronaca '{}' non esiste!", (chronicleid,))
-    def isValidChronicle(self, chronicleid: str):
-        """Is this a valid chronicle? """   
-        try:
-            chronicle = self.getChronicle(chronicleid)
-            return True, chronicle
-        except DBException as e:
-            return False, e
-    def getCharacter(self, charid: str):
-        """ validates charid and returns the relevant character """
-        results = self.db.select('PlayerCharacter', where='id=$id', vars=dict(id=charid))
-        if len(results):
-            return results[0]
-        else:
-            raise DBException("Il personaggio '{}' non esiste!", (charid,))
-    def isValidCharacter(self, charid: str):
-        """Is this a valid character? """   
-        try:
-            character = self.getCharacter(charid)
-            return True, character
-        except DBException as e:
-            return False, e        
+           
     ## Validators without an underlying Getter go here
     def isChronicleStoryteller(self, userid, chronicle):
         """Is this user a Storyteller for this chronicle?"""
@@ -366,28 +243,29 @@ where ba.userid = $userid
 
 class GetValidateRecord:
     """ A Class that provides a standardized get/vallidate structure for database records """
-    def __init__(self):
-        self.notfoundMsg = 'string_error_record_not_found'
-    def results(self, db: web.db.DB) -> web.db.ResultSet:
+    def __init__(self, db: web.db.DB, notfound_msg = 'string_error_record_not_found'):
+        self.notfoundMsg = notfound_msg
+        self.db = db
+    def results(self) -> web.db.ResultSet:
         """ Performs the search with the parameters specified at object creation """
         raise NotImplementedError()
-    def get(self, db: web.db.DB) -> web.utils.Storage:
+    def get(self) -> web.utils.Storage:
         """ Performs get logic with the parameters specified when the GetValidateRecord object was created:
 
         If at least one record is found, the first one is returned, 
         If no record is found, a DBException is raised  """
-        results = self.results(db)
+        results = self.results()
         if len(results):
             return results[0]
         else:
             raise self.constructNotFoundError()
-    def validate(self, db: web.db.DB) -> tuple[bool, web.utils.Storage | DBException]:
+    def validate(self) -> tuple[bool, web.utils.Storage | DBException]:
         """ Performs validation logic with the parameters specified when the GetValidateRecord object was created:
 
         If at least one record is found, this method returns (True, Record) 
         If no record is found, this method returns (False, DBException), where the exception is the one thrown by the get method """
         try:
-            return True, self.get(db)
+            return True, self.get()
         except DBException as e:
             return False, e
     def constructNotFoundError(self) -> DBException:
@@ -396,45 +274,104 @@ class GetValidateRecord:
 
 class GetValidateCharacterNote(GetValidateRecord):
     """ Handles validation of Character notes """
-    def __init__(self,  charid: str, noteid: str, userid: str):
-        self.notfoundMsg = 'string_error_invalid_note'
+    def __init__(self, db: web.db.DB, charid: str, noteid: str, userid: str):
+        super().__init__(db, 'string_error_invalid_note')
         self.charid = charid
         self.noteid = noteid
         self.userid = userid
-    def results(self, db: web.db.DB):
-        return db.select('CharacterNotes', where='charid=$charId and userid=$userId and noteid=$noteId', vars=dict(charId=self.charid, noteId=self.noteid, userId=self.userid))
+    def results(self):
+        return self.db.select('CharacterNotes', where='charid=$charId and userid=$userId and noteid=$noteId', vars=dict(charId=self.charid, noteId=self.noteid, userId=self.userid))
 
 class GetValidateLanguage(GetValidateRecord):
     """ Handles validation of Language IDs """
-    def __init__(self, langId: str):
+    def __init__(self, db: web.db.DB, langId: str):
+        super().__init__(db)
         self.langId = langId
-    def results(self, db: web.db.DB) -> web.db.ResultSet:
-        return db.select('Languages', where='langId=$id', vars=dict(id=self.langId))
+    def results(self) -> web.db.ResultSet:
+        return self.db.select('Languages', where='langId=$id', vars=dict(id=self.langId))
     def constructNotFoundError(self) -> DBException:
         return DBException("string_error_invalid_language_X", (self.langId,))
     
 class GetValidateTraitType(GetValidateRecord):
     """ Handles validation of Trait Types """
-    def __init__(self, traittypeid: str):
+    def __init__(self, db: web.db.DB, traittypeid: str):
+        super().__init__(db)
         self.traittypeid = traittypeid
-    def results(self, db: web.db.DB) -> web.db.ResultSet:
-        return db.select('TraitType', where='id=$id', vars=dict(id=self.traittypeid))
+    def results(self) -> web.db.ResultSet:
+        return self.db.select('TraitType', where='id=$id', vars=dict(id=self.traittypeid))
     def constructNotFoundError(self) -> DBException:
         return DBException("Il tipo di tratto '{}' non esiste!", (self.traittypeid,))
 
 class GetValidateRunningSession(GetValidateRecord):
     """ Handles validation of game sessions running on Discord text channels """
-    def __init__(self, channelid: str):
+    def __init__(self, db: web.db.DB, channelid: str):
+        super().__init__(db, "Nessuna sessione attiva in questo canale!")
         self.channelid = channelid
-        self.notfoundMsg = "Nessuna sessione attiva in questo canale!"
-    def results(self, db: web.db.DB) -> web.db.ResultSet:
-        return db.select('GameSession', where='channel=$channel', vars=dict(channel=self.channelid))
+    def results(self) -> web.db.ResultSet:
+        return self.db.select('GameSession', where='channel=$channel', vars=dict(channel=self.channelid))
 
-class GetValidateCharacters(GetValidateRecord):
+class GetValidateCharacter(GetValidateRecord):
     """ Handles validation of player characters by character id """
-    def __init__(self, charid: str):
+    def __init__(self, db: web.db.DB, charid: str):
+        super().__init__(db)
         self.charid = charid
-    def results(self, db: web.db.DB) -> web.db.ResultSet:
-        return db.select('PlayerCharacter', where='id=$id', vars=dict(id=self.charid))
+    def results(self) -> web.db.ResultSet:
+        return self.db.select('PlayerCharacter', where='id=$id', vars=dict(id=self.charid))
     def constructNotFoundError(self) -> DBException:
         return DBException("Il personaggio '{}' non esiste!", (self.charid,))
+
+class GetValidateChronicle(GetValidateRecord):
+    """ Handles validation of chronicles by chronicle id """
+    def __init__(self, db: web.db.DB, chronicleid: str):
+        super().__init__(db)
+        self.chronicleid = chronicleid
+    def results(self) -> web.db.ResultSet:
+        return self.db.select('Chronicle', where='id=$id', vars=dict(id=self.chronicleid))
+    def constructNotFoundError(self) -> DBException:
+        return DBException("La cronaca '{}' non esiste!", (self.chronicleid,))
+
+class GetValidateBotUser(GetValidateRecord):
+    """ Handles validation of Bot Users by discord id """
+    def __init__(self, db: web.db.DB, userid: str):
+        super().__init__(db, 'Utente non trovato')
+        self.userid = userid
+    def results(self) -> web.db.ResultSet:
+        return self.db.select('People', where='userid=$userid', vars=dict(userid=self.userid))
+
+class GetValidateBotAdmin(GetValidateRecord):
+    """ Handles validation of Bot Admins by discord id """
+    def __init__(self, db: web.db.DB, userid: str):
+        super().__init__(db, "L'utente specificato non è un Bot Admin")
+        self.userid = userid
+    def results(self) -> web.db.ResultSet:
+        return self.db.query("""SELECT p.*
+FROM BotAdmin ba
+join People p on (p.userid = ba.userid)
+where ba.userid = $userid""", vars=dict(userid=self.userid))
+
+class GetValidateBotStoryTeller(GetValidateRecord):
+    """ Handles validation of Bot Storytellers by discord id """
+    def __init__(self, db: web.db.DB, userid: str):
+        super().__init__(db, "L'utente specificato non è uno storyteller")
+        self.userid = userid
+    def results(self) -> web.db.ResultSet:
+        return self.db.query("""SELECT p.*
+FROM Storyteller s
+join People p on (p.userid = s.userid)
+where s.userid = $userid""", vars=dict(userid=self.userid))
+
+class GetValidateTrait(GetValidateRecord):
+    """ Handles validation of untranslated Traits by raw id """
+    def __init__(self, db: web.db.DB, traitid: str):
+        super().__init__(db)
+        self.traitid = traitid
+    def results(self) -> web.db.ResultSet:
+        return self.db.query("""SELECT
+        t.*,
+        tt.textbased as textbased,
+        t.name as traitName
+    FROM Trait t
+    join TraitType tt on (t.traittype = tt.id)
+    WHERE t.id = $trait""", vars=dict(trait=self.traitid))
+    def constructNotFoundError(self) -> DBException:
+        return DBException('string_TRAIT_does_not_exist', (self.traitid,))

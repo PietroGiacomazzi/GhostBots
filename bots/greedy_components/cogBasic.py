@@ -21,7 +21,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
         for guild in self.bot.guilds:
             print(f'{guild.name} (id: {guild.id})')
         #add self to user list
-        iu, _ = self.bot.dbm.isValidUser(self.bot.user.id)
+        iu, _ = ghostDB.GetValidateBotUser(self.bot.dbm.db, self.bot.user.id).validate()
         if not iu:
             self.bot.dbm.registerUser(self.bot.user.id, self.bot.user.name, self.bot.config['BotOptions']['default_language'])
         # notify debug user that bot is online
@@ -41,7 +41,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
                 msgsplit = ctx.message.content.split(" ")
                 msgsplit[0] = msgsplit[0][1:] # toglie prefisso
                 charid = msgsplit[0]
-                ic, _ = self.bot.dbm.isValidCharacter(charid)
+                ic, _ = ghostDB.GetValidateCharacter(self.bot.dbm.db, charid).validate()
                 if ic:
                     pgmanage_cog: cogPCmgmt.GreedyGhostCog_PCmgmt = self.bot.get_cog(cogPCmgmt.GreedyGhostCog_PCmgmt.__name__)
                     if pgmanage_cog is not None:
@@ -89,7 +89,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
     
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        iu, _ = self.bot.dbm.isValidUser(member.id)
+        iu, _ = ghostDB.GetValidateBotUser(self.bot.dbm.db, member.id).validate()
         if not iu:
             self.bot.dbm.registerUser(member.id, member.name, self.bot.config['BotOptions']['default_language'])
 
@@ -99,6 +99,6 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
 
     @commands.Cog.listener()
     async def on_member_update(self, member_before: discord.Member, member_after: discord.Member):
-        iu, _ = self.bot.dbm.isValidUser(member_after.id)
+        iu, _ = ghostDB.GetValidateBotUser(self.bot.dbm.db, member_after.id).validate()
         if iu:
             self.bot.dbm.updateUser(member_after.id, member_after.name)

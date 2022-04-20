@@ -159,7 +159,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, newTrait_description)
             return
                 
-        istrait, _ = self.bot.dbm.isValidTrait(traitid)
+        istrait, _ = ghostDB.GetValidateTrait(self.bot.dbm.db, traitid).validate()
         if istrait:
             raise gb.BotException(f"Il tratto {traitid} esiste già!")
         
@@ -194,11 +194,11 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, newTrait_description)
             return
         
-        istrait, old_trait = self.bot.dbm.isValidTrait(old_traitid)
+        istrait, old_trait = ghostDB.GetValidateTrait(self.bot.dbm.db, old_traitid).validate()
         if not istrait:
             raise gb.BotException(f"Il tratto {old_traitid} non esiste!")
         
-        istrait, new_trait = self.bot.dbm.isValidTrait(new_traitid)
+        istrait, new_trait = ghostDB.GetValidateTrait(self.bot.dbm.db, new_traitid).validate()
         if istrait and (old_traitid!=new_traitid):
             raise gb.BotException(f"Il tratto {new_traitid} esiste già!")
 
@@ -275,7 +275,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         target_st = user['userid'] 
         name = user['name']
 
-        t_st, _ = self.bot.dbm.isValidStoryteller(target_st)
+        t_st, _ = ghostDB.GetValidateBotStoryTeller(self.bot.dbm.db, target_st).validate()
         if t_st:
             raise gb.BotException(f"L'utente selezionato è già uno storyteller")
         
