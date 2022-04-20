@@ -1,3 +1,4 @@
+from typing import Type
 from discord.ext import commands
 import web
 from deprecation import deprecated
@@ -13,7 +14,7 @@ class DBException(LangSupportException):
 class DBManager:
     def __init__(self, config):
         self.cfg = config
-        self.db = None
+        self.db : web.db.DB = None
         self.reconnect()
     def reconnect(self):
         self.db = web.database(host=self.cfg['host'], port=int(self.cfg['port']),dbn=self.cfg['type'], user=self.cfg['user'], pw=self.cfg['pw'], db=self.cfg['database'])
@@ -356,68 +357,84 @@ where ba.userid = $userid
             character = self.getCharacter(charid)
             return True, character
         except DBException as e:
-            return False, e
-    def getGameSession(self, channelid: str):
-        """ Gets the session running in channelid """
-        results = self.db.select('GameSession', where='channel=$channel', vars=dict(channel=channelid))
-        if len(results):
-            return results[0]
-        else:
-            raise DBException("Nessuna sessione attiva in questo canale!")
-    def isSessionRunning(self, channelid: str):
-        """Is there a session running in channelid? """   
-        try:
-            result = self.getGameSession(channelid)
-            return True, result
-        except DBException as e:
-            return False, e
-    def isValidTraitType(self, traittypeid):
-        """Does this trait type exist?"""
-        try:
-            character = self.getTraitType(traittypeid)
-            return True, character
-        except DBException as e:
-            return False, e
-    def getTraitType(self, traittypeid):
-        """ validates traittypeid and returns the relevant trait type """
-        results =  self.db.select('TraitType', where='id=$id', vars=dict(id=traittypeid))
-        if len(results):
-            return results[0]
-        else:
-            raise DBException("Il tipo di tratto '{}' non esiste!", (traittypeid,))
-    def isValidLanguage(self, langId: str):
-        """Does this language exist in the db?"""
-        try:
-            language = self.getLanguage(langId)
-            return True, language
-        except DBException as e:
-            return False, e
-    def getLanguage(self, langId: str):
-        """ Validates langId and returns the relevant Language """
-        results =  self.db.select('Languages', where='langId=$id', vars=dict(id=langId))
-        if len(results):
-            return results[0]
-        else:
-            raise DBException("string_error_invalid_language_X", (langId,))
-    def isValidCharacterNote(self, charid: str, noteid: str, userid: str):
-        """Does this character note exist in the db?"""
-        try:
-            note = self.getCharacterNote(charid, noteid, userid)
-            return True, note
-        except DBException as e:
-            return False, e
-    def getCharacterNote(self,  charid: str, noteid: str, userid: str):
-        """ Validates character note and returns it """
-        results = self.db.select('CharacterNotes', where='charid=$charId and userid=$userId and noteid=$noteId', vars=dict(charId=charid, noteId=noteid, userId=userid))
-        if len(results):
-            return results[0]
-        else:
-            raise DBException("string_error_invalid_note")
-        
+            return False, e        
     ## Validators without an underlying Getter go here
     def isChronicleStoryteller(self, userid, chronicle):
         """Is this user a Storyteller for this chronicle?"""
         storytellers = self.db.select('StoryTellerChronicleRel', where='storyteller = $userid and chronicle=$chronicle' , vars=dict(userid=userid, chronicle = chronicle))
         return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else DBException("L'utente non è storyteller per questa cronaca"))
 
+class GetValidateRecord:
+    """ A Class that provides a standardized get/vallidate structure for database records """
+    def __init__(self):
+        self.notfoundMsg = 'string_error_record_not_found'
+    def results(self, db: web.db.DB) -> web.db.ResultSet:
+        """ Performs the search with the parameters specified at object creation """
+        raise NotImplementedError()
+    def get(self, db: web.db.DB) -> web.utils.Storage:
+        """ Performs get logic with the parameters specified when the GetValidateRecord object was created:
 
+        If at least one record is found, the first one is returned, 
+        If no record is found, a DBException is raised  """
+        results = self.results(db)
+        if len(results):
+            return results[0]
+        else:
+            raise self.constructNotFoundError()
+    def validate(self, db: web.db.DB) -> tuple[bool, web.utils.Storage | DBException]:
+        """ Performs validation logic with the parameters specified when the GetValidateRecord object was created:
+
+        If at least one record is found, this method returns (True, Record) 
+        If no record is found, this method returns (False, DBException), where the exception is the one thrown by the get method """
+        try:
+            return True, self.get(db)
+        except DBException as e:
+            return False, e
+    def constructNotFoundError(self) -> DBException:
+        """ Constructs and error that is goig to get thrown when no record is found"""
+        return DBException(self.notfoundMsg) 
+
+class GetValidateCharacterNote(GetValidateRecord):
+    """ Handles validation of Character notes """
+    def __init__(self,  charid: str, noteid: str, userid: str):
+        self.notfoundMsg = 'string_error_invalid_note'
+        self.charid = charid
+        self.noteid = noteid
+        self.userid = userid
+    def results(self, db: web.db.DB):
+        return db.select('CharacterNotes', where='charid=$charId and userid=$userId and noteid=$noteId', vars=dict(charId=self.charid, noteId=self.noteid, userId=self.userid))
+
+class GetValidateLanguage(GetValidateRecord):
+    """ Handles validation of Language IDs """
+    def __init__(self, langId: str):
+        self.langId = langId
+    def results(self, db: web.db.DB) -> web.db.ResultSet:
+        return db.select('Languages', where='langId=$id', vars=dict(id=self.langId))
+    def constructNotFoundError(self) -> DBException:
+        return DBException("string_error_invalid_language_X", (self.langId,))
+    
+class GetValidateTraitType(GetValidateRecord):
+    """ Handles validation of Trait Types """
+    def __init__(self, traittypeid: str):
+        self.traittypeid = traittypeid
+    def results(self, db: web.db.DB) -> web.db.ResultSet:
+        return db.select('TraitType', where='id=$id', vars=dict(id=self.traittypeid))
+    def constructNotFoundError(self) -> DBException:
+        return DBException("Il tipo di tratto '{}' non esiste!", (self.traittypeid,))
+
+class GetValidateRunningSession(GetValidateRecord):
+    """ Handles validation of game sessions running on Discord text channels """
+    def __init__(self, channelid: str):
+        self.channelid = channelid
+        self.notfoundMsg = "Nessuna sessione attiva in questo canale!"
+    def results(self, db: web.db.DB) -> web.db.ResultSet:
+        return db.select('GameSession', where='channel=$channel', vars=dict(channel=self.channelid))
+
+class GetValidateCharacters(GetValidateRecord):
+    """ Handles validation of player characters by character id """
+    def __init__(self, charid: str):
+        self.charid = charid
+    def results(self, db: web.db.DB) -> web.db.ResultSet:
+        return db.select('PlayerCharacter', where='id=$id', vars=dict(id=self.charid))
+    def constructNotFoundError(self) -> DBException:
+        return DBException("Il personaggio '{}' non esiste!", (self.charid,))

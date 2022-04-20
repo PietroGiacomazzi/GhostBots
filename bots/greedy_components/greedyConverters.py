@@ -2,6 +2,7 @@
 from typing import Any
 from greedy_components import greedyBase as gb
 from discord.ext.commands import Converter, Context, UserConverter, UserNotFound
+from support import ghostDB
 
 from support.utils import validate_id
 
@@ -52,7 +53,7 @@ class TraitTypeConverter(Converter):
 
     async def convert(self, ctx: Context, argument: str) -> Any:
         bot: gb.GreedyGhost = ctx.bot
-        return bot.dbm.getTraitType(argument.lower())
+        return ghostDB.GetValidateTraitType(argument.lower()).get(bot.dbm.db)
 
 class NoYesConverter(Converter):
     """ Converts all accepted true/false inputs to a boolean """
@@ -69,7 +70,7 @@ class LanguageConverter(Converter):
 
     async def convert(self, ctx: Context, argument: str) -> bool:
         bot: gb.GreedyGhost = ctx.bot
-        return bot.dbm.getLanguage(argument.upper())
+        return ghostDB.GetValidateLanguage(argument.upper()).get(bot.dbm.db)
 
 class TraitConverter(Converter):
     """ Validates a trait id NOTE: LANGUAGE NOT YET SUPPORTED"""

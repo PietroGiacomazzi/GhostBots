@@ -115,7 +115,7 @@ def validator_character(data: str) -> str:
 
 def validator_language(data: str) -> str:
     string = validator_str_range(1, 3)(data)
-    vl, _ = dbm.isValidLanguage(string)
+    vl, _ = ghostDB.GetValidateLanguage(string).validate(dbm.db)
     if not vl:
         raise WebException("Unsupported language", 400)
     else:
@@ -822,7 +822,7 @@ class getCharacterNote(APIResponse):
         if not can_edit:
             raise WebException("Permission denied", 403)
         
-        vn, note = dbm.isValidCharacterNote(charId, noteId, issuer)
+        vn, note = ghostDB.GetValidateCharacterNote(charId, noteId, issuer).validate(dbm.db)
         if not vn:
             raise WebException("No such note", 404)
             
@@ -873,7 +873,7 @@ class saveCharacterNote(APIResponse):
         if not can_edit:
             raise WebException("Permission denied", 403)
 
-        vn, _ = dbm.isValidCharacterNote(charId, noteId, issuer)
+        vn, _ =  ghostDB.GetValidateCharacterNote(charId, noteId, issuer).validate(dbm.db)
         if not vn:
             raise WebException("No such note", 404)
         
@@ -902,7 +902,7 @@ class deleteCharacterNote(APIResponse):
         if not can_edit:
             raise WebException("Permission denied", 403)
 
-        vn, _ = dbm.isValidCharacterNote(charId, noteId, issuer)
+        vn, _ =  ghostDB.GetValidateCharacterNote(charId, noteId, issuer).validate(dbm.db)
         if not vn:
             raise WebException("No such note", 404)
         

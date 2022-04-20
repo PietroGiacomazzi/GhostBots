@@ -104,6 +104,7 @@
 	"string_error_invalid_note": "Note does not exist",
 	"string_msg_note_saved": "Note saved",
 	"string_msg_note_deleted": "Note deleted",
+	"string_error_record_not_found": "Record not found",
 
 	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
 	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",

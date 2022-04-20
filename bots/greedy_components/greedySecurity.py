@@ -3,6 +3,7 @@ from typing import Any, Callable
 from greedy_components import greedyBase as gb
 from discord.ext import commands
 from lang.lang import LangSupportException
+from support import ghostDB
 
 class SecuritySetupError(Exception):
     pass
@@ -52,7 +53,7 @@ class IsAdminOrStoryteller(CommandSecurity):
 class CanEditRunningSession(CommandSecurity): # this needs to exist separately from genIsAdminOrChronicleStoryteller because the chronicle is not available in the command parameters, but rather is a property of the current channel
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer_id = str(self.ctx.message.author.id)
-        sr, session = self.bot.dbm.isSessionRunning(self.ctx.channel.id)
+        sr, session = ghostDB.GetValidateRunningSession(self.ctx.channel.id).validate(self.bot.dbm.db)
         valid = sr
         comment = ''
         if valid:
