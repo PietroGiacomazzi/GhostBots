@@ -34,7 +34,7 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
     @commands.before_invoke(gs.command_security(gs.IsUser))
     async def pgmod(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
-            response = 'Azioni disponibili:\n\n' + '\n'.join(list(map(lambda k: f'{k} - {pgmod_help[k][1]}', pgmod_help)))
+            response = utils.discord_text_format_mono('Azioni disponibili:\n\n' + '\n'.join(list(map(lambda k: f'{k} - {pgmod_help[k][1]}', pgmod_help))))
             await self.bot.atSend(ctx, response)
 
     @pgmod.command(name = 'create', brief = "Crea un personaggio", description = create_description)

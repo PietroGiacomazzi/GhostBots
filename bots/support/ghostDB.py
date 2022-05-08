@@ -242,7 +242,7 @@ where cc.playerchar = $charid
         return bool(len(storytellers)), (storytellers[0] if (len(storytellers)) else DBException("L'utente non è storyteller per questa cronaca"))
 
 class GetValidateRecord:
-    """ A Class that provides a standardized get/vallidate structure for database records """
+    """ A Class that provides a standardized get/validate structure for database records """
     def __init__(self, db: web.db.DB, notfound_msg = 'string_error_record_not_found'):
         self.notfoundMsg = notfound_msg
         self.db = db

@@ -95,11 +95,11 @@ query_addTraitLangs = """
 
 class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         
-    @commands.group(brief='Gestione personaggi')
+    @commands.group(brief='Gestione sistema di gioco')
     @commands.before_invoke(gs.command_security(gs.IsAdminOrStoryteller))
     async def gmadm(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
-            response = 'Azioni disponibili:\n\n' + '\n'.join(list(map(lambda k: f'{k} - {gmadm_help[k][1]}', gmadm_help)))
+            response = utils.discord_text_format_mono('Azioni disponibili:\n\n' + '\n'.join(list(map(lambda k: f'{k} - {gmadm_help[k][1]}', gmadm_help))))
             await self.bot.atSend(ctx, response)
 
     @gmadm.command(name = 'listChronicles', brief = gmadm_help['listChronicles'], description = listChronicles_description)

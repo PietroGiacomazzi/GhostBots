@@ -57,3 +57,8 @@ def validate_id(string: str) -> bool:
 
 def prettyHighlightError(args: list, i: int, width : int = 3) -> str:
     return " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
+
+#discord text formatting functions
+def discord_text_format_mono(string: str, language = "") -> str:
+    """ language can be empty, Markdown, Python... """
+    return f'```{language}\n{string}\n```'

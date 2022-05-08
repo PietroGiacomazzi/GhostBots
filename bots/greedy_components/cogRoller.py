@@ -115,7 +115,12 @@ strat_list = [
                 'sbrat',
                 'sbratt',
                 'srrat',
-                'rtsat'
+                'rtsat',
+                'stort',
+                'sarto',
+                'starto',
+                'strta',
+                'rsat'
                 ]
 
 def prettyRoll(roll: list, diff: int, canceled: int) -> str: # roll is assumed to be SORTED

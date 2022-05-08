@@ -132,7 +132,7 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
             return f"Personaggio: {pc['fullname']}\nScheda: {unparsed}"
         
         # detach stuff like ["exp+1"] to ["exp", "+1"]" or ["exp-", "1"] to ["exp", "-", "1"] in args
-        for op in ["+", "-"]:
+        for op in ["+", "-", "="]:
             idx = args[0].find(op)
             if idx > 0:
                 args = [args[0][:idx]] + [args[0][idx:]] + args[1:]
