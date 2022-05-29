@@ -90,7 +90,7 @@ def prettyTextTrait(trait, lid: str, lp: lng.LanguageStringProvider) -> str:
     return f"{trait['traitName']}: {trait['text_value']}"
 
 def prettyGeneration(trait, lid: str, lp: lng.LanguageStringProvider) -> str:
-    return f"{13 - trait['cur_value']}a generazione\n{prettyDotTrait(trait)}"
+    return f"{13 - trait['cur_value']}a generazione\n{prettyDotTrait(trait, lid, lp)}"
 
 def getTraitFormatter(trait: object) -> FormatterType:
     # formattatori specifici
