@@ -15,13 +15,14 @@ import support.ghostDB as ghostDB
 newTrait_description = """Argomenti: <id> <tipo> <tracker> <standard> <nome completo>
 
 <id> non ammette spazi, + e -.
-<standard> ammette [y, s, 1] per Sì e [n, 0] per No
-<tipo> ammette un tipo di tracker valido, usare .gmadm trackertypes per avere una lista
+<tipo> ammette un tipo di tracker valido, usare .gmadm traittypes per avere una lista
 <tracker> ammette un numero tra i seguenti:
     0: Nessun tracker (Elementi normali di scheda)
     1: Punti con massimo (Volontà, Sangue...)
     2: Danni (salute...)
     3: Punti senza massimo (esperienza...)
+<standard> ammette [y, s, 1] per Sì e [n, 0] per No
+<nome completo> ammette spazi
 """
 
 listChronicles_description = "Nessun argomento richiesto"
@@ -159,7 +160,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, newTrait_description)
             return
                 
-        istrait, _ = ghostDB.GetValidateTrait(self.bot.dbm.db, traitid).validate()
+        istrait, _ = self.bot.dbm.validators.getValidateTrait(traitid).validate()
         if istrait:
             raise gb.BotException(f"Il tratto {traitid} esiste già!")
         
@@ -194,11 +195,11 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, newTrait_description)
             return
         
-        istrait, old_trait = ghostDB.GetValidateTrait(self.bot.dbm.db, old_traitid).validate()
+        istrait, old_trait = self.bot.dbm.validators.getValidateTrait( old_traitid).validate()
         if not istrait:
             raise gb.BotException(f"Il tratto {old_traitid} non esiste!")
         
-        istrait, new_trait = ghostDB.GetValidateTrait(self.bot.dbm.db, new_traitid).validate()
+        istrait, new_trait = self.bot.dbm.validators.getValidateTrait(new_traitid).validate()
         if istrait and (old_traitid!=new_traitid):
             raise gb.BotException(f"Il tratto {new_traitid} esiste già!")
 
@@ -275,7 +276,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         target_st = user['userid'] 
         name = user['name']
 
-        t_st, _ = ghostDB.GetValidateBotStoryTeller(self.bot.dbm.db, target_st).validate()
+        t_st, _ = self.bot.dbm.validators.getValidateBotStoryTeller(target_st).validate()
         if t_st:
             raise gb.BotException(f"L'utente selezionato è già uno storyteller")
         

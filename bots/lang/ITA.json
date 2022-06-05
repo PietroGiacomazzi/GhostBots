@@ -104,7 +104,7 @@
 	"string_error_invalid_note": "La nota non esiste",
 	"string_msg_note_saved": "Nota salvata",
 	"string_msg_note_deleted": "Nota eliminata",
-	"string_error_record_not_found": "Record non trovato",
+	"string_error_record_not_found": "Record non trovato: {}",
 
 	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
 	"help_gmadm_stunlink": "Argomenti: <id cronaca>, [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",

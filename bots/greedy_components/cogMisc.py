@@ -63,7 +63,7 @@ class GreedyGhostCog_Misc(gb.GreedyGhostCog):
 
         userid = user.id
 
-        iu, _ = ghostDB.GetValidateBotUser(self.bot.dbm.db, userid).validate()
+        iu, _ = self.bot.dbm.validators.getValidateBotUser(userid).validate()
         if not iu:
             self.bot.dbm.registerUser(userid, user.name, self.bot.config['BotOptions']['default_language'])
             await self.bot.atSendLang(ctx, "string_mgs_user_registered")

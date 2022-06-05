@@ -21,7 +21,7 @@ class GreedyGhostCog_Lang(gb.GreedyGhostCog):
             await self.bot.atSendLang(ctx, "string_your_lang_is", self.bot.getLID(ctx.message.author.id))
         else:
             langId = language['langId']
-            _ = ghostDB.GetValidateBotUser(self.bot.dbm.db, issuer).get()
+            _ = self.bot.dbm.validators.getValidateBotUser(issuer).get()
             self.bot.dbm.db.update("People", where='userid  = $userid', vars=dict(userid =issuer), langId = langId)
             lid = language['langId']
             await self.bot.atSendLang(ctx, "string_lang_updated_to", lid)

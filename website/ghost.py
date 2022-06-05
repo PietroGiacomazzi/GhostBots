@@ -107,7 +107,7 @@ def make_session(token: str =None, state: str =None, scope: list =None) -> OAuth
 
 def validator_character(data: str) -> str:
     string = validator_str_range(1, 20)(data)
-    vl, _ = ghostDB.GetValidateCharacter(dbm.db, data).validate()
+    vl, _ = dbm.validators.getValidateCharacter(data).validate()
     if not vl:
         raise WebException("Invalid character", 400)
     else:
@@ -115,7 +115,7 @@ def validator_character(data: str) -> str:
 
 def validator_language(data: str) -> str:
     string = validator_str_range(1, 3)(data)
-    vl, _ = ghostDB.GetValidateLanguage(dbm.db, string).validate()
+    vl, _ = dbm.validators.getValidateLanguage(string).validate()
     if not vl:
         raise WebException("Unsupported language", 400)
     else:
@@ -123,7 +123,7 @@ def validator_language(data: str) -> str:
 
 def validator_trait(data: str) -> str:
     string = validator_str_range(1, 20)(data)
-    vl, _ = ghostDB.GetValidateTrait(dbm.db, string).validate()
+    vl, _ = dbm.validators.getValidateTrait(string).validate()
     if not vl:
         raise WebException("Invalid trait", 400)
     else:
@@ -132,7 +132,7 @@ def validator_trait(data: str) -> str:
 def validator_trait_number(data: str) -> str:
     string = validator_str_range(1, 20)(data)
     try:
-        trait = ghostDB.GetValidateTrait(dbm.db, string).get()
+        trait = dbm.validators.getValidateTrait(string).get()
         if trait['textbased']:
             raise WebException("Invalid trait", 400)
         else:
@@ -144,7 +144,7 @@ def validator_trait_number(data: str) -> str:
 def validator_trait_textbased(data: str) -> str:
     string = validator_str_range(1, 20)(data)
     try:
-        trait = ghostDB.GetValidateTrait(dbm.db, string).get()
+        trait = dbm.validators.getValidateTrait(string).get()
         if not trait['textbased']:
             raise WebException("Invalid trait", 400)
         else:
@@ -153,7 +153,7 @@ def validator_trait_textbased(data: str) -> str:
         raise WebException("Invalid trait", 400)
 
 def validator_bot_user(data: str) -> str:
-    iu, _ = ghostDB.GetValidateBotUser(dbm.db, data).validate()
+    iu, _ = dbm.validators.getValidateBotUser(data).validate()
     if not iu:
         raise WebException("Invalid user", 400)
     return data
@@ -268,14 +268,14 @@ class discordCallback(APIResponse):
             self.session.discord_username = user['username']
             self.session.discord_userdiscriminator = user['discriminator']
 
-            iu, _ = ghostDB.GetValidateBotUser(dbm.db, self.session.discord_userid).validate()
+            iu, _ = dbm.validators.getValidateBotUser(self.session.discord_userid).validate()
             #if not iu:
             #    dbm.registerUser(self.session.discord_userid, self.session.discord_username, default_language)
 
             self.session.language = getLanguage(self.session, dbm)
             
-            ba, _ = ghostDB.GetValidateBotAdmin(dbm.db, self.session.discord_userid).validate()
-            st, _ = ghostDB.GetValidateBotStoryTeller(dbm.db, self.session.discord_userid).validate()
+            ba, _ = dbm.validators.getValidateBotAdmin(self.session.discord_userid).validate()
+            st, _ = dbm.validators.getValidateBotStoryTeller(self.session.discord_userid).validate()
             if st:
                 self.session.access_level = 5
             elif ba:
@@ -355,10 +355,10 @@ class getMyCharacters(APIResponse):
         super(getMyCharacters, self).__init__(config, session)
     def mGET(self):
         try:
-            ba, _ = ghostDB.GetValidateBotAdmin(dbm.db, self.session.discord_userid).validate()
+            ba, _ = dbm.validators.getValidateBotAdmin(self.session.discord_userid).validate()
             if ba:
                 return dbm.db.query(my_chars_query_admin).list()
-            st, _ = ghostDB.GetValidateBotStoryTeller(dbm.db, self.session.discord_userid).validate()
+            st, _ = dbm.validators.getValidateBotStoryTeller(self.session.discord_userid).validate()
             if st:
                 return dbm.db.query(my_chars_query_st, vars = dict(storyteller_id = self.session.discord_userid, userid=self.session.discord_userid)).list()
             characters = dbm.db.query(my_chars_query_player, vars=dict(userid=self.session.discord_userid))
@@ -372,8 +372,8 @@ class getCharacterTraits(APIResponse):
         super(getCharacterTraits, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_character)})
     def mGET(self):
         try:
-            ba, _ = ghostDB.GetValidateBotAdmin(dbm.db, self.session.discord_userid).validate()
-            st, _ = ghostDB.GetValidateBotStoryTeller(dbm.db, self.session.discord_userid).validate()
+            ba, _ = dbm.validators.getValidateBotAdmin(self.session.discord_userid).validate()
+            st, _ = dbm.validators.getValidateBotStoryTeller(self.session.discord_userid).validate()
             co, _ = dbm.isCharacterOwner(self.session.discord_userid, self.input_data['charid'])
             if (ba or st or co):
                 traits = dbm.db.query("""
@@ -412,8 +412,8 @@ class getCharacterModLog(WebPageResponseLang):
         super(getCharacterModLog, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_str_range(1, 20))})
     def mGET(self):
         try:
-            ba, _ = ghostDB.GetValidateBotAdmin(dbm.db, self.session.discord_userid).validate()
-            st, _ = ghostDB.GetValidateBotStoryTeller(dbm.db, self.session.discord_userid).validate()
+            ba, _ = dbm.validators.getValidateBotAdmin(self.session.discord_userid).validate()
+            st, _ = dbm.validators.getValidateBotStoryTeller(self.session.discord_userid).validate()
             co, _ = dbm.isCharacterOwner(self.session.discord_userid, self.input_data['charid'])
             if (ba or st or co):
                 log = dbm.db.query("""
@@ -482,7 +482,7 @@ def pgmodPermissionCheck_web(issuer_id, character):
     char_id = character['id']
     
     st, _ =  dbm.isStorytellerForCharacter(issuer_id, char_id)
-    ba, _ = ghostDB.GetValidateBotAdmin(dbm.db, issuer_id).validate()
+    ba, _ = dbm.validators.getValidateBotAdmin(issuer_id).validate()
     co = False
     if owner_id == issuer_id and not (st or ba):
         #1: unlinked
@@ -501,7 +501,7 @@ class editCharacterTraitNumber(APIResponse): # no textbased
             'newValue': (MUST, validator_positive_integer),   
         })
     def mGET(self):
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, self.input_data['charId']).validate()
+        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -532,7 +532,7 @@ class editCharacterTraitNumberCurrent(APIResponse): # no textbased
         })
     def mGET(self):
         lid = getLanguage(self.session, dbm)
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, self.input_data['charId']).validate()
+        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -568,7 +568,7 @@ class editCharacterTraitText(APIResponse): #textbased
             'newValue': (MUST, validator_str_range(1, 50)),   
         })
     def mGET(self):
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, self.input_data['charId']).validate()
+        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -596,7 +596,7 @@ class editCharacterTraitRemove(APIResponse): #textbased
             'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
         })
     def mGET(self):
-        vl, character = ghostDB.GetValidateCharacter(dbm.dbm, self.input_data['charId']).validate()
+        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -641,7 +641,7 @@ class editCharacterTraitAdd(APIResponse): #textbased
         })
     def mGET(self):
         lid = getLanguage(self.session, dbm)
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, self.input_data['charId']).validate()
+        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -658,7 +658,7 @@ class editCharacterTraitAdd(APIResponse): #textbased
             except ghostDB.DBException as e:
                 pass
             
-            trait =  ghostDB.GetValidateTrait(dbm.db, trait_id).get()
+            trait =  dbm.validators.getValidateTrait(trait_id).get()
             
             if trait['textbased']:
                 textval = ""
@@ -682,7 +682,7 @@ class canEditCharacter(APIResponse): #textbased
         })
     def mGET(self):
         lid = getLanguage(self.session, dbm)
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, self.input_data['charId']).validate()
+        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -704,8 +704,8 @@ class webFunctionVisibility(APIResponse):
         ba = False
         st = False
         if "discord_userid" in self.session:
-            ba, _ = ghostDB.GetValidateBotAdmin(dbm.db, self.session.discord_userid).validate()
-            st, _ = ghostDB.GetValidateBotStoryTeller(dbm.db, self.session.discord_userid).validate()
+            ba, _ = dbm.validators.getValidateBotAdmin(self.session.discord_userid).validate()
+            st, _ = dbm.validators.getValidateBotStoryTeller( self.session.discord_userid).validate()
 
         return {
             "side_menu": self.session.access_level >= 1, # any logged user
@@ -736,11 +736,11 @@ class newCharacter(APIResponseLang):
     def mGET(self):
         lid = getLanguage(self.session, dbm)
 
-        iu, _ = ghostDB.GetValidateBotUser(dbm.db, self.session.discord_userid).validate()
+        iu, _ = dbm.validators.getValidateBotUser(self.session.discord_userid).validate()
         if not iu:
             raise WebException("Only registered users can create new characters!", 400)
 
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, self.input_data['charId']).validate()
+        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
         if vl:
             raise self.getLangException(400, "string_error_character_already_exists")
         
@@ -768,8 +768,8 @@ class userList(APIResponse): # TODO: maybe a standardized autocomplete list resp
         """
         # only storytellers and admins can see the list of registered users, but we can still reassign if we know the discordid (as you would on the bot)
         issuer_id = self.session.discord_userid
-        st, _ = ghostDB.GetValidateBotStoryTeller(dbm.db, issuer_id).validate()
-        ba, _ = ghostDB.GetValidateBotAdmin(dbm.db, issuer_id).validate()
+        st, _ = dbm.validators.getValidateBotStoryTeller(issuer_id).validate()
+        ba, _ = dbm.validators.getValidateBotAdmin(issuer_id).validate()
         data  = []
         if st or ba:
             data = dbm.db.query(query, vars=dict(langId=getLanguage(session, dbm))).list()
@@ -785,11 +785,11 @@ class editCharacterReassign(APIResponse): #textbased
         charId = self.input_data['charId']
         userId = self.input_data['userId']
 
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, charId).validate()
+        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
-        vu, user = ghostDB.GetValidateBotUser(dbm.db, userId).validate()
+        vu, user = dbm.validators.getValidateBotUser(userId).validate()
         if not vu:
             raise WebException("Invalid user", 400)
 
@@ -813,7 +813,7 @@ class getCharacterNote(APIResponse):
         noteId = self.input_data['noteId']
         issuer = self.session.discord_userid
 
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, charId).validate()
+        vl, character = dbm.validators.getValidateCharacter(charId).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -823,7 +823,7 @@ class getCharacterNote(APIResponse):
         if not can_edit:
             raise WebException("Permission denied", 403)
         
-        vn, note = ghostDB.GetValidateCharacterNote(dbm.db, charId, noteId, issuer).validate()
+        vn, note = dbm.validators.getValidateCharacterNote(charId, noteId, issuer).validate()
         if not vn:
             raise WebException("No such note", 404)
             
@@ -838,7 +838,7 @@ class getCharacterNotesList(APIResponse):
         charId = self.input_data['charId']
         issuer = self.session.discord_userid
 
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, charId).validate()
+        vl, character = dbm.validators.getValidateCharacter(charId).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -864,7 +864,7 @@ class saveCharacterNote(APIResponse):
         noteText = self.input_data['noteText']
         issuer = self.session.discord_userid
 
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, charId).validate()
+        vl, character = dbm.validators.getValidateCharacter(charId).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -874,7 +874,7 @@ class saveCharacterNote(APIResponse):
         if not can_edit:
             raise WebException("Permission denied", 403)
 
-        vn, _ =  ghostDB.GetValidateCharacterNote(dbm.db, charId, noteId, issuer).validate()
+        vn, _ =  dbm.validators.getValidateCharacterNote(charId, noteId, issuer).validate()
         if not vn:
             raise WebException("No such note", 404)
         
@@ -893,7 +893,7 @@ class deleteCharacterNote(APIResponse):
         noteId = self.input_data['noteId']
         issuer = self.session.discord_userid
 
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, charId).validate()
+        vl, character = dbm.validators.getValidateCharacter(charId).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -903,7 +903,7 @@ class deleteCharacterNote(APIResponse):
         if not can_edit:
             raise WebException("Permission denied", 403)
 
-        vn, _ =  ghostDB.GetValidateCharacterNote(dbm.db, charId, noteId, issuer).validate()
+        vn, _ =  dbm.validators.getValidateCharacterNote(charId, noteId, issuer).validate()
         if not vn:
             raise WebException("No such note", 404)
         
@@ -922,7 +922,7 @@ class newCharacterNote(APIResponse):
         noteId = self.input_data['noteId']
         issuer = self.session.discord_userid
 
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, charId).validate()
+        vl, character = dbm.validators.getValidateCharacter(charId).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
@@ -945,7 +945,7 @@ class characterNotesPage(WebPageResponseLang):
         charId = self.input_data['charId']
         issuer = self.session.discord_userid
 
-        vl, character = ghostDB.GetValidateCharacter(dbm.db, charId).validate()
+        vl, character = dbm.validators.getValidateCharacter(charId).validate()
         if not vl:
             raise WebException("Invalid character", 400)
 
