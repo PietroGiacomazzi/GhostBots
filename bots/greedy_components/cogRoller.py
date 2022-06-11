@@ -718,7 +718,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         return response
 
     @commands.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
     async def roll(self, ctx: commands.Context, *args):
         if len(args) == 0:
             raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_x_what", "roll")+ " diomadonna") # xd
@@ -759,7 +759,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
     
     @commands.command(name = 'search', brief = "Cerca un tratto", description = "Cerca un tratto:\n\n .search <termine di ricerca> -> elenco dei risultati")
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
     async def search_trait(self, ctx: commands.Context, *args):
         if len(args) == 0:
             await self.bot.atSendLang("string_error_no_searchterm")
@@ -779,7 +779,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
 
     @commands.command(name = 'call', brief = "Richiama l'attenzione dello storyteller", description = "Richiama l'attenzione dello storyteller della cronaca attiva nel canale in cui viene invocato")
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
     async def call(self, ctx: commands.Context):
         character = self.bot.dbm.getActiveChar(ctx)
         sts = self.bot.dbm.getChannelStoryTellers(ctx.channel.id)
@@ -790,11 +790,11 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
 
     @commands.command(name = 'start', brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata")
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
     async def start(self, ctx: commands.Context):
         await self.bot.atSend(ctx, f'{random.randint(1, 100)}')
 
     @commands.command(name = 'strat', aliases = strat_list, brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata anche se l'invocatore è ubriaco")
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
     async def strat(self, ctx: commands.Context):
         await self.bot.atSend(ctx, f'{random.randint(1, 100)}, però la prossima volta scrivilo giusto <3')

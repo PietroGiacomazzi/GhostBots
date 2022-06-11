@@ -105,6 +105,13 @@
 	"string_msg_note_saved": "Note saved",
 	"string_msg_note_deleted": "Note deleted",
 	"string_error_record_not_found": "Record not found: {}",
+	"string_error_invalid_guild": "Server is not tracked by bot",
+	"string_msg_guild_authstatus": "The authorization status of the server is: {}",
+	"string_msg_guild_authstatus_enabled": "active",
+	"string_msg_guild_authstatus_disabled": "inactive",
+	"string_error_not_available_outside_guild": "Functionality not available outside of a Server",
+	"string_error_cannot_remove_dummy_user": "Cannot remove dummy user from the database",
+	"string_error_server_not_authorized": "Discord server is not authorized",
 
 	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
 	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",

@@ -316,14 +316,14 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
         return response
 
     @commands.command(name = 'me', brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
     async def me(self, ctx: commands.Context, *args):
         pc = self.bot.dbm.getActiveChar(ctx)
         response = await self.pc_interact(ctx, pc, True, *args)
         await self.bot.atSend(ctx, response)
 
     @commands.command(name = 'pgmanage', brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = pgmanage_description)
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
     async def pgmanage(self, ctx: commands.Context, *args):
         if len(args)==0:
             raise gb.BotException('Specifica un pg!')

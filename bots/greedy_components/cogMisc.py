@@ -1,39 +1,34 @@
 import random
 from discord.ext import commands
-from discord.ext.commands import UserConverter
 
 from greedy_components import greedyBase as gb
 from greedy_components import greedySecurity as gs
 
-import lang.lang as lng
-from support import ghostDB
-import support.utils as utils
-
 class GreedyGhostCog_Misc(gb.GreedyGhostCog):
 
     @commands.command(name='coin', help = 'Testa o Croce.')
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild))
     async def coin(self, ctx: commands.Context):
         moneta = ["string_heads", "string_tails"]
         await self.bot.atSendLang(ctx, random.choice(moneta))
 
     @commands.command(name = 'salut', brief='Lascia che il Greedy Ghost ti saluti.')
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild))
     async def salut(self, ctx: commands.Context):
         await self.bot.atSend(ctx, 'Shalom!')
 
     @commands.command(name = 'respect', brief='Pay respect.')
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild))
     async def respect(self, ctx: commands.Context):
         await self.bot.atSend(ctx, ':regional_indicator_f:')
 
     @commands.command(name = 'ping', brief='Fa sapere il ping del Bot')
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild))
     async def ping(self, ctx: commands.Context):
         await self.bot.atSend(ctx, f' Ping: {int(self.bot.latency * 1000)}ms')
 
     @commands.command(name = 'divina', aliases=['divinazione' , 'div'] , brief='Presagire il futuro con una domanda' , help = 'Inserire comando + domanda')
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild))
     async def divina(self, ctx: commands.Context, *, question: str):
         responses=['Certamente.',
             'Sicuramente.' ,
@@ -54,18 +49,3 @@ class GreedyGhostCog_Misc(gb.GreedyGhostCog):
             'I miei contatti mi dicono di no.'
             ]
         await self.bot.atSend(ctx, f'Domanda: {question}\n\nRisposta: {random.choice(responses)}')
-
-    # this command is not needed anymore and is here only in case the bot misses someone joining and we don't want to wait up to 1 day for the user maintenance task to catch up
-    # remember: if we register a User that is not actually in a guild that the bot can see, the registration will be removed when the maintenance task runs
-    @commands.command(name = 'register', brief='Registra un utente nel database')
-    @commands.before_invoke(gs.command_security(gs.IsAdminOrStoryteller))
-    async def register(self, ctx: commands.Context, user: UserConverter): 
-
-        userid = user.id
-
-        iu, _ = self.bot.dbm.validators.getValidateBotUser(userid).validate()
-        if not iu:
-            self.bot.dbm.registerUser(userid, user.name, self.bot.config['BotOptions']['default_language'])
-            await self.bot.atSendLang(ctx, "string_mgs_user_registered")
-        else:
-            await self.bot.atSendLang(ctx, "string_mgs_user_already_registered")

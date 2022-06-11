@@ -19,6 +19,10 @@ QUERY_UNTRANSLATED_TRAIT = """
     WHERE t.id = $trait
 """
 
+#Table names:
+
+TABLENAME_GUILD = "BotGuild"
+
 # Objects
 
 class DBException(LangSupportException):
@@ -163,6 +167,21 @@ insert into CharacterTrait
         if len(sts) == 0:
             raise DBException(f'Non ci sono sessioni attive in questo canale, oppure questa cronoca non ha un storyteller')
         return sts.list()
+    def registerGuild(self, guildid: str, guildname: str, authorized: bool):
+        """ Registers a guild """
+        self.db.insert(TABLENAME_GUILD, guildid=guildid, guildname=guildname, authorized = authorized)
+    def removeGuild(self, guildid: str):
+        """ Removes a guild """
+        self.db.delete(TABLENAME_GUILD, where='guildid=$guildid', vars=dict(guildid=guildid))
+    def updateGuildName(self, guildid: str, guildname: str):
+        """ Updates a guild name """
+        self.db.update(TABLENAME_GUILD, where='guildid=$guildid', vars=dict(guildid=guildid), guildname = guildname)
+    def updateGuildAuthorization(self, guildid: str, authorized: bool):
+        """ Updates a guild authorization """
+        self.db.update(TABLENAME_GUILD, where='guildid=$guildid', vars=dict(guildid=guildid), authorized = authorized)
+    def getGuilds(self) -> list:
+        """ Get all registered guilds """
+        return self.db.select(TABLENAME_GUILD).list()
     def registerUser(self, userid, name, langId):
         """ Registers a user """
         self.db.insert('People', userid=userid, name=name, langId = langId)
@@ -174,7 +193,9 @@ insert into CharacterTrait
         u = self.db.update("CharacterModLog", where='userid = $userid', vars=dict(userid=userid), userid = dummyuserid)
         u = self.db.delete('People', where='userid=$userid', vars=dict(userid=userid))
     def tryRemoveUser(self, userid, dummyuserid) -> None:
-        """ Attempts to remove an user but does not if the user is an admin or a storyteller with chronicles """
+        """ Attempts to remove an user but does not if the user is an admin or a storyteller with chronicles, or the dummy user """
+        if userid == dummyuserid:
+            raise DBException("string_error_cannot_remove_dummy_user")
         ba, _ = self.validators.getValidateBotAdmin(userid).validate()
         st, _ = self.validators.getValidateBotStoryTeller(userid).validate()
         st_hc = False
@@ -332,3 +353,6 @@ class ValidatorGenerator:
     def getValidateTrait(self, traitid: str) -> GetValidateRecord:
         """ Handles validation of untranslated Traits by raw id """
         return GetValidateRecord(self.db, QUERY_UNTRANSLATED_TRAIT, dict(trait=traitid), "string_TRAIT_does_not_exist")
+    def getValidateGuild(self, guildid: str) -> GetValidateRecord:
+        """ Handles validation of a Discord Guild """
+        return GetValidateRecordNoFormat(self.db, f"select * from {TABLENAME_GUILD} where guildid=$guildid", dict(guildid=guildid), "string_error_invalid_guild")

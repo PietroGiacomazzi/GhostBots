@@ -14,7 +14,7 @@ import support.ghostDB as ghostDB
 class GreedyGhostCog_Lang(gb.GreedyGhostCog):
 
     @commands.command(name = 'lang', brief='Impostazioni di lingua', description = "Permette di cambiare impostazioni di lingua del bot")
-    @commands.before_invoke(gs.command_security(gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
     async def lang(self, ctx:commands.Context, language: gc.LanguageConverter = None):
         issuer = ctx.message.author.id
         if not language:
@@ -26,8 +26,8 @@ class GreedyGhostCog_Lang(gb.GreedyGhostCog):
             lid = language['langId']
             await self.bot.atSendLang(ctx, "string_lang_updated_to", lid)
     
-    @commands.command(name = 'translate', brief='Permette di aggiornare la traduzione di un tratto in una lingua' , help = "")
-    @commands.before_invoke(gs.command_security(gs.IsAdminOrStoryteller))
+    @commands.command(name = 'translate', brief='Permette di aggiornare la traduzione di un tratto in una lingua')
+    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsAdminOrStoryteller))
     async def translate(self, ctx: commands.Command, language: gc.LanguageConverter, trait: gc.TraitConverter, traitlang: gc.GreedyShortIdConverter = None, *args):
         traitId = trait['id']
         langId = language['langId']

@@ -26,22 +26,44 @@ class CommandSecurity:
         """ performs the security check """
         raise NotImplementedError("Base command security does not check anything!")
 
+class NoCheck(CommandSecurity):
+    """ Always passes """
+    async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
+        return True, None
+
+class IsActiveOnGuild(CommandSecurity):
+    """ Passes if the command is issued in an authorized Guild, or the issuer is a Bot Admin """
+    async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
+        issuer = str(self.ctx.message.author.id)
+        ba, _ = self.bot.dbm.validators.getValidateBotAdmin(issuer).validate()
+        ig, guild = self.bot.dbm.validators.getValidateGuild(issuer).validate()
+        active = False
+        if ig:
+            active = guild["authorized"]
+        valid = ba or (ig and active)
+        comment = None if valid else SecurityCheckException("string_error_server_not_authorized")
+        return valid, comment 
+
 class IsUser(CommandSecurity):
+    """ Passes if the command is issued by a tracked user """
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
         return self.bot.dbm.validators.getValidateBotUser(issuer).validate()
 
 class IsStoryteller(CommandSecurity):
+    """ Passes if the command is issued by a Storyteller """
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
         return self.bot.dbm.validators.getValidateBotStoryTeller(issuer).validate()
 
 class IsAdmin(CommandSecurity):
+    """ Passes if the command is issued by a Bot Admin """
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
         return self.bot.dbm.validators.getValidateBotAdmin(issuer).validate()
 
 class IsAdminOrStoryteller(CommandSecurity):
+    """ Passes if the command is issued by either an admin or a storyteller """
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer = str(self.ctx.message.author.id)
         st, _ = self.bot.dbm.validators.getValidateBotStoryTeller( issuer).validate()
@@ -51,6 +73,7 @@ class IsAdminOrStoryteller(CommandSecurity):
         return valid, comment
 
 class CanEditRunningSession(CommandSecurity): # this needs to exist separately from genIsAdminOrChronicleStoryteller because the chronicle is not available in the command parameters, but rather is a property of the current channel
+    """ Passes if the command is issued by an owner of the currently running session of the channel, or a Bot Admin """
     async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
         issuer_id = str(self.ctx.message.author.id)
         sr, session = self.bot.dbm.validators.getValidateRunningSession(self.ctx.channel.id).validate()
@@ -67,6 +90,7 @@ class CanEditRunningSession(CommandSecurity): # this needs to exist separately f
 
 # secitems
 class ParametrizedCommandSecurity(CommandSecurity):
+    """ Abstract class tha allows building CommandSecurity objects that can acces the command's parameters """
     async def getParameter(self, param_idx: str, args: tuple):
         if param_idx >= len(args): # should almost never happen as we're moving to explicit parameters on command signatures
             raise MissingParameterException('string_error_security_option_required', (param_idx,))
@@ -82,6 +106,7 @@ class ParametrizedCommandSecurity(CommandSecurity):
             return fallback
 
 def genIsAdminOrChronicleStoryteller(target_chronicle):
+    """ Passes if the command is issued by a Storyteller that can control target_chronicle, or a Bot Admin """
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
         async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
             issuer_id = str(self.ctx.message.author.id)  
@@ -95,6 +120,7 @@ def genIsAdminOrChronicleStoryteller(target_chronicle):
     return GeneratedCommandSecurity
 
 def genCanUnlinkStorytellerFromChronicle(target_chronicle, optional_target_user):
+    """ Passes if the command is issued by a someone that can unlink optional_target_user from target_chronicle: either the storyteller themselves or a bot admin """
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
         async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
             issuer_id = str(self.ctx.message.author.id)
@@ -120,6 +146,7 @@ def genCanUnlinkStorytellerFromChronicle(target_chronicle, optional_target_user)
     return GeneratedCommandSecurity
 
 def genCanCreateCharactertoSomeone(optional_target_user):
+    """ Passes if the command is issued by a someone that can create a character for optional_target_user: either a regular user for themselves, or a storyteller, or a bot admin """
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
         async def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
             issuer_id = str(self.ctx.message.author.id)  
@@ -137,6 +164,7 @@ def genCanCreateCharactertoSomeone(optional_target_user):
     return GeneratedCommandSecurity
 
 def genCanEditCharacter(target_character):
+    """ Passes if the command is issued by a someone that can edit target_character: either a bot admin, a storyteller for a chronicle that contains the character, or the character owner if a session is running """
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
         async def checkSecurity(self, *command_args, **command_kwargs) -> tuple: #[bool, Any]:
             issuer = str(self.ctx.message.author.id)  
@@ -160,8 +188,9 @@ def genCanEditCharacter(target_character):
             return valid, comment
     return GeneratedCommandSecurity
 
-def command_security(security_item: CommandSecurity, **security_options):
-    """ Add security checks to a command with before_invoke, needs a CommandSecurity object as parameter
+def command_security(security_item: type[CommandSecurity] = NoCheck, *additional_security_items, **security_options):
+    """ Add security checks to a command with before_invoke, needs CommandSecurity objects as parameters
+    If all the CommandSecurity items pass their checks, then the command executes.
     
     Example
     ---------
@@ -173,16 +202,18 @@ def command_security(security_item: CommandSecurity, **security_options):
 
     """
     async def before_invoke_command_security(instance : gb.GreedyGhostCog, ctx: commands.Context):
-        secItem: CommandSecurity = None
-        if isinstance(instance, gb.GreedyGhostCog):
-            secItem = security_item(instance.bot, ctx, **security_options)
-        #elif isinstance(self, gb.GreedyGhost):
-        #    secItem = security_item(self, ctx, **security_options)
-        else:
-            raise SecurityCheckException(f"Command security is supported only for commands defined in a GreedyGhostCog. Provided object type: {type(instance)}")
-        if not issubclass(security_item, CommandSecurity):
-            raise SecurityCheckException(f"Type {secItem} is not a {CommandSecurity} object")
-        security_pass, security_comment = await secItem.checkSecurity(*ctx.args, **ctx.kwargs)
-        if not security_pass:
-            raise SecurityCheckException("string_error_permission_denied", (secItem.bot.formatException(ctx, security_comment), ))
+        command_security_list = [security_item] + list(additional_security_items)
+        for command_security_item in command_security_list:
+            if not issubclass(command_security_item, CommandSecurity):
+                raise SecurityCheckException(f"Type {command_security_item} is not a {CommandSecurity} object")
+            secItem = None
+            if isinstance(instance, gb.GreedyGhostCog):
+                secItem = command_security_item(instance.bot, ctx, **security_options)
+            #elif isinstance(self, gb.GreedyGhost):
+            #    secItem = command_security_item(self, ctx, **security_options)
+            else:
+                raise SecurityCheckException(f"Command security is supported only for commands defined in a GreedyGhostCog. Provided object type: {type(instance)}")
+            security_pass, security_comment = await secItem.checkSecurity(*ctx.args, **ctx.kwargs)
+            if not security_pass:
+                raise SecurityCheckException("string_error_permission_denied", (secItem.bot.formatException(ctx, security_comment), ))
     return before_invoke_command_security

@@ -62,7 +62,7 @@ class NoYesConverter(Converter):
         stdarg = argument.lower()
         std = stdarg in ['y', 's', '1', 'true']
         if not std and not stdarg in ['n', '0', 'false']:
-            raise gb.GreedyCommandError("{} non è un'opzione valida", (stdarg,))
+            raise gb.GreedyCommandError("'{}' non è un'opzione valida", (stdarg,))
         return std
 
 class LanguageConverter(Converter):
@@ -85,7 +85,7 @@ class TrackerTypeConverter(Converter):
     """ Validates string a tracker type """
 
     async def convert(self, ctx: Context, argument: str) -> int:
-        error = gb.GreedyCommandError("{} non è tracker valido!", (argument,))
+        error = gb.GreedyCommandError("'{}' non è tracker valido!", (argument,))
         tracktype = 0
         try:
             tracktype = int(argument)

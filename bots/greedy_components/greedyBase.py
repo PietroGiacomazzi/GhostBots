@@ -1,5 +1,6 @@
 import configparser, os
 from discord.ext import commands
+import discord
 
 import support.ghostDB as ghostDB
 import lang.lang as lng
@@ -27,9 +28,10 @@ class GreedyLanguageStringProvider(lng.LanguageStringProvider):
     def formatCommandError(self, lang_id: str, exception: GreedyCommandError) -> str: #identical to LanguageStringProvider.formatException
         return self.get(lang_id, exception.args[0], *exception.args[1])
 
-class GreedyGhost(commands.Bot):
+class GreedyBot(commands.Bot):
+    """ Base class for bots """
     def __init__(self, configuration: configparser.ConfigParser, db_manager: ghostDB.DBManager, *args, **options):
-        super(GreedyGhost, self).__init__(*args, **options)
+        super(GreedyBot, self).__init__(*args, **options)
         self.config = configuration
         self.dbm = db_manager
         self.languageProvider = self._initLanguageProvider(configuration['BotOptions']['language_files_path'])
@@ -75,6 +77,49 @@ class GreedyGhost(commands.Bot):
         issuer = ctx.message.author.id
         lid = self.getLID(issuer)
         return self.languageProvider.formatCommandError(lid, exc)
+
+class GreedyGhost(GreedyBot):
+    """ Functionality specific to Greedy Ghost """
+    def getGuildActivationMap(self):
+        authmap = {}
+        for guild in self.guilds:
+            ig, guild_db = self.dbm.validators.getValidateGuild(guild.id).validate()
+            if ig:
+                authmap[guild.id] = guild_db["authorized"]
+        return authmap
+
+    def isMemberAllowedInBot(self, member: discord.Member, guild_map: dict = None):
+        """ Checks wether a member is allowed to stay tracked by the bot. 
+        The guild_map parameter is the result of the GreedyGhost.getGuildActivationMap() method.
+        It is built as a dict of {int -> bool}, mapping guild ids to activation status.
+        If omitted, the permission map will be computed by this method, it can be passed externally to check multiple users without rebuilding the guild permission map every time """
+        if member.id == self.user.id: # Bot is always allowed to be in the DB
+            return True
+        if not guild_map is None:
+            guild_map = self.getGuildActivationMap()
+        allowed = False
+        for guild in self.guilds:
+            if guild.get_member(member.id):
+                if guild_map[guild.id]:
+                    allowed = True
+                    break
+        return allowed
+
+    def checkAndRemoveUser(self, member: discord.Member, guild_map: dict = None):
+        """ checks wether a member is allowed to stay tracked by the bot, and removes them if not.
+        The guild_map parameter is the result of the GreedyGhost.getGuildActivationMap() method.
+        It is built as a dict of {int -> bool}, mapping guild ids to activation status.
+        If omitted, the permission map will be computed by this method, it can be passed externally to check multiple users without rebuilding the guild permission map every time """
+        if not self.isMemberAllowedInBot(member, guild_map):
+            self.dbm.tryRemoveUser(member.id, self.user.id)
+    
+    async def checkAndJoinGuild(self, guild: discord.Guild):
+        ig, _ = self.dbm.validators.getValidateGuild(guild.id).validate()
+        if not ig: # most of the time this is the case
+            self.dbm.registerGuild(guild.id, guild.name, False)
+            await self.logToDebugUser(f"joined guild '{guild.name}', id: {guild.id}")
+            return True
+        return False
 
 class GreedyGhostCog(commands.Cog): 
     def __init__(self, bot: GreedyGhost):

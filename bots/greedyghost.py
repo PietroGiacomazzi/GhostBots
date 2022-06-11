@@ -49,6 +49,7 @@ if __name__ == "__main__":
     intents = discord.Intents.default()
     intents.members = True
     intents.messages = True
+    intents.guilds = True
 
     botcmd_prefixes = ['.'] # all prefixes need to be length 1, some code relies on it (on_command_error for example)
 
