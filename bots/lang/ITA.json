@@ -169,6 +169,7 @@
 	"web_string_no_access_to_pc": "Il personaggio '{0}' non è tra i personaggi a cui hai accesso!",
 	"web_string_calc_generation": "{0}a Generazione",
 	"web_string_charplayer": "Giocatore: {0}",
+	"web_string_charid": "Id personaggio: {0}",
 	"web_label_willpower": "Forza di Volontà",
 	"web_label_bloodpoints": "Punti Sangue",
 	"web_label_user": "Utente",

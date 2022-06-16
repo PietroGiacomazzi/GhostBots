@@ -22,6 +22,8 @@ replace_HTMLElement["'"] = '&#x27;';
 PLAYER_EDIT_CONTROL = 'player-edit-control';
 PLAYER_NAME_CONTROL = 'PLAYER_NAME_CONTROL';
 
+CHARACTER_ID_CONTROL = 'CHARACTER_ID_CONTROL';
+
 //var replace_HTMLattribute = []
 //replace_HTMLattribute
 
@@ -930,6 +932,19 @@ function createTraitElement(traitdata){
 	return c;
 }
 
+function createCharIdControl(charid)
+{
+	var c = document.createElement('tr'); 
+	c.id = CHARACTER_ID_CONTROL;
+
+	var char_id_span = document.createElement('span');
+	char_id_span.id = 'id_personaggio';
+	char_id_span.innerHTML = String.format(getLangString("web_string_charid"), charid); 
+	c.appendChild(char_id_span);
+
+	return c;
+}
+
 function createPlayerNameControl(ownername){
 	var c = document.createElement('tr'); 
 	c.id = PLAYER_NAME_CONTROL;
@@ -991,9 +1006,14 @@ function populateSheet(characterTraits, character){
 
 	// do stuff
 	document.getElementById('title_pgname').innerHTML = '<b>'+character.fullname+'</b>';
+		
+	sheetspot = document.getElementById("testata");
+
+	//id del personaggio
+	c = createCharIdControl(character.id)	
+	sheetspot.appendChild(c);
 	
 	// nome del giocatore
-	sheetspot = document.getElementById("testata");
 	c = createPlayerNameControl(character.ownername)	
 	sheetspot.appendChild(c);
 	
