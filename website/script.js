@@ -329,10 +329,7 @@ function enableCharEditMode(){
 	for (i = 0; i<state.editElements.length; ++i)
 	{
 		el = document.getElementById(state.editElements[i]);
-		if (el == null){
-			console.log(state.editElements[i])
-		}
-		else{
+		if (el !== null){ // some traits might have been removed from the character
 			el.style.display = 'inline';
 		}
 	}
@@ -349,10 +346,7 @@ function disableCharEditMode(){
 	for (i = 0; i<state.editElements.length; ++i)
 	{
 		el = document.getElementById(state.editElements[i]);
-		if (el == null){
-			console.log(state.editElements[i])
-		}
-		else{
+		if (el !== null){ // some traits might have been removed from the character
 			el.style.display = 'none';
 		}
 	}
@@ -501,6 +495,8 @@ function editTrait(event) {
 				get_remote_resource('./editCharacterTraitRemove?'+params.toString(), 'json', 
 				function (data){
 					var oldTrait = document.getElementById(data.trait);
+					//editElements = getState().editElements;
+					//TODO: remove from ediTelements. nothing will break if we don't but it's less messi if we do
 					oldTrait.remove();
 				}/*, 
 				function(xhr){
@@ -700,6 +696,7 @@ function createMaxModElement(traitdata){
 }
 
 function createTraitElement(traitdata){
+	state = getState();
 	var c = document.createElement('tr'); 
 	c.setAttribute("id", traitdata.trait);
 
@@ -709,11 +706,11 @@ function createTraitElement(traitdata){
 	deletecontrol.innerHTML = "delete_forever";
 	deletecontrol.dataset.traitid = traitdata.trait;
 	deletecontrol.dataset.removetrait = "1"
-	if (getState().charEditMode == false){
+	if (state.charEditMode == false){
 		deletecontrol.style.display = "none";
 	}	
-	if (!getState().editElements.includes(deletecontrol.id)){
-		getState().editElements.push(deletecontrol.id)
+	if (!state.editElements.includes(deletecontrol.id)){
+		state.editElements.push(deletecontrol.id)
 	}
 	c.appendChild(deletecontrol);
 
@@ -908,17 +905,17 @@ function createTraitElement(traitdata){
 
 		if (traitdata.text_value === "-" || traitdata.text_value === "")
 		{
-			if (!getState().charEditMode){
+			if (!state.charEditMode){
 				trait_text.style.display = "none";
 				ddot.style.display = "none";
 			}
-			if (! getState().editElements.includes(trait_text.id))
+			if (! state.editElements.includes(trait_text.id))
 			{
-				getState().editElements.push(trait_text.id);
+				state.editElements.push(trait_text.id);
 			}
-			if (! getState().editElements.includes(ddot.id))
+			if (! state.editElements.includes(ddot.id))
 			{
-				getState().editElements.push(ddot.id);
+				state.editElements.push(ddot.id);
 			}
 			if (traitdata.text_value === ""){
 				trait_text.className = "empty_space_tofill";
