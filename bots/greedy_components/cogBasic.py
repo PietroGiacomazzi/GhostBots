@@ -37,9 +37,8 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
     
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx: commands.Context, error: Exception):
-        issuer = ctx.message.author.id
-        lid = self.bot.getLID(issuer)
+    async def on_command_error(self, ctx: gb.GreedyContext, error: Exception):
+        lid = ctx.getLID()
         error = getattr(error, 'original', error)
         #ignored = (commands.CommandNotFound, )
         #if isinstance(error, ignored):
@@ -63,10 +62,12 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
                 error = e
         if isinstance(error, gb.BotException):
             await self.bot.atSend(ctx, f'{error}')
+        elif isinstance(error, gb.GreedyErrorGroup):
+            await self.bot.atSend(ctx, self.bot.formatException(ctx, error))
         elif isinstance(error, lng.LangSupportException):
             await self.bot.atSend(ctx, self.bot.languageProvider.formatException(lid, error))
         elif isinstance(error, gb.GreedyCommandError):
-            await self.bot.atSend(ctx, self.bot.languageProvider.formatCommandError(lid, error))
+            await self.bot.atSend(ctx, self.bot.languageProvider.formatException(lid, error))
         elif isinstance(error, commands.MissingRequiredArgument):
             await ctx.send_help(ctx.command)
         elif isinstance(error, lng.LangException):
@@ -117,7 +118,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
     # this command is not needed anymore and is here only in case the bot misses someone joining and we don't want to wait up to 1 day for the user maintenance task to catch up
     # remember: if we register a User that is not actually in a guild that the bot can see, the registration will be removed when the maintenance task runs
     @commands.command(name = 'register', brief='Registra un utente nel database')
-    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsAdminOrStoryteller))
+    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.AND( gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.IsStoryteller))))
     async def register(self, ctx: commands.Context, user: UserConverter): 
 
         userid = user.id

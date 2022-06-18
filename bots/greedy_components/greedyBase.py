@@ -15,6 +15,11 @@ class GreedyCommandError(commands.CommandError):
         """ Base command exception with language support. """
         super(GreedyCommandError, self).__init__(message, formats)
 
+class GreedyErrorGroup(commands.CommandError):
+    def __init__(self, message: str, errors: list):
+        """ Group of errors with language support. """
+        super(GreedyErrorGroup, self).__init__(message, errors)
+
 class GreedyLanguageStringProvider(lng.LanguageStringProvider):
     def __init__(self, configuration: configparser.ConfigParser, db_manager: ghostDB.DBManager,  lang_dir : str = os.path.abspath(__file__)):
         super(GreedyLanguageStringProvider, self).__init__(lang_dir)
@@ -25,8 +30,41 @@ class GreedyLanguageStringProvider(lng.LanguageStringProvider):
             return self.dbm.getUserLanguage(userid)
         except ghostDB.DBException:
             return self.config['BotOptions']['default_language']
-    def formatCommandError(self, lang_id: str, exception: GreedyCommandError) -> str: #identical to LanguageStringProvider.formatException
-        return self.get(lang_id, exception.args[0], *exception.args[1])
+
+class GreedyContext(commands.Context):
+    def __init__(self, **attrs):
+        """ Custom context class that handles (and caches) some extra info about the invocation context, like whether the user is Registered, or their preferred language """
+        super().__init__(**attrs)
+        assert isinstance(self.bot, GreedyBot)
+        self.bot: GreedyBot = self.bot # here just for type checks
+
+        self.registeredUser = None
+        self.userData = None
+        self.language_id = None
+    def _loadUserInfo(self):
+        self.registeredUser, self.userData = self.bot.dbm.validators.getValidateBotUser(self.message.author.id).validate()
+        if self.registeredUser:
+            self.language_id = self.userData['langId']
+        else:
+            self.language_id = self.bot.config['BotOptions']['default_language']
+    def getLID(self):
+        if self.registeredUser is None:
+            self._loadUserInfo()
+
+        return self.language_id
+    def validateUserInfo(self):
+        if self.registeredUser is None:
+            self._loadUserInfo()
+
+        return self.registeredUser, self.userData
+    def getUserInfo(self):
+        if self.registeredUser is None:
+            self._loadUserInfo()
+
+        if self.registeredUser:
+            return self.userData
+        else:
+            raise self.userData
 
 class GreedyBot(commands.Bot):
     """ Base class for bots """
@@ -48,11 +86,11 @@ class GreedyBot(commands.Bot):
         except:
             return False, ""
     def getLID(self, issuer: int) -> str:
-        """ returns the Language ID for the specified user (if present), and the default language if the user is not registered """
+        """ returns the Language ID for the specified user (if present), and the default language if the user is not registered
+        Used only for sending messages in the correct language to logging users """
         return self.languageProvider.getUserLanguage(issuer)
-    def getStringForUser(self, ctx: commands.Context, string: str, *args) -> str:
-        issuer = ctx.message.author.id
-        lid = self.getLID(issuer)
+    def getStringForUser(self, ctx: GreedyContext, string: str, *args) -> str:
+        lid = ctx.getLID()
         return self.languageProvider.get(lid, string, *args)
     def atSend(self, ctx: commands.Context, msg: str):
         return ctx.send(f'{ctx.message.author.mention} {msg}')
@@ -66,17 +104,18 @@ class GreedyBot(commands.Bot):
             await debug_user.send(msg)
         else:
             print(msg)
-    def getBotExceptionLang(self, ctx: commands.Context, error_str: str, *args) -> BotException:
-        """ Creates a BotException object that contains a translated error string """
-        return BotException(self.getStringForUser(ctx, error_str, *args))
-    def formatException(self, ctx: commands.Context, exc: lng.LangSupportException) -> str:
-        issuer = ctx.message.author.id
-        lid = self.getLID(issuer)
-        return self.languageProvider.formatException(lid, exc)
-    def formatCommandError(self, ctx: commands.Context, exc: GreedyCommandError) -> str:
-        issuer = ctx.message.author.id
-        lid = self.getLID(issuer)
-        return self.languageProvider.formatCommandError(lid, exc)
+    def formatException(self, ctx: GreedyContext, exc: Exception) -> str:
+        lid = ctx.getLID()
+        formatted_error = ""
+        if isinstance(exc, GreedyErrorGroup):
+            formatted_error = "\n".join(list(map(lambda x: self.formatException(ctx, x), exc.args[1]))) # this is recursive because GreedyErrorGroup can be used to stack a bunch of exceptions nested on multiple layers
+        else:
+            formatted_error = self.languageProvider.formatException(lid, exc)
+        return formatted_error
+    # overrides
+    async def get_context(self, message, *, cls=...):
+        """ overrides context creation to calculate some extra info """
+        return await super().get_context(message, cls=GreedyContext)
 
 class GreedyGhost(GreedyBot):
     """ Functionality specific to Greedy Ghost """
@@ -95,7 +134,7 @@ class GreedyGhost(GreedyBot):
         If omitted, the permission map will be computed by this method, it can be passed externally to check multiple users without rebuilding the guild permission map every time """
         if member.id == self.user.id: # Bot is always allowed to be in the DB
             return True
-        if not guild_map is None:
+        if guild_map is None:
             guild_map = self.getGuildActivationMap()
         allowed = False
         for guild in self.guilds:

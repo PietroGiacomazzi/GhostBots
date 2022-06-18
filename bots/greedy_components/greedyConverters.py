@@ -23,7 +23,7 @@ class ChronicleConverter(Converter):
 class RegisteredUserConverter(UserConverter):
     """Convert the given user into a registered bot user"""
 
-    async def convert(self, ctx: Context, argument: str) -> Any:
+    async def convert(self, ctx: gb.GreedyContext, argument: str) -> Any:
         try:
             user = await super().convert(ctx, argument)
         except UserNotFound:

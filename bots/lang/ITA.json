@@ -112,6 +112,7 @@
 	"string_error_not_available_outside_guild": "Funzionalità non disponibile al di fuori di un Server",
 	"string_error_cannot_remove_dummy_user": "Non posso rimuovere un dummy user dal database",
 	"string_error_server_not_authorized": "Server discord non autorizzato",
+	"string_error_user_not_found": "Utente non trovato",
 
 	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
 	"help_gmadm_stunlink": "Argomenti: <id cronaca>, [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",

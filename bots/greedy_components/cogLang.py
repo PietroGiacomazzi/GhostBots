@@ -14,21 +14,22 @@ import support.ghostDB as ghostDB
 class GreedyGhostCog_Lang(gb.GreedyGhostCog):
 
     @commands.command(name = 'lang', brief='Impostazioni di lingua', description = "Permette di cambiare impostazioni di lingua del bot")
-    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
-    async def lang(self, ctx:commands.Context, language: gc.LanguageConverter = None):
+    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser))))
+    async def lang(self, ctx: gb.GreedyContext, language: gc.LanguageConverter = None):
         issuer = ctx.message.author.id
         if not language:
-            await self.bot.atSendLang(ctx, "string_your_lang_is", self.bot.getLID(ctx.message.author.id))
+            await self.bot.atSendLang(ctx, "string_your_lang_is", ctx.getLID())
         else:
             langId = language['langId']
-            _ = self.bot.dbm.validators.getValidateBotUser(issuer).get()
+            _ = ctx.getUserInfo()
             self.bot.dbm.db.update("People", where='userid  = $userid', vars=dict(userid =issuer), langId = langId)
+            ctx._loadUserInfo() # we need to reload the language id for the user
             lid = language['langId']
             await self.bot.atSendLang(ctx, "string_lang_updated_to", lid)
     
     @commands.command(name = 'translate', brief='Permette di aggiornare la traduzione di un tratto in una lingua')
-    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsAdminOrStoryteller))
-    async def translate(self, ctx: commands.Command, language: gc.LanguageConverter, trait: gc.TraitConverter, traitlang: gc.GreedyShortIdConverter = None, *args):
+    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.AND( gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.IsStoryteller))))
+    async def translate(self, ctx: commands.Context, language: gc.LanguageConverter, trait: gc.TraitConverter, traitlang: gc.GreedyShortIdConverter = None, *args):
         traitId = trait['id']
         langId = language['langId']
 

@@ -116,11 +116,11 @@ def getTraitFormatter(trait: object) -> FormatterType:
        
 class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog): 
 
-    def formatTrait(self, ctx: commands.Context, formatter: FormatterType, trait) -> str:
-        return formatter(trait, self.bot.getLID(ctx.message.author.id), self.bot.languageProvider)
+    def formatTrait(self, ctx: gb.GreedyContext, formatter: FormatterType, trait) -> str:
+        return formatter(trait, ctx.getLID(), self.bot.languageProvider)
 
-    async def pc_interact(self, ctx: commands.Context, pc: object, can_edit: bool, *args_tuple) -> str:
-        lid = self.bot.getLID(ctx.message.author.id)
+    async def pc_interact(self, ctx: gb.GreedyContext, pc: object, can_edit: bool, *args_tuple) -> str:
+        lid = ctx.getLID()
 
         args = list(args_tuple)
 
@@ -316,14 +316,14 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
         return response
 
     @commands.command(name = 'me', brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
-    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.IsUser))
     async def me(self, ctx: commands.Context, *args):
         pc = self.bot.dbm.getActiveChar(ctx)
         response = await self.pc_interact(ctx, pc, True, *args)
         await self.bot.atSend(ctx, response)
 
     @commands.command(name = 'pgmanage', brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = pgmanage_description)
-    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.IsUser))
     async def pgmanage(self, ctx: commands.Context, *args):
         if len(args)==0:
             raise gb.BotException('Specifica un pg!')

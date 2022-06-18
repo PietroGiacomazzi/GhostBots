@@ -292,8 +292,8 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
 
         return DiceExprParsed(n, n, 0, faces, None)
 
-    def parseDiceExpression_Mixed(self, ctx: commands.Context, what: str, firstNegative: bool = False, character = None) -> DiceExprParsed:
-        lid = self.bot.getLID(ctx.message.author.id)
+    def parseDiceExpression_Mixed(self, ctx: gb.GreedyContext, what: str, firstNegative: bool = False, character = None) -> DiceExprParsed:
+        lid = ctx.getLID()
 
         saw_trait = False
         saw_notd10 = False
@@ -333,7 +333,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
                         try:
                             _, n_term_extra = self.validateNumber(ctx, [term], 0)
                         except ValueError as ve:
-                            raise gb.BotException("\n".join([ self.bot.getStringForUser(ctx, "string_error_notsure_whatroll"), self.bot.languageProvider.formatCommandError(lid, e), f'{self.bot.languageProvider.formatException(lid, edb)}', f'{ve}']) )
+                            raise gb.GreedyErrorGroup("MultiError", [gb.GreedyCommandError("string_error_notsure_whatroll"), e, edb, gb.GreedyCommandError(f'{ve}')])
                 
                 if new_faces:
                     if faces and (faces != new_faces): # we do not support mixing different face numbers for now
@@ -539,7 +539,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
                 #try parsing a dice expr
                 try:
                     parsed = self.parseDiceExpressionIntoSummary(ctx, parsed, args[i])
-                except (gb.GreedyCommandError, gb.BotException) as e:
+                except (gb.GreedyCommandError, gb.BotException, gb.GreedyErrorGroup) as e:
                     # provo a staccare parametri attaccati
                     did_split = False
                     idx = 0
@@ -552,16 +552,16 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
                         idx += 1
 
                     if not did_split: # F
-                        raise gb.BotException("\n".join([ self.bot.getStringForUser(ctx, "string_arg_X_in_Y_notclear", args[i], utils.prettyHighlightError(args, i)), f'{e}' if isinstance(e, gb.BotException) else self.bot.formatCommandError(ctx, e)]) )
+                        raise gb.GreedyErrorGroup("MultiError", [ gb.GreedyCommandError("string_arg_X_in_Y_notclear", (args[i], utils.prettyHighlightError(args, i))), e])
                     else:
                         i -= 1 # forzo rilettura
             i += 1
         return parsed
 
-    async def roll_initiative(self, ctx: commands.Context, parsed: dict) -> str:
+    async def roll_initiative(self, ctx: gb.GreedyContext, parsed: dict) -> str:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:
-            raise self.bot.getBotExceptionLang(ctx, "string_error_roll_invalid_param_combination")
-        lid = self.bot.getLID(ctx.message.author.id)
+            raise gb.GreedyCommandError("string_error_roll_invalid_param_combination")
+        lid = ctx.getLID()
         add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
         raw_roll = random.randint(1, 10)
         bonuses_log = []
@@ -585,10 +585,10 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         final_val = raw_roll+bonus
         return f'{self.bot.getStringForUser(ctx, "string_initiative")}: **{final_val}**\n{self.bot.getStringForUser(ctx, "string_roll")}: [{raw_roll}] + {bonus if bonus else 0} ({details})'
 
-    async def roll_reflexes(self, ctx: commands.Context, parsed: dict) -> str:
+    async def roll_reflexes(self, ctx: gb.GreedyContext, parsed: dict) -> str:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE or RollArg.DIFF in parsed:    
             raise gb.GreedyCommandError("string_error_roll_invalid_param_combination")
-        lid = self.bot.getLID(ctx.message.author.id)
+        lid = ctx.getLID()
         add = parsed[RollArg.ADD] if RollArg.ADD in parsed else 0
         character = self.bot.dbm.getActiveChar(ctx)
         volonta = self.bot.dbm.getTrait_LangSafe(character['id'], 'volonta', lid)#['cur_value']
@@ -598,10 +598,10 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         response += self.rollAndFormatVTM(ctx, volonta['cur_value'], 10, diff, RollStatusReflexes(self.bot.languageProvider, lid), add, statistics = RollArg.STATS in parsed)
         return response
 
-    async def roll_soak(self, ctx: commands.Context, parsed: dict) -> str:
+    async def roll_soak(self, ctx: gb.GreedyContext, parsed: dict) -> str:
         if RollArg.MULTI in parsed or RollArg.SPLIT in parsed or RollArg.ADD in parsed or parsed[RollArg.ROLLTYPE] != RollType.NORMALE:
             raise gb.GreedyCommandError("string_error_roll_invalid_param_combination")
-        lid = self.bot.getLID(ctx.message.author.id)
+        lid = ctx.getLID()
         diff = parsed[RollArg.DIFF] if RollArg.DIFF in parsed else 6
         character = self.bot.dbm.getActiveChar(ctx)
         pool = self.bot.dbm.getTrait_LangSafe(character['id'], 'costituzione', lid)['cur_value']
@@ -611,8 +611,8 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
             pass
         return self.rollAndFormatVTM(ctx, pool, 10, diff, RollStatusSoak(self.bot.languageProvider, lid), 0, False, statistics = RollArg.STATS in parsed)
 
-    async def roll_dice(self, ctx: commands.Context, parsed: dict) -> str:
-        lid =  self.bot.getLID(ctx.message.author.id)
+    async def roll_dice(self, ctx: gb.GreedyContext, parsed: dict) -> str:
+        lid =  ctx.getLID()
         ndice = 0
         if RollArg.PERMANENTE in parsed:
             ndice = parsed[RollArg.DADI_PERMANENTI]
@@ -718,7 +718,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         return response
 
     @commands.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
-    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser)))
     async def roll(self, ctx: commands.Context, *args):
         if len(args) == 0:
             raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_x_what", "roll")+ " diomadonna") # xd
@@ -759,15 +759,15 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
     
     @commands.command(name = 'search', brief = "Cerca un tratto", description = "Cerca un tratto:\n\n .search <termine di ricerca> -> elenco dei risultati")
-    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
-    async def search_trait(self, ctx: commands.Context, *args):
+    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser)))
+    async def search_trait(self, ctx: gb.GreedyContext, *args):
         if len(args) == 0:
             await self.bot.atSendLang("string_error_no_searchterm")
             return
 
         searchstring = "%" + (" ".join(args)) + "%"
         lower_version = searchstring.lower()
-        traits = self.bot.dbm.db.select("LangTrait", where="langId=$langid and (traitId like $search_lower or traitShort like $search_lower or traitName like $search_string)", vars=dict(search_lower=lower_version, search_string = searchstring, langid=self.bot.getLID(ctx.message.author.id)))
+        traits = self.bot.dbm.db.select("LangTrait", where="langId=$langid and (traitId like $search_lower or traitShort like $search_lower or traitName like $search_string)", vars=dict(search_lower=lower_version, search_string = searchstring, langid=ctx.getLID()))
         
         if not len(traits):
             await self.bot.atSendLang("string_msg_no_match")
@@ -779,7 +779,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
 
     @commands.command(name = 'call', brief = "Richiama l'attenzione dello storyteller", description = "Richiama l'attenzione dello storyteller della cronaca attiva nel canale in cui viene invocato")
-    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser)))
     async def call(self, ctx: commands.Context):
         character = self.bot.dbm.getActiveChar(ctx)
         sts = self.bot.dbm.getChannelStoryTellers(ctx.channel.id)
@@ -790,11 +790,11 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
 
     @commands.command(name = 'start', brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata")
-    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser)))
     async def start(self, ctx: commands.Context):
         await self.bot.atSend(ctx, f'{random.randint(1, 100)}')
 
     @commands.command(name = 'strat', aliases = strat_list, brief = "Tira 1d100 per l'inizio giocata", description = "Tira 1d100 per l'inizio giocata anche se l'invocatore è ubriaco")
-    @commands.before_invoke(gs.command_security(gs.IsActiveOnGuild, gs.IsUser))
+    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser)))
     async def strat(self, ctx: commands.Context):
         await self.bot.atSend(ctx, f'{random.randint(1, 100)}, però la prossima volta scrivilo giusto <3')

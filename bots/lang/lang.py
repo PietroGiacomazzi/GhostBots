@@ -34,7 +34,7 @@ class LanguageStringProvider():
                 return string_name.format(*args)
         except IndexError:
             raise LangException(f'Broken text parameters for {string_name}: "{self.languages[lang_id][string_name]}", language {lang_id}, parameters "{args}"')
-    def formatException(self, lang_id: str, exception: LangSupportException) -> str:
+    def formatException(self, lang_id: str, exception: Exception) -> str:
         return self.get(lang_id, exception.args[0], *exception.args[1])        
 
 if __name__ == "__main__":

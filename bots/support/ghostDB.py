@@ -343,7 +343,7 @@ class ValidatorGenerator:
         return GetValidateRecord(self.db, "select * from Chronicle where id=$id", dict(id=chronicleid), "La cronaca '{}' non esiste!")
     def getValidateBotUser(self, userid: str) -> GetValidateRecord:
         """ Handles validation of Bot Users by discord id """
-        return GetValidateRecordNoFormat(self.db, "select * from People where userid=$userid", dict(userid=userid), "Utente non trovato")
+        return GetValidateRecordNoFormat(self.db, "select * from People where userid=$userid", dict(userid=userid), "string_error_user_not_found")
     def getValidateBotAdmin(self, userid: str) -> GetValidateRecord:
         """ Handles validation of Bot Admins by discord id """
         return GetValidateRecordNoFormat(self.db, """SELECT p.* FROM BotAdmin ba join People p on (p.userid = ba.userid) where ba.userid = $userid""", dict(userid=userid), "L'utente specificato non è un Bot Admin")
