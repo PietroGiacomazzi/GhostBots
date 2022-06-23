@@ -11,8 +11,6 @@ import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 
-FormatterType = Callable[[object, str, lng.LanguageStringProvider], str]
-
 damage_types = ["a", "l", "c"]
 reset_aliases = ["reset"]
 
@@ -51,73 +49,105 @@ pgmanage_description = """.pgmanage <nomepg> <NomeTratto> [<Operazione>]
     2) .pgmanage <nomepg> [argomenti di .me]
 """
 
-def defaultTraitFormatter(trait, lid: str, lp: lng.LanguageStringProvider) -> str:
-    return f"Oh no! devo usare il formatter di default!\n{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}/{trait['pimp_max']}, text: {trait['text_value']}"
+class TraitFormatter:
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider):
+        self.lid = lid
+        self.lp = lp
+    def format(self, trait) -> str:
+        raise NotImplementedError("u lil shit")
 
-def prettyDotTrait(trait, lid: str, lp: lng.LanguageStringProvider) -> str:
-    pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
-    pretty += ":red_circle:"*min(trait['cur_value'], trait['max_value'])
-    if trait['cur_value']<trait['max_value']:
-        pretty += ":orange_circle:"*(trait['max_value']-trait['cur_value'])
-    if trait['cur_value']>trait['max_value']:
-        pretty += ":green_circle:"*(trait['cur_value']-trait['max_value'])
-    max_dots = max(trait['pimp_max'], 5)
-    if trait['cur_value'] < max_dots:
-        pretty += ":white_circle:"*(max_dots-max(trait['max_value'], trait['cur_value']))
-    return pretty
+class DefaultTraitFormatter(TraitFormatter):
+    def format(self, trait) -> str:
+        return f"Oh no! devo usare il formatter di default!\n{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}/{trait['pimp_max']}, text: {trait['text_value']}"
 
-def prettyHealth(trait , lid: str, lp: lng.LanguageStringProvider, levels_list: list = utils.hurt_levels_vampire) -> str:
-    penalty, parsed = utils.parseHealth(trait, levels_list)
-    prettytext = f'{trait["traitName"]}:'
-    for line in parsed:
-        prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], line)))
-    return lp.get(lid, penalty[1]) +"\n"+ prettytext
+class DotTraitFormatter(TraitFormatter):
+    def format(self, trait) -> str:
+        pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
+        pretty += ":red_circle:"*min(trait['cur_value'], trait['max_value'])
+        if trait['cur_value']<trait['max_value']:
+            pretty += ":orange_circle:"*(trait['max_value']-trait['cur_value'])
+        if trait['cur_value']>trait['max_value']:
+            pretty += ":green_circle:"*(trait['cur_value']-trait['max_value'])
+        max_dots = max(trait['pimp_max'], 5)
+        if trait['cur_value'] < max_dots:
+            pretty += ":white_circle:"*(max_dots-max(trait['max_value'], trait['cur_value']))
+        return pretty
 
-#def prettyFDV(trait, lid: str, lp: lng.LanguageStringProvider) -> str:
-#    return defaultTraitFormatter(trait, lid, lp)
+class HealthTraitFormatter(TraitFormatter):
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider, levels_list: list):
+        super().__init__(lid, lp)
+        self.levelList = levels_list
+    def format(self, trait) -> str:
+        penalty, parsed = utils.parseHealth(trait, self.levelList)
+        prettytext = f'{trait["traitName"]}:'
+        for line in parsed:
+            prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], line)))
+        return self.lp.get(self.lid, penalty[1]) +"\n"+ prettytext
 
-def prettyMaxPointTracker(trait, lid: str, lp: lng.LanguageStringProvider, emojis = [":black_circle:", ":white_circle:"], separator = "") -> str:
-    pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
-    pretty += separator.join([emojis[0]]*trait['cur_value'])
-    pretty += separator
-    pretty += separator.join([emojis[1]]*(trait['max_value']-trait['cur_value']))
-    return pretty
+class VampireHealthFormatter(HealthTraitFormatter):
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider):
+        super().__init__(lid, lp, utils.hurt_levels_vampire)
 
-def prettyPointAccumulator(trait, lid: str, lp: lng.LanguageStringProvider) -> str:
-    return f"{trait['traitName']}: {trait['cur_value']}"
+class MaxPointTraitFormatter(TraitFormatter):
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider,  emojis = [":black_circle:", ":white_circle:"], separator = ""):
+        super().__init__(lid, lp)
+        self.separator = separator
+        self.emojis = emojis
+    def format(self, trait) -> str:
+        pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
+        pretty += self.separator.join([self.emojis[0]]*trait['cur_value'])
+        pretty += self.separator
+        pretty += self.separator.join([self.emojis[1]]*(trait['max_value']-trait['cur_value']))
+        return pretty
 
-def prettyTextTrait(trait, lid: str, lp: lng.LanguageStringProvider) -> str:
-    return f"{trait['traitName']}: {trait['text_value']}"
+class BloodpointTraitFormatter(MaxPointTraitFormatter):
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider):
+        super().__init__(lid, lp, blood_emojis, "")
 
-def prettyGeneration(trait, lid: str, lp: lng.LanguageStringProvider) -> str:
-    return f"{13 - trait['cur_value']}a generazione\n{prettyDotTrait(trait, lid, lp)}"
+class WillpowerTraitFormatter(MaxPointTraitFormatter):
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider):
+        super().__init__(lid, lp, will_emojis, " ")
 
-def getTraitFormatter(trait: object) -> FormatterType:
-    # formattatori specifici
-    if trait['id'] == 'generazione':
-        return prettyGeneration
-    # formattatori generici
-    if trait['textbased']:
-        return prettyTextTrait
-    elif trait['trackertype']==0:
-        return prettyDotTrait
-    elif trait['trackertype']==1:
-        if trait['id'] == 'sangue':
-            return lambda x, y, z: prettyMaxPointTracker(x, y, z, blood_emojis)
-        else:
-            return lambda x, y, z: prettyMaxPointTracker(x, y, z, will_emojis, " ")
-    elif trait['trackertype']==2:
-        return prettyHealth
-    elif trait['trackertype']==3:
-        return prettyPointAccumulator
-    else:
-        return defaultTraitFormatter
+class PointAccumulatorTraitFormatter(TraitFormatter):
+    def format(self, trait) -> str:
+        return f"{trait['traitName']}: {trait['cur_value']}"
 
-       
+class TextTraitFormatter(TraitFormatter):
+    def format(self, trait) -> str:
+        return f"{trait['traitName']}: {trait['text_value']}"
+
+class GenerationTraitFormatter(TraitFormatter):
+    def format(self, trait) -> str:
+        dtf = DotTraitFormatter(self.lid, self.lp)
+        return f"{13 - trait['cur_value']}a generazione\n{dtf.format(trait)}"
+   
 class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog): 
 
-    def formatTrait(self, ctx: gb.GreedyContext, formatter: FormatterType, trait) -> str:
-        return formatter(trait, ctx.getLID(), self.bot.languageProvider)
+    def _getTraitFormatterClass(self, trait) -> type[TraitFormatter]:
+        # formattatori specifici
+        if trait['id'] == 'generazione':
+            return GenerationTraitFormatter
+        # formattatori generici
+        if trait['textbased']:
+            return TextTraitFormatter
+        elif trait['trackertype']==0:
+            return DotTraitFormatter
+        elif trait['trackertype']==1:
+            if trait['id'] == 'sangue':
+                return BloodpointTraitFormatter
+            else:
+                return WillpowerTraitFormatter
+        elif trait['trackertype']==2:
+            return VampireHealthFormatter
+        elif trait['trackertype']==3:
+            return PointAccumulatorTraitFormatter
+        else:
+            return DefaultTraitFormatter
+
+    def getFormattedTrait(self, ctx: gb.GreedyContext, trait):
+        traitFormatterClass = self._getTraitFormatterClass(trait)
+        formatter = traitFormatterClass(ctx.getLID(), self.bot.languageProvider)
+        return formatter.format(trait)
 
     async def pc_interact(self, ctx: gb.GreedyContext, pc: object, can_edit: bool, *args_tuple) -> str:
         lid = ctx.getLID()
@@ -141,8 +171,7 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
         trait_id = args[0].lower()
         if len(args) == 1:
             trait = self.bot.dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-            prettyFormatter = getTraitFormatter(trait)
-            return self.formatTrait(ctx, prettyFormatter, trait)# prettyFormatter(trait, lid)
+            return self.getFormattedTrait(ctx, trait)
 
         # qui siamo sicuri che c'è un'operazione (o spazzatura)
         if not can_edit:
@@ -159,7 +188,6 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
 
         trait = self.bot.dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
         #trait = dbm.getTrait(pc['id'], trait_id)
-        prettyFormatter = getTraitFormatter(trait)
         if trait['pimp_max']==0 and trait['trackertype']==0:
             raise gb.BotException(f"Non puoi modificare il valore corrente di {trait['traitName']}")
         if trait['trackertype'] != 2:
@@ -191,10 +219,10 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
             self.bot.dbm.log(ctx.message.author.id, pc['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], ctx.message.content)
             if u == 1:
                 trait = self.bot.dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-                return self.formatTrait(ctx, prettyFormatter, trait)#prettyFormatter(trait, lid)
+                return self.getFormattedTrait(ctx, trait)
             elif u == 0:
                 trait = self.bot.dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-                return self.formatTrait(ctx, prettyFormatter, trait)#prettyFormatter(trait, lid)+'\n(nessuna modifica effettuata)'
+                return self.getFormattedTrait(ctx, trait)
             else:
                 return f'Qualcosa è andato storto, righe aggiornate:  {u}'
 
@@ -221,7 +249,7 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
             if u != 1:
                 raise gb.BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
             trait = self.bot.dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-            response = self.formatTrait(ctx, prettyFormatter, trait)#prettyFormatter(trait, lid)        
+            response = self.getFormattedTrait(ctx, trait)     
         elif operazione == "+":
             rip = False
             for i in range(n): # applico i danni uno alla volta perchè sono un nabbo
@@ -265,7 +293,7 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
             if u != 1 and not rip:
                 raise gb.BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
             trait = self.bot.dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-            response = self.formatTrait(ctx, prettyFormatter, trait)#prettyFormatter(trait, lid)
+            response = self.getFormattedTrait(ctx, trait) 
             if rip:
                 response += "\n\n RIP"
         elif operazione == "-":
@@ -298,7 +326,7 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
             if u != 1:
                 raise gb.BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
             trait = self.bot.dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-            response = self.formatTrait(ctx, prettyFormatter, trait)#prettyFormatter(trait, lid)
+            response = self.getFormattedTrait(ctx, trait) 
         else: # =
             full = param[1:]
             counts = list(map(lambda x: full.count(x), damage_types))
@@ -311,7 +339,7 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
             if u != 1:
                 raise gb.BotException(f'Qualcosa è andato storto, righe aggiornate: {u}')
             trait = self.bot.dbm.getTrait_LangSafe(pc['id'], trait_id, lid)
-            response = self.formatTrait(ctx, prettyFormatter, trait)#prettyFormatter(trait, lid)
+            response = self.getFormattedTrait(ctx, trait) 
 
         return response
 

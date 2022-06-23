@@ -19,9 +19,11 @@ hurt_levels_vampire = [
 def parseHealth(trait, levels_list = hurt_levels_vampire):
     if trait['max_value'] <= 0:
         return levels_list[0], 'B' # 'Non hai ancora inizializzato la tua salute!'
-    hs = trait['text_value']
-    hs = hs + (" "*(trait['max_value']-len(hs)))
     levels = len(levels_list) - 1 
+
+    hs = trait['text_value']
+    hs = hs + (" "*(trait['max_value']-len(hs))) + ("B"*(levels-trait['max_value']))
+
     columns = len(hs) // levels 
     extra = len(hs) % levels
     width = columns + (extra > 0)
