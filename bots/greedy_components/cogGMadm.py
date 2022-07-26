@@ -10,6 +10,7 @@ from greedy_components import greedyConverters as gc
 import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
+import support.security as sec
 
 #
 newTrait_description = """Argomenti: <id> <tipo> <tracker> <standard> <nome completo>
@@ -97,14 +98,14 @@ query_addTraitLangs = """
 class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         
     @commands.group(brief='Gestione sistema di gioco')
-    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.AND( gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.IsStoryteller))))
+    @commands.before_invoke(gs.command_security(gs.basicStoryTeller))
     async def gmadm(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
             response = utils.discord_text_format_mono('Azioni disponibili:\n\n' + '\n'.join(list(map(lambda k: f'{k} - {gmadm_help[k][1]}', gmadm_help))))
             await self.bot.atSend(ctx, response)
 
     @gmadm.command(name = 'listChronicles', brief = gmadm_help['listChronicles'][1], description = listChronicles_description)
-    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.AND( gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.IsStoryteller))))
+    @commands.before_invoke(gs.command_security(gs.basicStoryTeller))
     async def listChronicles(self, ctx: commands.Context):
 
         query = """
@@ -129,7 +130,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, "Cronache:\n" + "\n".join(list(map(lambda x: f"**{chronicles[x]}** ({x}) (storyteller: {', '.join(crst[x])})", chronicles))))
 
     @gmadm.command(name = 'newChronicle', brief = gmadm_help['newChronicle'][1], description = newChronicle_description)
-    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.AND( gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.IsStoryteller))))
+    @commands.before_invoke(gs.command_security(gs.basicStoryTeller))
     async def newChronicle(self, ctx: commands.Context, shortname: gc.GreedyShortIdConverter,  *args):
         if len(args) == 0:
             self.bot.atSend(ctx, newChronicle_description)
@@ -154,7 +155,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, f"Cronaca {fullname} inserita ed associata a {issuer_user}")
 
     @gmadm.command(name = 'newTrait', brief = gmadm_help['newTrait'][1], description = newTrait_description)
-    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.AND( gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.IsStoryteller))))
+    @commands.before_invoke(gs.command_security(gs.basicStoryTeller))
     async def newTrait(self, ctx: commands.Context, traitid: gc.GreedyShortIdConverter, traittype: gc.TraitTypeConverter, tracktype: gc.TrackerTypeConverter, std: gc.NoYesConverter, *args):
         if len(args) == 0:
             await self.bot.atSend(ctx, newTrait_description)
@@ -188,7 +189,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
 
     @gmadm.command(name = 'updt', brief = gmadm_help['updt'][1], description = updt_description)
-    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.AND( gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.IsStoryteller))))
+    @commands.before_invoke(gs.command_security(gs.basicStoryTeller))
     async def updt(self, ctx: gb.GreedyContext, old_traitid: gc.GreedyShortIdConverter, new_traitid: gc.GreedyShortIdConverter, traittype: gc.TraitTypeConverter, tracktype: gc.TrackerTypeConverter, std: gc.NoYesConverter, *args):    
         if len(args) == 0:
             await self.bot.atSend(ctx, newTrait_description)
@@ -230,7 +231,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, response)
 
     @gmadm.command(name = 'link', brief = gmadm_help['link'][1], description = link_description)
-    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.AND( gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.genIsChronicleStoryteller(target_chronicle=2)))))
+    @commands.before_invoke(gs.command_security(sec.OR(sec.IsAdmin, sec.AND( sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser), sec.genIsChronicleStoryteller(target_chronicle=2)))))
     async def link(self, ctx: commands.Context, chronicle: gc.ChronicleConverter, storyteller: gc.StorytellerConverter = None):
         issuer = str(ctx.message.author.id)
         
@@ -250,7 +251,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, f"Cronaca associata")
 
     @gmadm.command(name = 'unlink', brief = gmadm_help['unlink'][1], description = unlink_description)
-    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.AND( gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.genIsChronicleStoryteller(target_chronicle=2), gs.genIsSelf(optional_target_user=3)))))
+    @commands.before_invoke(gs.command_security(sec.OR(sec.IsAdmin, sec.AND( sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser), sec.genIsChronicleStoryteller(target_chronicle=2), sec.genIsSelf(optional_target_user=3)))))
     async def unlink(self, ctx: context.Context, chronicle: gc.ChronicleConverter, storyteller: gc.StorytellerConverter = None):
 
         issuer = str(ctx.message.author.id)
@@ -269,7 +270,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, f"Nessuna cronaca da disassociare")
 
     @gmadm.command(name = 'name', brief = gmadm_help['name'][1], description = name_description)
-    @commands.before_invoke(gs.command_security(gs.IsAdmin))
+    @commands.before_invoke(gs.command_security(sec.IsAdmin))
     async def name(self, ctx: commands.Context, user: gc.RegisteredUserConverter):
         
         target_st = user['userid'] 
@@ -283,7 +284,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, f"{name} ora è Storyteller")
         
     @gmadm.command(name = 'unname', brief = gmadm_help['unname'][1], description = unname_description)
-    @commands.before_invoke(gs.command_security(gs.IsAdmin))
+    @commands.before_invoke(gs.command_security(sec.IsAdmin))
     async def unname(self, ctx: commands.Context, storyteller: gc.StorytellerConverter):
 
         target_st = storyteller['userid'] 
@@ -296,7 +297,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, f"Nessuna modifica fatta")
     
     @gmadm.command(name = 'traittypes', brief = gmadm_help['traittypes'][1], description = traittypes_description)
-    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.IsStoryteller)))
+    @commands.before_invoke(gs.command_security(gs.basicStoryTeller))
     async def traittypes(self, ctx: commands.Context):
         
         ttypesl = self.bot.dbm.db.select('TraitType', what = "id, name").list()

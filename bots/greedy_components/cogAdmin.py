@@ -8,11 +8,12 @@ from greedy_components import greedySecurity as gs
 import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
+import support.security as sec
 
 class GreedyGhostCog_Admin(gb.GreedyGhostCog):
 
     @commands.command(name = 'sql', brief='a bad idea.', help = "no.", hidden=True)
-    @commands.before_invoke(gs.command_security(gs.IsAdmin))
+    @commands.before_invoke(gs.command_security(sec.IsAdmin))
     async def sql(self, ctx: commands.Context, *args):
         query = " ".join(args)
         try:

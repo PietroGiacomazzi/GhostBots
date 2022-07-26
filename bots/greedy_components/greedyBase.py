@@ -1,12 +1,13 @@
 import configparser, os
 from discord.ext import commands
 import discord
+from support import security
 
 import support.ghostDB as ghostDB
 import lang.lang as lng
 import support.utils as utils
 
-class BotException(Exception): # use this for 'known' error situations
+class BotException(Exception): # this is not translated, should be discontinued in favor of GreedyCommandError
     def __init__(self, msg):
         super(BotException, self).__init__(msg)
 
@@ -15,7 +16,7 @@ class GreedyCommandError(commands.CommandError):
         """ Base command exception with language support. """
         super(GreedyCommandError, self).__init__(message, formats)
 
-class GreedyErrorGroup(commands.CommandError):
+class GreedyErrorGroup(lng.LangSupportErrorGroup, commands.CommandError): # this only exists for before_invoke reasons
     def __init__(self, message: str, errors: list):
         """ Group of errors with language support. """
         super(GreedyErrorGroup, self).__init__(message, errors)
@@ -31,41 +32,28 @@ class GreedyLanguageStringProvider(lng.LanguageStringProvider):
         except ghostDB.DBException:
             return self.config['BotOptions']['default_language']
 
-class GreedyContext(commands.Context):
+class GreedyContext(commands.Context, security.SecurityContext):
     def __init__(self, **attrs):
         """ Custom context class that handles (and caches) some extra info about the invocation context, like whether the user is Registered, or their preferred language """
         super().__init__(**attrs)
         assert isinstance(self.bot, GreedyBot)
         self.bot: GreedyBot = self.bot # here just for type checks
 
-        self.registeredUser = None
-        self.userData = None
-        self.language_id = None
-    def _loadUserInfo(self):
-        self.registeredUser, self.userData = self.bot.dbm.validators.getValidateBotUser(self.message.author.id).validate()
-        if self.registeredUser:
-            self.language_id = self.userData['langId']
+    def getUserId(self) -> int:
+        return self.message.author.id
+    def getDBManager(self) -> ghostDB.DBManager:
+        return self.bot.dbm
+    def getDefaultLanguageId(self) -> str:
+        return self.bot.config['BotOptions']['default_language']
+    def getChannelId(self) -> int:
+        return self.message.channel.id
+    def getGuildId(self) -> int:
+        guild = self.message.guild
+        if guild is None:
+            return None
         else:
-            self.language_id = self.bot.config['BotOptions']['default_language']
-    def getLID(self):
-        if self.registeredUser is None:
-            self._loadUserInfo()
-
-        return self.language_id
-    def validateUserInfo(self):
-        if self.registeredUser is None:
-            self._loadUserInfo()
-
-        return self.registeredUser, self.userData
-    def getUserInfo(self):
-        if self.registeredUser is None:
-            self._loadUserInfo()
-
-        if self.registeredUser:
-            return self.userData
-        else:
-            raise self.userData
-
+            return guild.id
+ 
 class GreedyBot(commands.Bot):
     """ Base class for bots """
     def __init__(self, configuration: configparser.ConfigParser, db_manager: ghostDB.DBManager, *args, **options):
@@ -106,11 +94,7 @@ class GreedyBot(commands.Bot):
             print(msg)
     def formatException(self, ctx: GreedyContext, exc: Exception) -> str:
         lid = ctx.getLID()
-        formatted_error = ""
-        if isinstance(exc, GreedyErrorGroup):
-            formatted_error = "\n".join(list(map(lambda x: self.formatException(ctx, x), exc.args[1]))) # this is recursive because GreedyErrorGroup can be used to stack a bunch of exceptions nested on multiple layers
-        else:
-            formatted_error = self.languageProvider.formatException(lid, exc)
+        formatted_error = self.languageProvider.formatException(lid, exc)
         return formatted_error
     # overrides
     async def get_context(self, message, *, cls=...):

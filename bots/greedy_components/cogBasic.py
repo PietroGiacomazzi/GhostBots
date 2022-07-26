@@ -14,6 +14,7 @@ from greedy_components.greedyConverters import NoYesConverter
 import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
+import support.security as sec
 
 class GreedyGhostCog_Basic(gb.GreedyGhostCog):
     """ Does basic functionality for the bot:
@@ -62,7 +63,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
                 error = e
         if isinstance(error, gb.BotException):
             await self.bot.atSend(ctx, f'{error}')
-        elif isinstance(error, gb.GreedyErrorGroup):
+        elif isinstance(error, lng.LangSupportErrorGroup):
             await self.bot.atSend(ctx, self.bot.formatException(ctx, error))
         elif isinstance(error, lng.LangSupportException):
             await self.bot.atSend(ctx, self.bot.languageProvider.formatException(lid, error))
@@ -118,7 +119,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
     # this command is not needed anymore and is here only in case the bot misses someone joining and we don't want to wait up to 1 day for the user maintenance task to catch up
     # remember: if we register a User that is not actually in a guild that the bot can see, the registration will be removed when the maintenance task runs
     @commands.command(name = 'register', brief='Registra un utente nel database')
-    @commands.before_invoke(gs.command_security(gs.OR(gs.IsAdmin, gs.AND( gs.OR(gs.IsActiveOnGuild, gs.IsPrivateChannelWithRegisteredUser), gs.IsStoryteller))))
+    @commands.before_invoke(gs.command_security(gs.basicStoryTeller))
     async def register(self, ctx: commands.Context, user: UserConverter): 
 
         userid = user.id
@@ -150,7 +151,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
             self.bot.dbm.updateGuildName(after.id, after.name)
 
     @commands.command(name = 'gauth', brief='Abilita il server ad utilizzare le funzionalità del bot')
-    @commands.before_invoke(gs.command_security(gs.IsAdmin))
+    @commands.before_invoke(gs.command_security(sec.IsAdmin))
     async def guild_authorization(self, ctx: commands.Context, authorize: NoYesConverter = None): 
         guild_ctx = ctx.guild
         if guild_ctx is None:

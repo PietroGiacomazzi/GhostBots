@@ -12,6 +12,7 @@ from requests_oauthlib import OAuth2Session
 from pyresources.UtilsWebLib import *
 import lang.lang as lng
 import support.ghostDB as ghostDB
+import support.security as sec
 
 config = configparser.ConfigParser()
 config.read("/var/www/greedy_ghost_web.ini")
@@ -77,6 +78,50 @@ TOKEN_URL = API_BASE_URL + '/oauth2/token'
 
 default_language = config['WebApp']['default_language']
 lp = lng.LanguageStringProvider(abspath+"lang")
+
+# Security
+
+class WebContext(sec.SecurityContext):
+    def __init__(self, response: WebResponse) -> None:
+        self.response = response
+
+    def getUserId(self) -> int:
+        if hasattr(self.response.session, "discord_userid"):
+            return self.response.session.discord_userid
+        else:
+            return 0
+    def getGuildId(self) -> int:
+        return 0
+    def getChannelId(self) -> int:
+        return 0
+    def getDBManager(self) -> ghostDB.DBManager:
+        return dbm
+    def getDefaultLanguageId() -> str:
+        return config['WebApp']['default_language']
+
+def web_security(security_item: type[sec.CommandSecurity], **security_options):
+    """ setup command security for a command created in a GreedyGhostCog """
+    def decorator(func):
+        async def wrapper(self: WebResponse, *args, **kwargs):
+            ctx: WebContext = WebContext(self) 
+            security_check_instance: sec.CommandSecurity = None
+            
+            if isinstance(self, WebResponse):
+                security_check_instance = security_item(ctx, **security_options)
+            else:
+                raise sec.SecuritySetupError(f"Security is supported only for {WebResponse} objects. Provided object type: {type(self)}")
+            
+            if not issubclass(security_item, sec.CommandSecurity):
+                raise sec.SecuritySetupError(f"Type {security_check_instance} is not a {sec.CommandSecurity} object")
+
+            security_pass, security_comment = await security_check_instance.checkSecurity(*self.input_data, **kwargs)
+            if security_pass:
+                await func(self, *args, **kwargs)
+            else:
+                raise sec.SecurityCheckException(0, "string_error_permission_denied", (lp.formatException(ctx, security_comment), ))
+        return wrapper
+    return decorator
+
 
 # --- STUFF ---
 
@@ -172,12 +217,19 @@ class Log(WsgiLog): # this shit needs the config to be loaded so it can't be off
             backups = config['WebApp']['log_backups']
             )
 
-class WebExceptionLang(WebException):
-    def __init__(self, msg: str, langParams: tuple = (), errorcode: int = 0, lid: str = default_language):
-        super(WebExceptionLang, self).__init__(lp.get(lid, msg, *langParams), errorcode)
+def WebException_fromLangsupport(exception: lng.LangSupportException, errorcode: int = 0, lid: str = default_language) -> WebException:
+    return WebException(lp.formatException(lid, exception), errorcode)
 
-def translate_dbexc(dbexc: ghostDB.DBException, lid: str, errorcode : int= 0) -> WebExceptionLang:
-    return WebExceptionLang(dbexc.args[1], dbexc.args[2], errorcode = errorcode, lid = lid)
+def WebException_Langsupport(msg: str, langParams: tuple = (), errorcode: int = 0, lid: str = default_language) -> WebException:
+    return WebException(lp.get(lid, msg, *langParams), errorcode)
+
+def langSupportExceptionTranslation(func):
+    async def wrapper(self: WebPageResponseLang | APIResponseLang, *args, **kwargs):
+        try:
+            func(self, *args, **kwargs)
+        except lng.LangSupportException as e:
+            raise WebException_fromLangsupport(e, 400, self.getLangId())    
+    return wrapper
 
 class WebPageResponseLang(WebPageResponse):
     def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
@@ -191,10 +243,22 @@ class WebPageResponseLang(WebPageResponse):
         return lp.get(self.getLangId(), string_id, *args)
     def getLanguageDict(self):
         return lp.languages[self.getLangId()]
-    def getLangException(self, errorcode, string_id, args = ()):
-        return WebExceptionLang(string_id, args, errorcode = errorcode, lid = self.getLangId())
-    def getLangExceptionFromBDExc(self, dbexc: ghostDB.DBException, errorcode : int = 0):
-        return translate_dbexc(dbexc, self.getLangId(), errorcode)
+    
+    @langSupportExceptionTranslation
+    def validateInput(self, raw: dict):
+        return super().validateInput(raw)
+    @langSupportExceptionTranslation
+    def postHook(self, result):
+        return super().postHook(result)
+    @langSupportExceptionTranslation
+    def preHook(self):
+        return super().preHook()
+    @langSupportExceptionTranslation
+    def mGET(self):
+        return super().mGET()
+    @langSupportExceptionTranslation
+    def mPOST(self):
+        return super().mPOST()
 
 class APIResponseLang(APIResponse):
     def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
@@ -208,10 +272,22 @@ class APIResponseLang(APIResponse):
         return lp.get(self.getLangId(), string_id, *args)
     def getLanguageDict(self) -> dict[str, str]:
         return lp.languages[self.getLangId()]
-    def getLangException(self, errorcode, string_id, args = ()):
-        return WebExceptionLang(string_id, args, errorcode = errorcode, lid = self.getLangId())
-    def getLangExceptionFromBDExc(self, dbexc: ghostDB.DBException, errorcode : int = 0):
-        return translate_dbexc(dbexc, self.getLangId(), errorcode)
+
+    @langSupportExceptionTranslation
+    def validateInput(self, raw: dict):
+        return super().validateInput(raw)
+    @langSupportExceptionTranslation
+    def postHook(self, result):
+        return super().postHook(result)
+    @langSupportExceptionTranslation
+    def preHook(self):
+        return super().preHook()
+    @langSupportExceptionTranslation
+    def mGET(self):
+        return super().mGET()
+    @langSupportExceptionTranslation
+    def mPOST(self):
+        return super().mPOST()
         
 class main_page:
     def GET(self):
@@ -742,21 +818,18 @@ class newCharacter(APIResponseLang):
 
         vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
         if vl:
-            raise self.getLangException(400, "string_error_character_already_exists")
+            raise WebException_Langsupport("string_error_character_already_exists", (), 400)
         
         chid = self.input_data['charId']
         owner = self.session.discord_userid
         fullname = self.input_data['charName']
 
         if " " in chid: # todo: validator
-            raise self.getLangException(400, "string_error_char_not_allowed")
+            raise WebException_Langsupport("string_error_char_not_allowed", (), 400)
         
         # todo: create chars for other people
-        try:
-            dbm.newCharacter(chid, fullname, owner)
-            return self.input_data # idk
-        except ghostDB.DBException as e:
-            raise self.getLangExceptionFromBDExc(e, 400)
+        dbm.newCharacter(chid, fullname, owner)
+        return self.input_data # idk
 
 class userList(APIResponse): # TODO: maybe a standardized autocomplete list response class for input modals?
     def __init__(self):

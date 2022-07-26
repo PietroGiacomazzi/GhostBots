@@ -5,6 +5,11 @@ class LangSupportException(Exception):
         """ Base exception with language support. """
         super(LangSupportException, self).__init__(msg, formats)
 
+class LangSupportErrorGroup(Exception):
+    def __init__(self, message: str, errors: list):
+        """ Group of errors with language support. """
+        super(LangSupportErrorGroup, self).__init__(message, errors)
+
 class LangException(Exception): # use this for 'known' error situations
     def __init__(self, msg: str):
         super(LangException, self).__init__(msg)
@@ -35,7 +40,12 @@ class LanguageStringProvider():
         except IndexError:
             raise LangException(f'Broken text parameters for {string_name}: "{self.languages[lang_id][string_name]}", language {lang_id}, parameters "{args}"')
     def formatException(self, lang_id: str, exception: Exception) -> str:
-        return self.get(lang_id, exception.args[0], *exception.args[1])        
+        formatted_error = ""
+        if isinstance(exception, LangSupportErrorGroup):
+            formatted_error = "\n".join(list(map(lambda x: self.formatException(lang_id, x), exception.args[1]))) # this is recursive because LangSupportErrorGroup can be used to stack a bunch of exceptions nested on multiple layers
+        else:
+            formatted_error = self.get(lang_id, exception.args[0], *exception.args[1])
+        return formatted_error
 
 if __name__ == "__main__":
     lp = LanguageStringProvider(".")
