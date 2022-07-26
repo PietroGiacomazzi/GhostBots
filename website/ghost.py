@@ -224,7 +224,7 @@ def WebException_Langsupport(msg: str, langParams: tuple = (), errorcode: int = 
     return WebException(lp.get(lid, msg, *langParams), errorcode)
 
 def langSupportExceptionTranslation(func):
-    async def wrapper(self: WebPageResponseLang | APIResponseLang, *args, **kwargs):
+    async def wrapper(self, *args, **kwargs): # WebPageResponseLang | APIResponseLang # unsupported type hunt by 3.9
         try:
             func(self, *args, **kwargs)
         except lng.LangSupportException as e:

@@ -16,7 +16,7 @@ class SecuritySetupError(lng.LangSupportException):
 class SecurityContext:
 
     registeredUser: bool = None
-    userData: web.utils.Storage | ghostDB.DBException = None
+    userData = None #  web.utils.Storage | ghostDB.DBException # usupported type hint by 3.9
     language_id = None
 
     def getUserId(self) -> int:
