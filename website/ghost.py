@@ -113,7 +113,7 @@ class WebContext(sec.SecurityContext):
         return 0
     def getDBManager(self) -> ghostDB.DBManager:
         return dbm
-    def getDefaultLanguageId() -> str:
+    def getDefaultLanguageId(self) -> str:
         return config['WebApp']['default_language']
 
 def web_security(security_item: type[sec.CommandSecurity], **security_options):
