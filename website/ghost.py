@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import sys, os
 
@@ -79,6 +80,22 @@ TOKEN_URL = API_BASE_URL + '/oauth2/token'
 default_language = config['WebApp']['default_language']
 lp = lng.LanguageStringProvider(abspath+"lang")
 
+#
+
+def WebException_fromLangsupport(exception: lng.LangSupportException, errorcode: int = 0, lid: str = default_language) -> WebException:
+    return WebException(lp.formatException(lid, exception), errorcode)
+
+def WebException_Langsupport(msg: str, langParams: tuple = (), errorcode: int = 0, lid: str = default_language) -> WebException:
+    return WebException(lp.get(lid, msg, *langParams), errorcode)
+
+def langSupportExceptionTranslation(func):
+    def wrapper(self, *args, **kwargs): # WebPageResponseLang | APIResponseLang # unsupported type hint by 3.9
+        try:
+            return func(self, *args, **kwargs)
+        except lng.LangSupportException as e:
+            raise WebException_fromLangsupport(e, 400, getLanguage(session, dbm))    
+    return wrapper
+
 # Security
 
 class WebContext(sec.SecurityContext):
@@ -100,9 +117,10 @@ class WebContext(sec.SecurityContext):
         return config['WebApp']['default_language']
 
 def web_security(security_item: type[sec.CommandSecurity], **security_options):
-    """ setup command security for a command created in a GreedyGhostCog """
+    """ setup security permissions for a WebResponse object """
     def decorator(func):
-        async def wrapper(self: WebResponse, *args, **kwargs):
+        @langSupportExceptionTranslation
+        def wrapper(self: WebResponse, *args, **kwargs):
             ctx: WebContext = WebContext(self) 
             security_check_instance: sec.CommandSecurity = None
             
@@ -114,14 +132,31 @@ def web_security(security_item: type[sec.CommandSecurity], **security_options):
             if not issubclass(security_item, sec.CommandSecurity):
                 raise sec.SecuritySetupError(f"Type {security_check_instance} is not a {sec.CommandSecurity} object")
 
-            security_pass, security_comment = await security_check_instance.checkSecurity(*self.input_data, **kwargs)
+            security_pass, security_comment = security_check_instance.checkSecurity(**self.input_data)
             if security_pass:
-                await func(self, *args, **kwargs)
+                return func(self, *args, **kwargs)
             else:
-                raise sec.SecurityCheckException(0, "string_error_permission_denied", (lp.formatException(ctx, security_comment), ))
+                raise sec.SecurityCheckException("string_error_permission_denied", (lp.formatException(getLanguage(self.session, dbm), security_comment), ))
+            
         return wrapper
     return decorator
 
+def check_web_security(response: WebResponse, security_item: type[sec.CommandSecurity], **security_options) -> bool:
+    """ Callable version of the web_security decorator. can be used to check a permission and get a boolean result """
+    decorator = web_security(security_item, **security_options)
+    decorated = decorator(id) # it does not matter what we are decorating, so we just use id() 
+    try:
+        decorated(response)
+        return True
+    except (sec.SecurityCheckException, sec.SecuritySetupError, sec.MissingParameterException) as e:
+        return False
+    except WebException: # in case we are using @langSupportExceptionTranslation
+        return False
+
+# Security blocks
+
+canSeeCharacter = lambda target_character: sec.OR(sec.IsAdmin, sec.genIsCharacterStoryTeller(target_character), sec.genIsCharacterPlayer(target_character))
+notesPermission = canSeeCharacter
 
 # --- STUFF ---
 
@@ -150,13 +185,10 @@ def make_session(token: str =None, state: str =None, scope: list =None) -> OAuth
         auto_refresh_url=TOKEN_URL,
         token_updater=token_updater)
 
-def validator_character(data: str) -> str:
-    string = validator_str_range(1, 20)(data)
-    vl, _ = dbm.validators.getValidateCharacter(data).validate()
-    if not vl:
-        raise WebException("Invalid character", 400)
-    else:
-        return string
+@langSupportExceptionTranslation
+def validator_character(data: str) -> web.utils.Storage:
+    _ = validator_str_range(1, 20)(data)
+    return dbm.validators.getValidateCharacter(data).get()
 
 def validator_language(data: str) -> str:
     string = validator_str_range(1, 3)(data)
@@ -197,18 +229,16 @@ def validator_trait_textbased(data: str) -> str:
     except ghostDB.DBException as e:
         raise WebException("Invalid trait", 400)
 
-def validator_bot_user(data: str) -> str:
-    iu, _ = dbm.validators.getValidateBotUser(data).validate()
-    if not iu:
-        raise WebException("Invalid user", 400)
-    return data
+def validator_bot_user(data: str) -> web.utils.Storage:
+    _ = validator_str_range(1, 32)(data)
+    return dbm.validators.getValidateBotUser(data).get()
 
 class Log(WsgiLog): # this shit needs the config to be loaded so it can't be off this file :(
     def __init__(self, application):
         WsgiLog.__init__(
             self,
             application,
-            logformat = '%(asctime)s %(levelname)s \t %(message)s',
+            logformat = u'%(asctime)s %(levelname)s \t %(message)s',
             tofile = True,
             toprint = True,
             file = config['WebApp']['log_file'],
@@ -216,20 +246,6 @@ class Log(WsgiLog): # this shit needs the config to be loaded so it can't be off
             when = config['WebApp']['log_when'],
             backups = config['WebApp']['log_backups']
             )
-
-def WebException_fromLangsupport(exception: lng.LangSupportException, errorcode: int = 0, lid: str = default_language) -> WebException:
-    return WebException(lp.formatException(lid, exception), errorcode)
-
-def WebException_Langsupport(msg: str, langParams: tuple = (), errorcode: int = 0, lid: str = default_language) -> WebException:
-    return WebException(lp.get(lid, msg, *langParams), errorcode)
-
-def langSupportExceptionTranslation(func):
-    async def wrapper(self, *args, **kwargs): # WebPageResponseLang | APIResponseLang # unsupported type hunt by 3.9
-        try:
-            func(self, *args, **kwargs)
-        except lng.LangSupportException as e:
-            raise WebException_fromLangsupport(e, 400, self.getLangId())    
-    return wrapper
 
 class WebPageResponseLang(WebPageResponse):
     def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
@@ -243,22 +259,6 @@ class WebPageResponseLang(WebPageResponse):
         return lp.get(self.getLangId(), string_id, *args)
     def getLanguageDict(self):
         return lp.languages[self.getLangId()]
-    
-    @langSupportExceptionTranslation
-    def validateInput(self, raw: dict):
-        return super().validateInput(raw)
-    @langSupportExceptionTranslation
-    def postHook(self, result):
-        return super().postHook(result)
-    @langSupportExceptionTranslation
-    def preHook(self):
-        return super().preHook()
-    @langSupportExceptionTranslation
-    def mGET(self):
-        return super().mGET()
-    @langSupportExceptionTranslation
-    def mPOST(self):
-        return super().mPOST()
 
 class APIResponseLang(APIResponse):
     def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
@@ -272,22 +272,6 @@ class APIResponseLang(APIResponse):
         return lp.get(self.getLangId(), string_id, *args)
     def getLanguageDict(self) -> dict[str, str]:
         return lp.languages[self.getLangId()]
-
-    @langSupportExceptionTranslation
-    def validateInput(self, raw: dict):
-        return super().validateInput(raw)
-    @langSupportExceptionTranslation
-    def postHook(self, result):
-        return super().postHook(result)
-    @langSupportExceptionTranslation
-    def preHook(self):
-        return super().preHook()
-    @langSupportExceptionTranslation
-    def mGET(self):
-        return super().mGET()
-    @langSupportExceptionTranslation
-    def mPOST(self):
-        return super().mPOST()
         
 class main_page:
     def GET(self):
@@ -429,6 +413,7 @@ where pc.owner = $userid or pc.player = $userid"""
 class getMyCharacters(APIResponse):
     def __init__(self):
         super(getMyCharacters, self).__init__(config, session)
+    @web_security(sec.IsUser)
     def mGET(self):
         try:
             ba, _ = dbm.validators.getValidateBotAdmin(self.session.discord_userid).validate()
@@ -443,39 +428,34 @@ class getMyCharacters(APIResponse):
             self.logger.error(f"getMyCharacters error: {e}")
             return []
 
+query_characterTraits = """
+SELECT 
+    ct.*,
+    tr.*, 
+    tt.textbased,
+    lt.traitName as traitName
+From CharacterTrait ct
+join Trait tr on (ct.trait = tr.id)
+join TraitType tt on (tr.traittype = tt.id)
+left join LangTrait lt on (tr.id = lt.traitid)
+where ct.playerchar = $charid
+and lt.langId = $langid
+order by tr.ordering asc, tr.standard desc, ct.trait asc
+"""
+
 class getCharacterTraits(APIResponse):
     def __init__(self):
         super(getCharacterTraits, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_character)})
+    @web_security(canSeeCharacter('charid'))
     def mGET(self):
-        try:
-            ba, _ = dbm.validators.getValidateBotAdmin(self.session.discord_userid).validate()
-            st, _ = dbm.validators.getValidateBotStoryTeller(self.session.discord_userid).validate()
-            co, _ = dbm.isCharacterOwner(self.session.discord_userid, self.input_data['charid'])
-            if (ba or st or co):
-                traits = dbm.db.query("""
-    SELECT 
-        ct.*,
-        tr.*, 
-        tt.textbased,
-        lt.traitName as traitName
-    From CharacterTrait ct
-    join Trait tr on (ct.trait = tr.id)
-    join TraitType tt on (tr.traittype = tt.id)
-    left join LangTrait lt on (tr.id = lt.traitid)
-    where ct.playerchar = $charid
-    and lt.langId = $langid
-    order by tr.ordering asc, tr.standard desc, ct.trait asc
-    """, vars=dict(charid=self.input_data['charid'], langid = getLanguage(self.session, dbm)))
-                return traits.list()
-            else:
-                return []
-        except AttributeError as e:
-            self.logger.error(f"getCharacterTraits error: {e}")
-            return []
+        charid = self.input_data['charid']['id']
+        traits = dbm.db.query(query_characterTraits, vars=dict(charid=charid, langid = getLanguage(self.session, dbm)))
+        return traits.list()
 
 class getClanIcon(APIResponse):
     def __init__(self):
         super(getClanIcon, self).__init__(config, session, accepted_input = {'clan': (MUST, validator_str_maxlen(50))})
+    @web_security(sec.IsUser)
     def mGET(self):
         ci = dbm.db.select('ClanInfo', where='clanid = $clanid', vars=dict(clanid = self.input_data['clan']))
         if len(ci):
@@ -483,31 +463,24 @@ class getClanIcon(APIResponse):
         else:
             return {'clan_icon': ""}
 
+query_characterModLog = """
+SELECT *
+From CharacterModLog cml
+join People pp on (cml.userid = pp.userid)
+where cml.charid = $charid
+order by cml.logtime desc
+"""
+
 class getCharacterModLog(WebPageResponseLang):
     def __init__(self):
-        super(getCharacterModLog, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_str_range(1, 20))})
+        super(getCharacterModLog, self).__init__(config, session, accepted_input = {'charid': (MUST, validator_character)})
+    @web_security(canSeeCharacter('charid'))
     def mGET(self):
-        try:
-            ba, _ = dbm.validators.getValidateBotAdmin(self.session.discord_userid).validate()
-            st, _ = dbm.validators.getValidateBotStoryTeller(self.session.discord_userid).validate()
-            co, _ = dbm.isCharacterOwner(self.session.discord_userid, self.input_data['charid'])
-            if (ba or st or co):
-                log = dbm.db.query("""
-    SELECT *
-    From CharacterModLog cml
-    join People pp on (cml.userid = pp.userid)
-    where cml.charid = $charid
-    order by cml.logtime desc
-    """, vars=dict(charid=self.input_data['charid'])).list()
-                for i in range(len(log)):
-                    log[i]["val_type"] = f"web_label_valtype_{log[i]['val_type']}"
-                return render.CharacterModLog(global_template_params, self.getLanguageDict(), log)
-            else:
-                self.logger.warning(f"Modlog was asked for {self.input_data['charid']} by {self.session.discord_userid}, who does not have access to it")
-                return ""
-        except AttributeError as e:
-            self.logger.error(f"getCharacterModLog error: {e}")
-            return ""
+        charid = self.input_data['charid']['id']
+        log = dbm.db.query(query_characterModLog, vars=dict(charid=charid)).list()
+        for i in range(len(log)):
+            log[i]["val_type"] = f"web_label_valtype_{log[i]['val_type']}"
+        return render.CharacterModLog(global_template_params, self.getLanguageDict(), log)
 
 class getLanguageDictionary(APIResponse):
     def __init__(self):
@@ -517,10 +490,9 @@ class getLanguageDictionary(APIResponse):
 
 class editTranslations(WebPageResponseLang):
     def __init__(self):
-        super(editTranslations, self).__init__(config, session, min_access_level=5)
+        super(editTranslations, self).__init__(config, session)
+    @web_security(sec.OR(sec.IsAdmin, sec.IsStoryteller))
     def mGET(self):
-        #ba, _ = dbm.isBotAdmin(self.session.discord_userid)
-        #st, _ = dbm.isStoryteller(self.session.discord_userid)
         query = """
         select tt.id, lt.langId, lt.traitShort, lt.traitName
         from Trait tt
@@ -532,12 +504,13 @@ class editTranslations(WebPageResponseLang):
 
 class editTranslation(APIResponse):
     def __init__(self):
-        super(editTranslation, self).__init__(config, session, min_access_level=5, accepted_input = {
+        super(editTranslation, self).__init__(config, session, accepted_input = {
             'traitId': (MUST, validator_trait),
             'type': (MUST, validator_set( ("short", "name") )),
             'langId': (MUST, validator_language),
             'value': (MUST, validator_str_range(1, 50)),     
         })
+    @web_security(sec.OR(sec.IsAdmin, sec.IsStoryteller))
     def mGET(self):
         u = 0
         if self.input_data['type'] == "short":
@@ -550,155 +523,111 @@ class editTranslation(APIResponse):
         if u == 1:
             return self.input_data
         else:
-            raise WebException(f"Update failed, {u} rows affected", 500)
+            raise WebException(f"Something went wrong: {u} rows affected", 500)
 
-#TODO: greedysecurity
-def pgmodPermissionCheck_web(issuer_id, character):
-    owner_id = character['owner']
-    char_id = character['id']
-    
-    st, _ =  dbm.isStorytellerForCharacter(issuer_id, char_id)
-    ba, _ = dbm.validators.getValidateBotAdmin(issuer_id).validate()
-    co = False
-    if owner_id == issuer_id and not (st or ba):
-        #1: unlinked
-        cl, _ = dbm.isCharacterLinked(char_id)
-        #2 active session somewhere
-        sa, _ = dbm.isAnySessionActiveForCharacter(char_id) # do we want this?
-        co = co or (not cl) or sa            
-
-    return (st or ba or co)
-
-class editCharacterTraitNumber(APIResponse): # no textbased
+class editCharacterTraitNumber(APIResponseLang): # no textbased
     def __init__(self):
         super(editCharacterTraitNumber, self).__init__(config, session, min_access_level=2, accepted_input = {
             'traitId': (MUST, validator_trait_number),
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
             'newValue': (MUST, validator_positive_integer),   
         })
+    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
     def mGET(self):
-        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
         issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
+        character = self.input_data['charId']
+        trait_id = self.input_data['traitId']
+        new_val = self.input_data['newValue']
+        charId = character['id']
+        
+        trait = dbm.getTrait(charId, trait_id)
+        
+        dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val, max_value = new_val)
+        dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.MAX_VALUE, new_val, trait['max_value'], "web")
+        dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], "web")
+        return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
 
-        if can_edit:
-            trait_id = self.input_data['traitId']
-            new_val = self.input_data['newValue']
-            charId = self.input_data['charId']
-            
-            trait = dbm.getTrait(charId, trait_id)
-            
-            dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val, max_value = new_val)
-            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.MAX_VALUE, new_val, trait['max_value'], "web")
-            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], "web")
-            return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
-
-        else:
-            raise WebException("Permission denied", 403)
 
 class editCharacterTraitNumberCurrent(APIResponse): # no textbased
     def __init__(self):
         super(editCharacterTraitNumberCurrent, self).__init__(config, session, min_access_level=2, accepted_input = {
             'traitId': (MUST, validator_trait_number),
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
             'newValue': (MUST, validator_positive_integer),   
         })
+    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
     def mGET(self):
-        lid = getLanguage(self.session, dbm)
-        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
+        lid = getLanguage(self.session, dbm)      
         issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
+        character = self.input_data['charId']  
+        trait_id = self.input_data['traitId']
+        new_val = self.input_data['newValue']
+        charId = character['id']
 
-        if can_edit:
-            trait_id = self.input_data['traitId']
-            new_val = self.input_data['newValue']
-            charId = self.input_data['charId']
+        trait = dbm.getTrait(charId, trait_id)
 
-            trait = dbm.getTrait(charId, trait_id)
+        if trait['pimp_max']==0 and trait['trackertype']==0:
+            raise WebException(f"Current value cannot be modified")
 
-            if trait['pimp_max']==0 and trait['trackertype']==0:
-                raise WebException(f"Current value cannot be modified")
+        if new_val > trait['max_value'] and trait['trackertype'] != 3:
+            raise WebException("Value too large", 400)
+        
+        dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val)
+        dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], "web edit")
+        return dbm.getTrait_LangSafe(charId, trait_id, lid)
 
-            if new_val > trait['max_value'] and trait['trackertype'] != 3:
-                raise WebException("Value too large", 400)
-            
-            dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val)
-            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], "web edit")
-            return dbm.getTrait_LangSafe(charId, trait_id, lid)
-
-        else:
-            raise WebException("Permission denied", 403)
 
 
 class editCharacterTraitText(APIResponse): #textbased
     def __init__(self):
         super(editCharacterTraitText, self).__init__(config, session, min_access_level=2, accepted_input = {
             'traitId': (MUST, validator_trait_textbased), 
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
             'newValue': (MUST, validator_str_range(1, 50)),   
         })
+    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
     def mGET(self):
-        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
         issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
+        character = self.input_data['charId']
+        trait_id = self.input_data['traitId']
+        new_val = self.input_data['newValue']
+        charId = character['id']
+        
+        trait = dbm.getTrait(charId, trait_id)
+        
+        dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), text_value = new_val)
+        dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.TEXT_VALUE, new_val, trait['text_value'], "web edit")
+        return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
 
-        if can_edit:
-            trait_id = self.input_data['traitId']
-            new_val = self.input_data['newValue']
-            charId = self.input_data['charId']
-            
-            trait = dbm.getTrait(charId, trait_id)
-            
-            dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), text_value = new_val)
-            dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.TEXT_VALUE, new_val, trait['text_value'], "web edit")
-            return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))
-
-        else:
-            raise WebException("Permission denied", 403)
 
 class editCharacterTraitRemove(APIResponse): #textbased
     def __init__(self):
         super(editCharacterTraitRemove, self).__init__(config, session, min_access_level=2, accepted_input = {
             'traitId': (MUST, validator_trait), 
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
         })
+    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
     def mGET(self):
-        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
         issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
+        character = self.input_data['charId']
+        trait_id = self.input_data['traitId']
+        charId = character['id']
+        
+        trait = dbm.getTrait(charId, trait_id)
 
-        if can_edit:
-            trait_id = self.input_data['traitId']
-            charId = self.input_data['charId']
-            
-            trait = dbm.getTrait(charId, trait_id)
-
-            updated_rows = dbm.db.delete("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']))
-            if trait['textbased']:
-                dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.DELETE, "", trait['text_value'], "web edit")
-            else:
-                dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.DELETE, "", f"{trait['cur_value']}/{trait['max_value']}", "web edit")
-                
-            return {"trait": trait_id}
-
+        updated_rows = dbm.db.delete("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']))
+        if trait['textbased']:
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.DELETE, "", trait['text_value'], "web edit")
         else:
-            raise WebException("Permission denied", 403)
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.DELETE, "", f"{trait['cur_value']}/{trait['max_value']}", "web edit")
+            
+        return {"trait": trait_id}
+
 
 class traitList(APIResponse): 
     def __init__(self):
-        super(traitList, self).__init__(config, session, min_access_level=2)
+        super(traitList, self).__init__(config, session)
+    @web_security(sec.IsUser)
     def mGET(self):
         query = """
         select t.id as value, CONCAT(lt.traitName, " (", lt.traitShort, ", ", t.traittype, ")") as display
@@ -709,66 +638,48 @@ class traitList(APIResponse):
         traitData = dbm.db.query(query, vars=dict(langId=getLanguage(session, dbm))).list()
         return traitData
 
-class editCharacterTraitAdd(APIResponse): #textbased
+class editCharacterTraitAdd(APIResponse):
     def __init__(self):
         super(editCharacterTraitAdd, self).__init__(config, session, min_access_level=2, accepted_input = {
             'traitId': (MUST, validator_str_range(1, 20)), # I'm validating the trait later because I also need trait data
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
         })
+    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
     def mGET(self):
         lid = getLanguage(self.session, dbm)
-        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
         issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
+        character = self.input_data['charId']
+        trait_id = self.input_data['traitId']
+        charId = character['id']
 
-        if can_edit:
-            trait_id = self.input_data['traitId']
-            charId = self.input_data['charId']
-
-            try:
-                _ = dbm.getTrait(charId, trait_id)
-                raise WebException("The character already has this trait", 400)
-            except ghostDB.DBException as e:
-                pass
-            
-            trait =  dbm.validators.getValidateTrait(trait_id).get()
-            
-            if trait['textbased']:
-                textval = ""
-                dbm.db.insert("CharacterTrait", trait=trait_id, playerchar=charId, cur_value = 0, max_value = 0, text_value = textval, pimp_max = 0)
-                dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.TEXT_VALUE, textval, '', "web edit")
-            else:
-                numval = 0
-                pimp = 6 if trait['traittype'] in ['fisico', 'sociale', 'mentale'] else 0
-                dbm.db.insert("CharacterTrait", trait=trait_id, playerchar=charId, cur_value = numval, max_value = numval, text_value = "", pimp_max = pimp)
-                dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.MAX_VALUE, numval, '',  "web edit")
-
-            return dbm.getTrait_LangSafe(charId, trait_id, lid)
-
+        try:
+            _ = dbm.getTrait(charId, trait_id)
+            raise WebException("The character already has this trait", 400)
+        except ghostDB.DBException as e:
+            pass
+        
+        trait =  dbm.validators.getValidateTrait(trait_id).get()
+        
+        if trait['textbased']:
+            textval = ""
+            dbm.db.insert("CharacterTrait", trait=trait_id, playerchar=charId, cur_value = 0, max_value = 0, text_value = textval, pimp_max = 0)
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.TEXT_VALUE, textval, '', "web edit")
         else:
-            raise WebException("Permission denied", 403)
+            numval = 0
+            pimp = 6 if trait['traittype'] in ['fisico', 'sociale', 'mentale'] else 0
+            dbm.db.insert("CharacterTrait", trait=trait_id, playerchar=charId, cur_value = numval, max_value = numval, text_value = "", pimp_max = pimp)
+            dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.MAX_VALUE, numval, '',  "web edit")
 
-class canEditCharacter(APIResponse): #textbased
+        return dbm.getTrait_LangSafe(charId, trait_id, lid)
+
+class canEditCharacter(APIResponse): 
     def __init__(self):
-        super(canEditCharacter, self).__init__(config, session, min_access_level=2, accepted_input = {
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+        super(canEditCharacter, self).__init__(config, session, accepted_input = {
+            'charId': (MUST, validator_character),
         })
+    @web_security(sec.IsUser)
     def mGET(self):
-        lid = getLanguage(self.session, dbm)
-        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
-        issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
-
-        if can_edit:
-            return 1
-        else:
-            return 0
+        return int(check_web_security(self, sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId')))))
 
 class webFunctionVisibility(APIResponse):
     # This call tells the website what functions the user can see, but can easily be circumvented
@@ -776,16 +687,18 @@ class webFunctionVisibility(APIResponse):
     def __init__(self):
         super(webFunctionVisibility, self).__init__(config, session)
     def mGET(self):
-        lid = getLanguage(self.session, dbm)
+        #lid = getLanguage(self.session, dbm)
+        iu = False
         ba = False
         st = False
         if "discord_userid" in self.session:
             ba, _ = dbm.validators.getValidateBotAdmin(self.session.discord_userid).validate()
-            st, _ = dbm.validators.getValidateBotStoryTeller( self.session.discord_userid).validate()
+            st, _ = dbm.validators.getValidateBotStoryTeller(self.session.discord_userid).validate()
+            iu, _ = dbm.validators.getValidateBotUser(self.session.discord_userid).validate()
 
         return {
             "side_menu": self.session.access_level >= 1, # any logged user
-            "new_character": self.session.access_level >= 2, # any logged registered user
+            "new_character": iu, # any logged registered user
             "translate_traits": ba or st, # storytellers or admins
         }
 
@@ -810,7 +723,7 @@ class newCharacter(APIResponseLang):
             'charName': (MUST, validator_str_range(1, 50)),
         })
     def mGET(self):
-        lid = getLanguage(self.session, dbm)
+        #lid = getLanguage(self.session, dbm)
 
         iu, _ = dbm.validators.getValidateBotUser(self.session.discord_userid).validate()
         if not iu:
@@ -827,74 +740,55 @@ class newCharacter(APIResponseLang):
         if " " in chid: # todo: validator
             raise WebException_Langsupport("string_error_char_not_allowed", (), 400)
         
-        # todo: create chars for other people
         dbm.newCharacter(chid, fullname, owner)
         return self.input_data # idk
 
-class userList(APIResponse): # TODO: maybe a standardized autocomplete list response class for input modals?
+# TODO additional info on the user (like the discriminator or the server(s))
+# TODO maybe a standardized autocomplete list response class for input modals?
+class userList(APIResponse):
     def __init__(self):
-        super(userList, self).__init__(config, session, min_access_level=2) 
-    def mGET(self):
+        super(userList, self).__init__(config, session) 
+    @web_security(sec.IsUser)
+    def mGET(self): 
         query = """
-        select p.userid  as value, p.name as display
+        select p.userid as value, p.name as display
         from People p
         """
         # only storytellers and admins can see the list of registered users, but we can still reassign if we know the discordid (as you would on the bot)
-        issuer_id = self.session.discord_userid
-        st, _ = dbm.validators.getValidateBotStoryTeller(issuer_id).validate()
-        ba, _ = dbm.validators.getValidateBotAdmin(issuer_id).validate()
+        cansee = check_web_security(self, sec.OR(sec.IsAdmin, sec.IsStoryteller))
         data  = []
-        if st or ba:
+        if cansee:
             data = dbm.db.query(query, vars=dict(langId=getLanguage(session, dbm))).list()
         return data
 
 class editCharacterReassign(APIResponse): #textbased
     def __init__(self):
         super(editCharacterReassign, self).__init__(config, session, min_access_level=2, accepted_input = {
-            'userId': (MUST, validator_str_range(1, 32)), 
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'userId': (MUST, validator_bot_user), 
+            'charId': (MUST, validator_character),
         })
+    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
     def mGET(self):
-        charId = self.input_data['charId']
-        userId = self.input_data['userId']
+        character = self.input_data['charId']
+        charId = character['id']
+        user = self.input_data['userId']
+        userId = user['userid']
 
-        vl, character = dbm.validators.getValidateCharacter(self.input_data['charId']).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
-        vu, user = dbm.validators.getValidateBotUser(userId).validate()
-        if not vu:
-            raise WebException("Invalid user", 400)
-
-        issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
-
-        if can_edit:
-            dbm.reassignCharacter(charId, userId)
-            return user
-        else:
-            raise WebException("Permission denied", 403)
+        dbm.reassignCharacter(charId, userId)
+        return user
 
 class getCharacterNote(APIResponse):
     def __init__(self):
         super(getCharacterNote, self).__init__(config, session, min_access_level=2, accepted_input = {
             'noteId': (MUST, validator_str_range(1, 50)), 
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
         })
+    @web_security(notesPermission('charId'))
     def mGET(self):
-        charId = self.input_data['charId']
+        character = self.input_data['charId']
+        charId = character['id']
         noteId = self.input_data['noteId']
         issuer = self.session.discord_userid
-
-        vl, character = dbm.validators.getValidateCharacter(charId).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
-        issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
-
-        if not can_edit:
-            raise WebException("Permission denied", 403)
         
         vn, note = dbm.validators.getValidateCharacterNote(charId, noteId, issuer).validate()
         if not vn:
@@ -905,21 +799,13 @@ class getCharacterNote(APIResponse):
 class getCharacterNotesList(APIResponse):
     def __init__(self):
         super(getCharacterNotesList, self).__init__(config, session, min_access_level=2, accepted_input = {
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
         })
+    @web_security(notesPermission('charId'))
     def mGET(self):
-        charId = self.input_data['charId']
+        character = self.input_data['charId']
+        charId = character['id']
         issuer = self.session.discord_userid
-
-        vl, character = dbm.validators.getValidateCharacter(charId).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
-        issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
-
-        if not can_edit:
-            raise WebException("Permission denied", 403)
         
         results = dbm.db.select('CharacterNotes', where='charid=$charId and userid=$userId', vars=dict(charId=charId, userId=issuer), what='noteid')
         return results.list()
@@ -928,24 +814,17 @@ class saveCharacterNote(APIResponse):
     def __init__(self):
         super(saveCharacterNote, self).__init__(config, session, min_access_level=2, accepted_input = {
             'noteId': (MUST, validator_str_range(1, 50)), 
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
             'noteText':  (MUST, validator_str_range(0, 65535)),
         })
+    @web_security(notesPermission('charId'))
     def mPOST(self):
-        charId = self.input_data['charId']
+        character = self.input_data['charId']
+        charId = character['id']
         noteId = self.input_data['noteId']
         noteText = self.input_data['noteText']
+        
         issuer = self.session.discord_userid
-
-        vl, character = dbm.validators.getValidateCharacter(charId).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
-        issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
-
-        if not can_edit:
-            raise WebException("Permission denied", 403)
 
         vn, _ =  dbm.validators.getValidateCharacterNote(charId, noteId, issuer).validate()
         if not vn:
@@ -959,22 +838,14 @@ class deleteCharacterNote(APIResponse):
     def __init__(self):
         super(deleteCharacterNote, self).__init__(config, session, min_access_level=2, accepted_input = {
             'noteId': (MUST, validator_str_range(1, 50)), 
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
         })
+    @web_security(notesPermission('charId'))
     def mPOST(self):
-        charId = self.input_data['charId']
+        character = self.input_data['charId']
+        charId = character['id']
         noteId = self.input_data['noteId']
         issuer = self.session.discord_userid
-
-        vl, character = dbm.validators.getValidateCharacter(charId).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
-        issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
-
-        if not can_edit:
-            raise WebException("Permission denied", 403)
 
         vn, _ =  dbm.validators.getValidateCharacterNote(charId, noteId, issuer).validate()
         if not vn:
@@ -988,22 +859,14 @@ class newCharacterNote(APIResponse):
     def __init__(self):
         super(newCharacterNote, self).__init__(config, session, min_access_level=2, accepted_input = {
             'noteId': (MUST, validator_str_range(1, 50)), 
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
         })
+    @web_security(notesPermission('charId'))
     def mPOST(self):
-        charId = self.input_data['charId']
+        character = self.input_data['charId']
+        charId = character['id']
         noteId = self.input_data['noteId']
         issuer = self.session.discord_userid
-
-        vl, character = dbm.validators.getValidateCharacter(charId).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
-        issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
-
-        if not can_edit:
-            raise WebException("Permission denied", 403)
         
         dbm.db.insert("CharacterNotes", charid=charId, noteid=noteId, userid=issuer)
             
@@ -1012,22 +875,10 @@ class newCharacterNote(APIResponse):
 class characterNotesPage(WebPageResponseLang):
     def __init__(self):
         super(characterNotesPage, self).__init__(config, session, min_access_level=2, accepted_input = {
-            'charId': (MUST, validator_str_range(1, 20)), # I'm validating the character later because I also need character data
+            'charId': (MUST, validator_character),
         })
-    def mGET(self):
-        charId = self.input_data['charId']
-        issuer = self.session.discord_userid
-
-        vl, character = dbm.validators.getValidateCharacter(charId).validate()
-        if not vl:
-            raise WebException("Invalid character", 400)
-
-        issuer = self.session.discord_userid
-        can_edit = pgmodPermissionCheck_web(issuer, character)
-
-        if not can_edit:
-            raise WebException("Permission denied", 403)
-        
+    @web_security(notesPermission('charId'))
+    def mGET(self):        
         return render.characterNotes(global_template_params, self.getLanguageDict())
 
 if __name__ == "__main__":

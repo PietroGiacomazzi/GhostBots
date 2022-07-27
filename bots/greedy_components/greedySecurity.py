@@ -2,10 +2,10 @@ from typing import Any, Callable
 
 from greedy_components import greedyBase as gb
 from discord.ext import commands
-from lang.lang import LangSupportException
 from support import security as sec
+from lang import lang as lng
 
-class BotSecurityCheckException(gb.GreedyCommandError):
+class BotSecurityCheckException(lng.LangSupportException, commands.CommandError):
     pass
 
 basicRegisteredUser: type[sec.CommandSecurity] = sec.OR(sec.IsAdmin, sec.AND(sec.IsUser, sec.IsActiveOnGuild), sec.IsPrivateChannelWithRegisteredUser)
@@ -45,7 +45,7 @@ def command_security(security_item: type[sec.CommandSecurity] = sec.NoCheck, *ad
         else:
             raise BotSecurityCheckException(f"Command security is supported only for commands defined in a GreedyGhostCog. Provided object type: {type(instance)}")
 
-        security_pass, security_comment = await security_check_instance.checkSecurity(*ctx.args, **ctx.kwargs)
+        security_pass, security_comment = security_check_instance.checkSecurity(*ctx.args, **ctx.kwargs)
         if not security_pass:
             raise BotSecurityCheckException("string_error_permission_denied", (bot_instance.formatException(ctx, security_comment), ))
     return before_invoke_command_security

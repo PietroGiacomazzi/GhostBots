@@ -299,6 +299,7 @@ function openChangePlayer(){
 				var newPlayer = createPlayerNameControl(data.name);
 				var oldPlayer = document.getElementById(PLAYER_NAME_CONTROL);
 				oldPlayer.parentNode.replaceChild(newPlayer, oldPlayer);
+				// TODO should unload the character if we lost access to it, and also reload the character list
 			}/*, 
 			function(xhr){
 			}*/)

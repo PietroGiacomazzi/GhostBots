@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os, json
 
 class LangSupportException(Exception):
@@ -35,7 +36,7 @@ class LanguageStringProvider():
             elif string_name in self.languages[lang_id]: # this happens when the lang string contains "{something}" instead of "{}", that breaks the call to str.format
                 raise LangException(f'Someone wrote a bad language string! language: {lang_id}, langstring: {string_name}, contents: {self.languages[lang_id][string_name]}, arguments: {args}')
             else:
-                print(f"Missing string '{string_name}' for language {lang_id}")
+                #print(f"Missing string '{string_name}' for language {lang_id}")
                 return string_name.format(*args)
         except IndexError:
             raise LangException(f'Broken text parameters for {string_name}: "{self.languages[lang_id][string_name]}", language {lang_id}, parameters "{args}"')

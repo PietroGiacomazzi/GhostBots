@@ -1,11 +1,11 @@
 import configparser, os
 from discord.ext import commands
 import discord
-from support import security
 
 import support.ghostDB as ghostDB
 import lang.lang as lng
 import support.utils as utils
+import support.security as sec
 
 class BotException(Exception): # this is not translated, should be discontinued in favor of GreedyCommandError
     def __init__(self, msg):
@@ -32,7 +32,7 @@ class GreedyLanguageStringProvider(lng.LanguageStringProvider):
         except ghostDB.DBException:
             return self.config['BotOptions']['default_language']
 
-class GreedyContext(commands.Context, security.SecurityContext):
+class GreedyContext(commands.Context, sec.SecurityContext):
     def __init__(self, **attrs):
         """ Custom context class that handles (and caches) some extra info about the invocation context, like whether the user is Registered, or their preferred language """
         super().__init__(**attrs)

@@ -67,7 +67,7 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, f"Non c\'è un\'associazione tra {character['fullname']} e {chronicle['name']}")
 
     @pgmod.command(name = 'addt', brief = "Aggiunge tratto ad un personaggio", description = addt_description)
-    @commands.before_invoke(gs.command_security(sec.OR(sec.IsAdmin, sec.AND( sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser), sec.genCanEditCharacter(target_character = 2)))))
+    @commands.before_invoke(gs.command_security(sec.OR(sec.IsAdmin, sec.AND( sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser), sec.genCanEditCharacter(target_character=2)))))
     async def addt(self, ctx: gb.GreedyContext, character: gc.CharacterConverter, trait: gc.TraitConverter, value, *args):
         issuer = str(ctx.message.author.id)
         

@@ -76,6 +76,7 @@ class WebResponse:
         self.min_access_level = min_access_level
         self.timings = []
         self.logger = web.ctx.env.get('wsgilog.logger')
+        self.input_data_raw = {}
         self.input_data = {}
         self.logger.info("WebResponse Class instantiated")
     def validateInput(self, raw: dict):
@@ -87,10 +88,8 @@ class WebResponse:
                 if directive[0] != MUST_NOT:
                     try:
                         final_input[key] = directive[1](raw[key]) # if the validator fails, it aborts the entire request into an error
-                    except WebException as e:
-                        raise WebException("Invalid parameter: "+str(key)+" - "+ str(e), 400)
                     except Exception as e:
-                        raise WebException("Failed validation of: "+str(key)+" - "+ str(e), 400)
+                        raise WebException(f"Parameter: '{str(key)}' failed validation: "+ str(e), 400)
                 else:
                     raise WebException("Illegal parameter: "+str(key), 400)
             else:
@@ -118,13 +117,13 @@ class WebResponse:
     def request(self, rtype):
         self.timings.append(time.perf_counter())
         web.header('Content-Type', 'text/plain')
-        input_data_raw = web.input()
+        self.input_data_raw = web.input()
         try:
             if web.ctx.protocol != 'https' and not self.props['allow_unsafe']:
                 raise WebException("Use https!")
             if self.min_access_level > self.session.access_level:
                 raise WebException("Access Denied!", 401)
-            self.input_data = self.validateInput(input_data_raw)
+            self.input_data = self.validateInput(self.input_data_raw)
             result = ""
             self.preHook()
             if rtype == "GET":
@@ -132,7 +131,8 @@ class WebResponse:
             elif rtype == "POST":
                 result = self.postHook(self.mPOST())
         except WebException as e:
-            self.logger.warning("Error in request of "+web.ctx.path+" from "+str(web.ctx.ip)+" with (raw) parameters: "+str(input_data_raw)+". error: "+str(type(e))+" - "+str(e)+". Error code: "+str(e.code))
+            # this currently breaks if the exception message contains non ascii characters, TODO find a way to fix this
+            self.logger.warning("Error in request of "+web.ctx.path+" from "+str(web.ctx.ip)+" with (raw) parameters: "+str(self.input_data_raw)+". error: "+str(type(e))+" - "+str(e)+". Error code: "+str(e.code))
             if e.code != 0:
                 try:
                     web.ctx.status = http_status_map[e.code]
@@ -144,6 +144,7 @@ class WebResponse:
             result = self.postHook(sendback)
         except:
             exc_type, exc_value, exc_traceback = sys.exc_info()
+            # this currently breaks if the exception message contains non ascii characters, TODO find a way to fix this
             self.logger.error("Unhandled Exception: "+str(exc_value)+ "\n"+"".join(traceback.format_tb(exc_traceback)))
             web.ctx.status = http_status_map[500]
             sendback = str(exc_value)
