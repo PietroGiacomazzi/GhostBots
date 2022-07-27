@@ -189,7 +189,7 @@ function getCharMenuItem(characters){
 
 function getMyCharacters(dictionary){
 	getState().language_dictionary = dictionary;
-    get_remote_resource('./getMyCharacters', 'json',  getCharMenuItem);
+    get_remote_resource('./getMyCharacters', 'json',  getCharMenuItem, error_callback_onlyconsolelog);
 }
 
 function openNewChar(event){
@@ -1234,6 +1234,10 @@ function default_error_callback(xhr){
 	//callback(status, xhr.response);
 	console.log('Error ('+xhr.status+') while getting remote resource '+xhr.url);
 	post_error(xhr.status+": "+xhr.response);
+}
+
+function error_callback_onlyconsolelog(xhr){
+	console.log('Error ('+xhr.status+') while getting remote resource '+xhr.url);
 }
 
 function get_remote_resource(url, res_type, callback, error_callback = default_error_callback){
