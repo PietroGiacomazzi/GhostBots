@@ -12,7 +12,7 @@ basicRegisteredUser: type[sec.CommandSecurity] = sec.OR(sec.IsAdmin, sec.AND(sec
 basicStoryTeller: type[sec.CommandSecurity] = sec.OR(sec.IsAdmin, sec.AND( sec.IsStoryteller, sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser)))
 
 def command_security(security_item: type[sec.CommandSecurity] = sec.NoCheck, *additional_security_items: type[sec.CommandSecurity], **security_options):
-    """ Add security checks to a command with before_invoke, needs CommandSecurity objects as parameters
+    """ Add security checks to a command with before_invoke, needs CommandSecurity classes as parameters
     If all the CommandSecurity items pass their checks, then the command executes.
     
     Example

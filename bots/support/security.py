@@ -1,7 +1,6 @@
-
+from configparser import ConfigParser
 from support import ghostDB
 import lang.lang as lng
-import web
 
 class SecurityCheckException(lng.LangSupportException):
     pass
@@ -26,7 +25,11 @@ class SecurityContext:
         raise NotImplementedError
     def getDBManager(self) -> ghostDB.DBManager:
         raise NotImplementedError()
-    def getDefaultLanguageId() -> str:
+    def getDefaultLanguageId(self) -> str:
+        raise NotImplementedError()
+    def getAppConfig(self) -> ConfigParser:
+        raise NotImplementedError()
+    def getLanguageProvider(self) -> lng.LanguageStringProvider:
         raise NotImplementedError()
 
     def _loadUserInfo(self):

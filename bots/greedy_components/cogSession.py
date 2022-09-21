@@ -1,5 +1,3 @@
-
-from typing import AnyStr, Callable
 from discord.ext import commands
 import discord
 

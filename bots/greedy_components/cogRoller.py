@@ -1,6 +1,5 @@
 import random
 from dataclasses import dataclass
-from typing import AnyStr, Callable
 from discord.ext import commands
 
 from greedy_components import greedyBase as gb
@@ -244,6 +243,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
                 nfaces,
                 diff,
                 extra_succ,
+                minsucc,
                 self.bot.getStringForUser(ctx, 'roll_status_with') if canceling else self.bot.getStringForUser(ctx,'roll_status_without'),
                 self.bot.getStringForUser(ctx, 'roll_status_with') if spec else self.bot.getStringForUser(ctx, 'roll_status_without'),
                 round(100*passes/statistics_samples, 2),
@@ -717,7 +717,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
                     raise gb.GreedyCommandError("string_error_unknown_rolltype", (RollArg.ROLLTYPE,))
         return response
 
-    @commands.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
+    @commands.command(name='oldroll', brief = 'Tira dadi', description = roll_longdescription) 
     @commands.before_invoke(gs.command_security(gs.basicRegisteredUser))
     async def roll(self, ctx: commands.Context, *args):
         if len(args) == 0:

@@ -2,8 +2,8 @@
 from typing import Any
 from greedy_components import greedyBase as gb
 from discord.ext.commands import Converter, Context, UserConverter, UserNotFound
-from support import ghostDB
 
+from support.utils import GAMESYSTEMS_LIST
 from support.utils import validate_id
 
 class CharacterConverter(Converter):
@@ -78,6 +78,14 @@ class TraitConverter(Converter):
     async def convert(self, ctx: Context, argument: str) -> bool:
         bot: gb.GreedyGhost = ctx.bot
         return bot.dbm.validators.getValidateTrait(argument.lower()).get()
+
+class GameSystemConverter(Converter):
+    """ Validates a gamesystem identifier """
+    async def convert(self, ctx, argument):
+        if not argument in GAMESYSTEMS_LIST:
+            raise gb.GreedyCommandError("string_error_invalid_rollsystem", (argument,))
+        #return getRollSystem(argument)
+        return argument
 
 # numeric stuff
 

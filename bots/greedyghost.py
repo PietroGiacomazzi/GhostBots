@@ -23,6 +23,7 @@ import greedy_components.cogSession as cogSession
 import greedy_components.cogPCmgmt as cogPCmgmt
 import greedy_components.cogPCmod as cogPCmod
 import greedy_components.cogTasks as cogTasks
+import greedy_components.cogSysRoller as cogSysRoller
 
 
 if __name__ == "__main__":
@@ -63,6 +64,7 @@ if __name__ == "__main__":
     bot.add_cog(cogLang.GreedyGhostCog_Lang(bot))
     bot.add_cog(cogMisc.GreedyGhostCog_Misc(bot))
     bot.add_cog(cogRoller.GreedyGhostCog_Roller(bot))
+    bot.add_cog(cogSysRoller.GreedyGhostCog_SysRoller(bot))
     bot.add_cog(cogSession.GreedyGhostCog_Session(bot))
     bot.add_cog(cogPCmgmt.GreedyGhostCog_PCmgmt(bot))
     bot.add_cog(cogPCmod.GreedyGhostCog_PCMod(bot))

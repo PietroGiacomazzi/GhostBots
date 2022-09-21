@@ -53,6 +53,10 @@ class GreedyContext(commands.Context, sec.SecurityContext):
             return None
         else:
             return guild.id
+    def getAppConfig(self) -> str:
+        return self.bot.config
+    def getLanguageProvider(self) -> lng.LanguageStringProvider:
+        return self.bot.languageProvider
  
 class GreedyBot(commands.Bot):
     """ Base class for bots """
@@ -103,6 +107,22 @@ class GreedyBot(commands.Bot):
 
 class GreedyGhost(GreedyBot):
     """ Functionality specific to Greedy Ghost """
+    def __init__(self, configuration: configparser.ConfigParser, db_manager: ghostDB.DBManager, *args, **options):
+        super().__init__(configuration, db_manager, *args, **options)
+        self.dbm.updateGameSystems()
+
+    def getGameSystemByChannel(self, channelid: str) -> str:
+        is_session, session = self.dbm.validators.getValidateRunningSession(channelid).validate()
+        if is_session:
+            chronicleid = session["chronicle"]
+            chronicle = self.dbm.validators.getValidateChronicle(chronicleid).get()
+            if not chronicle[ghostDB.FIELDNAME_CHRONICLE_GAMESYSTEMID] is None:
+                return chronicle[ghostDB.FIELDNAME_CHRONICLE_GAMESYSTEMID]
+        is_channel, channel = self.dbm.validators.getValidateChannelGameSystem(channelid).validate()
+        if is_channel:
+            return channel[ghostDB.FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID]
+        return self.config["BotOptions"]["default_rollsystem"]
+    
     def getGuildActivationMap(self):
         authmap = {}
         for guild in self.guilds:

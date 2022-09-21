@@ -1,4 +1,3 @@
-from typing import Type
 from discord.ext import commands
 import web
 
@@ -22,6 +21,19 @@ QUERY_UNTRANSLATED_TRAIT = """
 #Table names:
 
 TABLENAME_GUILD = "BotGuild"
+TABLENAME_GAMESYSTEM = "Gamesystem"
+TABLENAME_CHRONICLE = "Chronicle"
+TABLENAME_CHANNELGAMESYSTEM = "ChannelGamesystem"
+
+#Fieldnames
+
+GAMESYSTEMID = "gamesystemid"
+
+FIELDNAME_GAMESYSTEM_GAMESYSTEMID = GAMESYSTEMID
+FIELDNAME_CHRONICLE_CHRONICLEID = "id"
+FIELDNAME_CHRONICLE_GAMESYSTEMID = GAMESYSTEMID
+FIELDNAME_CHANNELGAMESYSTEM_CHANNELID = "channelid"
+FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID = GAMESYSTEMID
 
 # Objects
 
@@ -40,6 +52,26 @@ class DBManager:
         # fallback
         self.db.query("SET SESSION interactive_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])))
         self.db.query("SET SESSION wait_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])))
+    def updateGameSystems(self):
+        db_list = list(map(lambda x: x[FIELDNAME_GAMESYSTEM_GAMESYSTEMID], self.db.select(TABLENAME_GAMESYSTEM, what= FIELDNAME_GAMESYSTEM_GAMESYSTEMID).list()))
+        bot_list = GAMESYSTEMS_LIST
+        for db_item in db_list:
+            if not db_item in bot_list:
+                self.db.delete(TABLENAME_GAMESYSTEM, where=f'{FIELDNAME_GAMESYSTEM_GAMESYSTEMID} = $rs' ,vars=dict(rs = db_item))
+        for bot_item in bot_list:
+            if not bot_item in db_list:
+                self.db.insert(TABLENAME_GAMESYSTEM, **{FIELDNAME_GAMESYSTEM_GAMESYSTEMID: bot_item})
+    def getRollSystemByChannel(self, channelid: str) -> str:
+        is_session, session = self.validators.getValidateRunningSession(channelid).validate()
+        if is_session:
+            chronicleid = session["chronicle"]
+            chronicle = self.validators.getValidateChronicle(chronicleid).get()
+            if not chronicle[FIELDNAME_CHRONICLE_GAMESYSTEMID] is None:
+                return chronicle[FIELDNAME_CHRONICLE_GAMESYSTEMID]
+        is_channel, channel = self.validators.getValidateChannelGameSystem(channelid).validate()
+        if is_channel:
+            return channel[FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID]
+        return None
     def newCharacter(self, chid, fullname, owner, player = None):
         if player == None:
             player = owner
@@ -356,3 +388,6 @@ class ValidatorGenerator:
     def getValidateGuild(self, guildid: str) -> GetValidateRecord:
         """ Handles validation of a Discord Guild """
         return GetValidateRecordNoFormat(self.db, f"select * from {TABLENAME_GUILD} where guildid=$guildid", dict(guildid=guildid), "string_error_invalid_guild")
+    def getValidateChannelGameSystem(self, channelid: str) -> GetValidateRecord:
+        """ Handles validation of saved channel gaamesystems """
+        return GetValidateRecordNoFormat(self.db, f'SELECT t.* FROM {TABLENAME_CHANNELGAMESYSTEM} t where t.{FIELDNAME_CHANNELGAMESYSTEM_CHANNELID} = $key', dict(key=channelid), "Il canale non ha un sistema di gioco impostato!")

@@ -1,3 +1,4 @@
+GAMESYSTEMS_LIST = ("GENERAL", "STORYTELLER_SYSTEM", "V20_VTM_HOMEBREW_00", "V20_VTM_VANILLA")
 
 # TYPES
 ValidatedString = tuple #[bool, str]
@@ -50,6 +51,34 @@ def validateDiscordMention(mention : str) -> tuple:
     if not (mention.startswith("<@!") and mention.endswith(">")): 
         return False, ""
     return  True, mention[3:-1]
+
+def merge(d1: dict, d2: dict, merge_fn=lambda x,y:y):
+    """
+    Merges two dictionaries, non-destructively, combining 
+    values on duplicate keys as defined by the optional merge
+    function.  The default behavior replaces the values in d1
+    with corresponding values in d2.  (There is no other generally
+    applicable merge strategy, but often you'll have homogeneous 
+    types in your dicts, so specifying a merge technique can be 
+    valuable.)
+
+    Examples:
+
+    >>> d1
+    {'a': 1, 'c': 3, 'b': 2}
+    >>> merge(d1, d1)
+    {'a': 1, 'c': 3, 'b': 2}
+    >>> merge(d1, d1, lambda x,y: x+y)
+    {'a': 2, 'c': 6, 'b': 4}
+
+    """
+    result = dict(d1)
+    for k,v in d2.items():
+        if k in result:
+            result[k] = merge_fn(result[k], v)
+        else:
+            result[k] = v
+    return result
 
 def validate_forbidden_chars(string: str, forbidden_chars: list) -> bool:
     return sum(map(lambda x: string.count(x), forbidden_chars)) == 0

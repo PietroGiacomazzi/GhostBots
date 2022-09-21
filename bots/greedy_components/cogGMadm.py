@@ -1,5 +1,3 @@
-
-from typing import AnyStr, Callable
 from discord.ext import commands
 from discord.ext.commands import context
 
@@ -11,6 +9,10 @@ import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 import support.security as sec
+
+GAMESYSTEMS_CMD = 'gamesystems'
+CHANNEL_GAMESYSTEM_CMD = 'channelGS'
+CHRONICLE_GAMESYSTEM_CMD = 'chronicleGS'
 
 #
 newTrait_description = """Argomenti: <id> <tipo> <tracker> <standard> <nome completo>
@@ -36,6 +38,9 @@ unlink_description = "Argomenti: <id cronaca>, [<@menzione storyteller/Discord I
 name_description = "Argomenti: <@menzione utente/Discord ID>" # TODO help_gmadm_stname
 unname_description = "Argomenti: <@menzione utente/Discord ID>" # TODO help_gmadm_stunname
 traittypes_description = "Nessun argomento richiesto"
+GAMESYSTEMS_description = "Nessun argomento richiesto"
+CHANNEL_GAMESYSTEM_description = f'Argomenti: [<gamesystem>] (opzionale)\n\n puoi usare .gmadm {GAMESYSTEMS_CMD} per visualizzare i sistemi di gioco disponibili'
+CHRONICLE_GAMESYSTEM_description = f'Argomenti: <id cronaca> [<gamesystem>] (opzionale)\n\n puoi usare .gmadm {GAMESYSTEMS_CMD} per visualizzare i sistemi di gioco disponibili'
 
 gmadm_help = {
         "listChronicles": [listChronicles_description, "Elenca le cronache"],
@@ -47,7 +52,10 @@ gmadm_help = {
         "unlink": [unlink_description, "Disassocia uno storyteller da una cronaca"],
         "name": [name_description, "Nomina storyteller"],
         "unname": [unname_description, "De-nomina storyteller"],
-        "traittypes": [traittypes_description, "Elenca i tipi di tratto"]
+        "traittypes": [traittypes_description, "Elenca i tipi di tratto"],
+        GAMESYSTEMS_CMD: [GAMESYSTEMS_description, "Elenca i sistemi di tiro disponibili"],        
+        CHANNEL_GAMESYSTEM_CMD: [CHANNEL_GAMESYSTEM_description, "Imposta o consulta il sistema di gioco per questo canale"],
+        CHRONICLE_GAMESYSTEM_CMD: [CHRONICLE_GAMESYSTEM_description, "Imposta o consulta il sistema di gioco per la cronaca specificata"]
         # todo: lista storyteller
         # todo: dissociazioni varie
         }
@@ -305,4 +313,60 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         response += "\n".join(list(map(lambda x : f"\t**{x['id']}**: {x['name']}", ttypesl)))
         
         await self.bot.atSend(ctx, response)
+
+    @gmadm.command(name = GAMESYSTEMS_CMD, brief = gmadm_help[GAMESYSTEMS_CMD][1], description = GAMESYSTEMS_description)
+    @commands.before_invoke(gs.command_security(gs.basicStoryTeller))
+    async def gamesystems(self, ctx: commands.Context):
+        
+        gamesystems = self.bot.dbm.db.select(ghostDB.TABLENAME_GAMESYSTEM).list()
+        response = "Sistemi di gioco: \n"
+        response += "\n".join(list(map(lambda x : f"\t**{x[ghostDB.FIELDNAME_GAMESYSTEM_GAMESYSTEMID]}**", gamesystems)))
+        
+        await self.bot.atSend(ctx, response)
     
+    
+    @gmadm.command(name = CHANNEL_GAMESYSTEM_CMD, brief=gmadm_help[CHANNEL_GAMESYSTEM_CMD][1], description = CHANNEL_GAMESYSTEM_description)
+    @commands.before_invoke(gs.command_security(sec.IsAdmin))
+    async def channel_gamesystem(self, ctx: gb.GreedyContext, gamesystem: gc.GameSystemConverter = None):
+        channelid = ctx.channel.id
+        is_channel, channel = self.bot.dbm.validators.getValidateChannelGameSystem(channelid).validate()
+        if not gamesystem:
+            channel_rs = None
+            if is_channel:
+                channel_rs = channel[ghostDB.FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID]
+            priority_rs = self.bot.getGameSystemByChannel(channelid)
+            response = ''
+            if not channel_rs is None:
+                response += f'Il sistema di gioco salvato per questo canale è {channel_rs}'
+            else:
+                response += f'Il canale non ha un sistema di gioco impostato'
+            if priority_rs != channel_rs:
+                response += f', verrà utilizzato {priority_rs}'
+            await self.bot.atSendLang(ctx, response)
+        else:
+            if is_channel:
+                self.bot.dbm.db.update(ghostDB.TABLENAME_CHANNELGAMESYSTEM, where= f'{ghostDB.FIELDNAME_CHANNELGAMESYSTEM_CHANNELID} = $channel', vars=dict(channel= channelid), **{ghostDB.FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID: gamesystem})
+            else:
+                self.bot.dbm.db.insert(ghostDB.TABLENAME_CHANNELGAMESYSTEM, **{ghostDB.FIELDNAME_CHANNELGAMESYSTEM_CHANNELID: channelid, ghostDB.FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID: gamesystem})
+            
+            await self.bot.atSendLang(ctx, f'sistema di gioco impostato su {gamesystem}')
+                
+    @gmadm.command(name = CHRONICLE_GAMESYSTEM_CMD, brief=gmadm_help[CHRONICLE_GAMESYSTEM_CMD][1], description = CHRONICLE_GAMESYSTEM_description)
+    @commands.before_invoke(gs.command_security(sec.OR(sec.IsAdmin, sec.AND( sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser), sec.genIsChronicleStoryteller(target_chronicle=2)))))
+    async def chronicle_gamesystem(self, ctx: gb.GreedyContext, chronicle: gc.ChronicleConverter, gamesystem: gc.GameSystemConverter = None):
+        chronicleid = chronicle[ghostDB.FIELDNAME_CHRONICLE_CHRONICLEID]
+        if not gamesystem:
+            chronicle_rs = chronicle[ghostDB.FIELDNAME_CHRONICLE_GAMESYSTEMID]
+            response = ''
+            if not chronicle_rs is None:
+                response += f'Il sistema di gioco salvato per {chronicleid} è {chronicle_rs}'
+            else:
+                channelid = ctx.channel.id
+                priority_rs = self.bot.getGameSystemByChannel(channelid)
+                response += f'{chronicleid} non ha un sistema di gioco impostato, verrà utilizzato {priority_rs}'
+
+            await self.bot.atSendLang(ctx, response)
+        else:
+            self.bot.dbm.db.update(ghostDB.TABLENAME_CHRONICLE, where= f'{ghostDB.FIELDNAME_CHRONICLE_CHRONICLEID} = $chronicleid', vars=dict(chronicleid= chronicleid), **{ghostDB.FIELDNAME_CHRONICLE_GAMESYSTEMID: gamesystem})
+
+            await self.bot.atSendLang(ctx, f'sistema di gioco per {chronicleid} impostato su {gamesystem}')
