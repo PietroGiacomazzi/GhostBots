@@ -49,11 +49,15 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
                 msgsplit = ctx.message.content.split(" ")
                 msgsplit[0] = msgsplit[0][1:] # toglie prefisso
                 charid = msgsplit[0]
-                ic, _ = self.bot.dbm.validators.getValidateCharacter(charid).validate()
+                ic, character = self.bot.dbm.validators.getValidateCharacter(charid).validate()
                 if ic:
                     pgmanage_cog: cogPCmgmt.GreedyGhostCog_PCmgmt = self.bot.get_cog(cogPCmgmt.GreedyGhostCog_PCmgmt.__name__)
                     if pgmanage_cog is not None:
-                        await ctx.invoke(pgmanage_cog.bot.get_command('pgmanage'), *msgsplit)
+                        command_args = (character, *msgsplit[1:])
+                        command: commands.Command = pgmanage_cog.bot.get_command('pgmanage')
+                        ctx.args = [pgmanage_cog, ctx, *command_args]
+                        await command.call_before_hooks(ctx)
+                        await ctx.invoke(command, *command_args)
                     else:
                         await self.bot.atSendLang(ctx, "string_error_wat")# TODO error cog not loaded
                 else:

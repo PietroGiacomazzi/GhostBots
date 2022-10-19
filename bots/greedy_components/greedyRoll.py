@@ -405,6 +405,7 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
         self.character = None
         self.dice = None
         self.dice_base = None
+        self.traits_seen = None
         self.firstNegative = firstNegative
     def getTraitDefaultFaces(self) -> int:
         raise GreedyParseValidationError('string_error_default_die_face_unavailable')
@@ -412,21 +413,21 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
         return int(traitvalue)
     def _parse_internal(self, ctx: gb.GreedyContext, refSetup: gms.RollSetup):
         expr = self.parseItem()
-        self.dice, self.dice_base = self.decodeDiceExpression_Mixed(ctx, refSetup, expr, self.firstNegative)
+        self.dice, self.dice_base, self.traits_seen = self.decodeDiceExpression_Mixed(ctx, refSetup, expr, self.firstNegative)
     def _save_setup(self, currentSetup: gms.RollSetup):
         super()._save_setup(currentSetup)
         self.mergeDice(self.dice, self.dice_base, currentSetup)
-        
+        currentSetup.traits.update(self.traits_seen)
         self.character = None
+    def decodeTrait(self, ctx: gb.GreedyContext, refSetup: gms.RollSetup, traitdata) -> tuple[dict[int, int], dict[int, int]]:
+        raise GreedyParseValidationError('I tratti non sono supportati dal roller generico')
     def decodeDiceExpression_Mixed(self, ctx: gb.GreedyContext, refSetup: gms.RollSetup, what: str, firstNegative: bool = False):
-        lid = ctx.getLID()
-
         if gms.RollArg.CHARACTER in refSetup.rollArguments:
             self.character = refSetup.rollArguments[gms.RollArg.CHARACTER]
-        saw_trait = False
 
-        dice = {} # faces -> dice  (0 means fixed bonus)
-        dice_base = {}  # faces -> dice. if traits are  present in the expression, this one will contain base values for traits instead of buffed/debuffed traits
+        self.dice = {} # faces -> dice  (0 means fixed bonus)
+        self.dice_base = {}  # faces -> dice. if traits are  present in the expression, this one will contain base values for traits instead of buffed/debuffed traits
+        self.traits_seen = set()
 
         split_add_list = what.split(ADD_CMD) # split on "+", so each of the results STARTS with something to add
         for i in range(0, len(split_add_list)):
@@ -435,41 +436,39 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
 
             for j in range(0, len(split_sub_list)):
                 term = split_sub_list[j]
-                n_term = 0
-                n_term_perm = 0
-                faces_term = 0
+
+                merge = {}
+                merge_base = {}
                 try: # either a xdy expr
-                    n_term, faces_term =  self.decodeDiceExpression_Dice(term, ctx)  
-                    n_term_perm = n_term
+                    n_term, faces_term = self.decodeDiceExpression_Dice(term, ctx) 
+                    merge = {faces_term: n_term}
+                    merge_base = {faces_term: n_term} 
                 except GreedyParseValidationError as e: # or a trait
                     try:
+                        lid = ctx.getLID()
                         self.loadCharacter(ctx, refSetup)
-                        temp = ctx.bot.dbm.getTrait_LangSafe(self.character['id'], term, lid) 
-                        n_term = self.transformTrait(temp['cur_value'])
-                        n_term_perm = self.transformTrait(temp['max_value'])
-                        saw_trait = True
-                        faces_term = self.getTraitDefaultFaces()
+                        traitdata = ctx.bot.dbm.getTrait_LangSafe(self.character['id'], term, lid)
+                        merge, merge_base = self.decodeTrait(ctx, refSetup, traitdata)
+                        self.traits_seen.add(term)
                     except ghostDB.DBException as edb:
                         try:
                             n_term = self.validateInteger(term, ctx)
+                            merge = {0: n_term}
+                            merge_base = {0: n_term} 
                         except GreedyParseValidationError as ve:
                             raise lng.LangSupportErrorGroup("MultiError", [GreedyParseValidationError("string_error_notsure_whatroll"), e, edb, ve])
-                
-                if not faces_term in dice:
-                    dice[faces_term] =  0
-                    dice_base[faces_term] =  0
 
                 if j > 0 or (i == 0 and firstNegative):
-                    dice[faces_term] -= n_term
-                    dice_base[faces_term] -= n_term_perm
-                else:
-                    dice[faces_term] += n_term
-                    dice_base[faces_term] += n_term_perm
+                    merge = {k: -v for k, v in merge.items()}
+                    merge_base = {k: -v for k, v in merge_base.items()}
+
+                self.dice = utils.merge(self.dice, merge, lambda x, y: x+y)
+                self.dice_base = utils.merge(self.dice_base, merge_base, lambda x, y: x+y)
 
         # is it good that if the espression is just flat numbers we can parse it?
         # for example ".roll 3d10 7" will parse the same as ".roll 3d10 +7"
 
-        return dice, dice_base
+        return 
     def decodeDiceExpression_Dice(self, what: str, ctx: gb.GreedyContext) -> tuple[int, int]:
         split = what.split("d")
         if len(split) > 2:
@@ -500,6 +499,28 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
 class RollArgumentParser_STS_DiceExpression(RollArgumentParser_DiceExpression):
     def getTraitDefaultFaces(self):
         return 10
+    def decodeTrait(self, ctx: gb.GreedyContext, refSetup: gms.RollSetup, traitdata) -> tuple[dict[int, int], dict[int, int]]:
+        n_term = self.transformTrait(traitdata['cur_value'])
+        n_term_perm = self.transformTrait(traitdata['max_value'])
+        faces_term = self.getTraitDefaultFaces()
+        return {faces_term: n_term}, {faces_term: n_term_perm}
+
+class RollArgumentParser_DND5E_DiceExpression(RollArgumentParser_DiceExpression):
+    def getTraitDefaultFaces(self):
+        return 20
+    def decodeTrait(self, ctx: gb.GreedyContext, refSetup: gms.RollSetup, traitdata) -> tuple[dict[int, int], dict[int, int]]:
+        if len(self.traits_seen) or len(refSetup.traits):
+            raise GreedyParseValidationError("string_error_only_one_trait_allowed")
+
+        raise GreedyParseValidationError("work in progress!")
+        # we have a bunch of cases:
+        #   proficiency just does 1d20 plus proficiency (or adds it to a clean roll)
+        #   an ability should roll the base modifier
+        #   a skill should do ability_mod + proficiency_bonus*skill_proficiency (saving throws will be 'skill' traits)
+        # i need a way to detect if a trait is an ability or a skill -> linked trait status might do the trick
+
+        proficiency_bonus = ctx.bot.dbm.getTrait_LangSafe(self.character['id'], "competenza", ctx.getLID())  
+        return super().decodeTrait(ctx, refSetup, traitdata)
 
 class RollArgumentParser_SimpleArgumentList(RollArgumentParser):
     def __init__(self, validator: type[gms.RollSetupValidator], rollArgVar: int) -> None:
@@ -702,11 +723,20 @@ class RollParser_V20VANILLA(RollParser_STS):
     def getOutputter(self) -> RollOutPutter_V20VANILLA:
         return RollOutPutter_V20VANILLA()
 
+class RollParser_DND5E(RollParser_General):
+    def __init__(self):
+        super().__init__()
+    #def getSetup(self, ctx: gb.GreedyContext):
+    #    return gms.RollSetup_STS(ctx)
+    #def getOutputter(self) -> RollOutputter_STS:
+    #    return RollOutputter_STS()
+
 RollSystemMappings: dict[int, type[RollParser]] = {
     gms.GameSystems.GENERAL: RollParser_General,
     gms.GameSystems.STORYTELLER_SYSTEM: RollParser_STS,
     gms.GameSystems.V20_VTM_HOMEBREW_00: RollParser_V20HB,
     gms.GameSystems.V20_VTM_VANILLA: RollParser_V20VANILLA
+    #gms.GameSystems.DND_5E: RollParser_DND5E,
 }
 
 def getParser(gamesystem: int):

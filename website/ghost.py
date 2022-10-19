@@ -115,6 +115,8 @@ class WebContext(sec.SecurityContext):
         return dbm
     def getDefaultLanguageId(self) -> str:
         return config['WebApp']['default_language']
+    def getMessageContents(self) -> str:
+        return web.ctx.path
 
 def web_security(security_item: type[sec.CommandSecurity], **security_options):
     """ setup security permissions for a WebResponse object """
@@ -155,7 +157,7 @@ def check_web_security(response: WebResponse, security_item: type[sec.CommandSec
 
 # Security blocks
 
-canSeeCharacter = lambda target_character: sec.OR(sec.IsAdmin, sec.genIsCharacterStoryTeller(target_character), sec.genIsCharacterPlayer(target_character))
+canSeeCharacter = lambda target_character: sec.OR(sec.IsAdmin, sec.genCanViewCharacter(target_character))
 notesPermission = canSeeCharacter
 
 # --- STUFF ---

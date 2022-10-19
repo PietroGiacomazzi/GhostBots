@@ -57,6 +57,8 @@ class GreedyContext(commands.Context, sec.SecurityContext):
         return self.bot.config
     def getLanguageProvider(self) -> lng.LanguageStringProvider:
         return self.bot.languageProvider
+    def getMessageContents(self) -> str:
+        return self.message.content
  
 class GreedyBot(commands.Bot):
     """ Base class for bots """

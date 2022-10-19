@@ -1,3 +1,4 @@
+from hashlib import new
 import random
 from typing import Any
 import lang as lng
@@ -8,7 +9,14 @@ from .vtm_res import *
 
 
 RollType = enum("NORMAL", "SUM", "DAMAGE", "PROGRESS", "INITIATIVE", "REFLEXES", "SOAK")
-RollArg = enum("DIFF", "MULTI", "SPLIT", "ROLLTYPE", "PENALTY", "DICE", "PERMANENT_DICE",  "PERMANENT", "STATS", "CHARACTER", "MINSUCC") # argomenti del tiro
+RollArg = enum("DIFF", "MULTI", "SPLIT", "ROLLTYPE", "PENALTY", "DICE", "PERMANENT_DICE", "PERMANENT", "STATS", "CHARACTER", "MINSUCC") # argomenti del tiro
+
+TrackerType = enum("NORMAL", "CAPPED", "HEALTH", "UNCAPPED")
+
+DMG_BASHING = 'c'
+DMG_LETHAL = 'l'
+DMG_AGGRAVATED = 'a'
+DAMAGE_TYPES = [DMG_AGGRAVATED, DMG_LETHAL, DMG_BASHING] # it is important that the order is a, l, c
 
 GameSystems = enum(*GAMESYSTEMS_LIST)
 
@@ -22,6 +30,9 @@ class GreedyRollValidationError(lng.LangSupportException):
     pass
 
 class GreedyRollExecutionError(lng.LangSupportException):
+    pass
+
+class GreedyTraitOperationError(lng.LangSupportException):
     pass
 
 class RollItem:
@@ -52,6 +63,7 @@ class RollSetup:
         self.validatorClasses: list[type[RollSetupValidator]] = []
         self.ctx = ctx
         self.actionHandlers: dict[int, type[RollAction]] = {}
+        self.traits = set()
     def roll(self) -> RollData:
         action = self.rollArguments[RollArg.ROLLTYPE] if RollArg.ROLLTYPE in self.rollArguments else RollType.NORMAL  
         if action in self.actionHandlers:
@@ -373,3 +385,234 @@ class RollSetupValidator_V20HB_SPLIT(RollSetupValidator):
                     raise GreedyRollValidationError("string_error_split_X_higherthan_multi_Y",  (roll_index+1, multi) )
             if pool-multi-roll_index < 2:
                 raise GreedyRollValidationError("string_error_split_cannot_split_small_pool_X",  (roll_index+1,) )
+
+# PC interactions
+
+class PCActionResult:
+    pass
+
+class PCActionResultTrait(PCActionResult):
+    def __init__(self, trait) -> None:
+        super().__init__()
+        self.trait = trait
+
+class PCActionResultText(PCActionResult):
+    def __init__(self, text: str) -> None:
+        super().__init__()
+        self.text = text
+
+class PCAction:
+    def __init__(self, ctx: SecurityContext, character) -> None:
+        self.character = character
+        self.ctx = ctx
+        self.expectedParameterNumber: int = -1
+    def handle(self, *args: tuple[str]) -> list[PCActionResult]:
+        self.checkParameterNumber(args)
+        return [PCActionResultText(self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_error_notimplemented"))]
+    def checkParameterNumber(self, args: list[tuple]):
+        if len(args) != self.expectedParameterNumber:
+            GreedyTraitOperationError("string_invalid_number_of_parameters")
+    def validateInteger(self, param) -> int:
+        try:
+            return int(param)
+        except ValueError:
+            raise GreedyTraitOperationError("string_error_not_an_integer", (param,))
+
+class PCTraitAction(PCAction):
+    def  __init__(self, ctx: SecurityContext, character, trait) -> None:
+        super().__init__(ctx, character)
+        self.trait = trait
+    def handle(self, *args: list[str]) -> list[PCActionResult]:
+        _ = super().handle(*args)
+        ttype = int(self.trait['trackertype'])
+        match ttype:
+            case TrackerType.NORMAL:
+                if self.trait['pimp_max'] == 0:
+                    raise GreedyTraitOperationError("string_error_cannot_modify_trait_curvalue", (self.trait['traitName'],))
+                return self._handleOperation_NORMAL(*args)
+            case TrackerType.CAPPED:
+                return self._handleOperation_CAPPED(*args)
+            case TrackerType.HEALTH:
+                return self._handleOperation_HEALTH(*args)
+            case TrackerType.UNCAPPED:
+                return self._handleOperation_UNCAPPED(*args)
+            case _:
+                raise GreedyTraitOperationError("string_error_unknown_trackertype", (ttype,))
+    def _handleOperation_Base(self, *args: list[str]) -> list[PCActionResult]:
+        raise NotImplementedError()
+    def _handleOperation_NORMAL(self, *args: list[str]) -> list[PCActionResult]:
+        return self._handleOperation_Base(*args)
+    def _handleOperation_CAPPED(self, *args: list[str]) -> list[PCActionResult]:
+        return self._handleOperation_Base(*args)
+    def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
+        return self._handleOperation_Base(*args)
+    def _handleOperation_UNCAPPED(self, *args: list[str]) -> list[PCActionResult]:
+        return self._handleOperation_Base(*args)
+    def db_setCurvalue(self, new_val: int):
+        u = self.ctx.getDBManager().db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=self.trait['id'], pc=self.character['id']), cur_value = new_val)
+        self.ctx.getDBManager().log(self.ctx.getUserId(), self.character['id'], self.trait['trait'], ghostDB.LogType.CUR_VALUE, new_val, self.trait['cur_value'], self.ctx.getMessageContents())
+        if u == 1 or (u == 0 and self.trait['cur_value'] == new_val):
+            self.trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], self.trait['id'], self.ctx.getLID())
+            return
+        raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
+    def db_setTextValue(self, new_value: str):
+        u = self.ctx.getDBManager().db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=self.trait['id'], pc=self.character['id']), text_value = new_value)
+        self.ctx.getDBManager().log(self.ctx.getUserId(), self.character['id'], self.trait['trait'], ghostDB.LogType.CUR_VALUE, new_value, self.trait['text_value'], self.ctx.getMessageContents())
+        if u == 1 or (u == 0 and self.trait['text_value'] == new_value):
+            self.trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], self.trait['id'], self.ctx.getLID())
+            return         
+        raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
+    
+
+class PCTraitAction_ViewTrait(PCTraitAction):
+    def handle(self, *args) -> list[PCActionResult]:
+        return [PCActionResultTrait(self.trait)]
+
+class PCTraitAction_STS(PCTraitAction):
+    def validateDamageExpr(self, param) -> tuple[int, str]:
+        dmgtype = param[-1].lower()
+        if not dmgtype in DAMAGE_TYPES:
+            raise GreedyTraitOperationError("string_error_invalid_damage_type", (dmgtype,))
+        dmgamount_raw = param[:-1]
+        dmgamount = 1 if dmgamount_raw == '' else self.validateInteger(dmgamount_raw)
+        return dmgamount, dmgtype
+
+class PCTraitAction_STS_ModifyCurValue(PCTraitAction_STS):
+    def __init__(self, ctx: SecurityContext, character, trait) -> None:
+        super().__init__(ctx, character, trait)
+        self.expectedParameterNumber = 1
+    def newValue(self, args: list[str]):
+        raise NotImplementedError()
+    def checkBounds(self, args: list[str]):
+        new_val = self.newValue(args)
+        max_val = max(self.trait['max_value'], self.trait['pimp_max']) 
+        if new_val > max_val:
+            raise GreedyTraitOperationError("string_error_exceeded_trait_maxvalue", (new_val, self.trait['traitName'].lower(), max_val))
+        if new_val < 0:
+            raise GreedyTraitOperationError("string_error_not_enough_X", (self.trait['traitName'].lower(),))
+    def _handleOperation_CAPPED(self, *args: list[str]) -> list[PCActionResult]:
+        self.checkBounds(args)
+        return super()._handleOperation_CAPPED(*args)
+    def _handleOperation_NORMAL(self, *args: list[str]) -> list[PCActionResult]:
+        self.checkBounds(args)
+        return super()._handleOperation_NORMAL(*args)
+    def _handleOperation_Base(self, *args: list[str]) -> list[PCActionResult]:
+        new_val = self.newValue(args)
+        self.db_setCurvalue(new_val)
+        return [PCActionResultTrait(self.trait)]
+
+class PCTraitAction_STS_RESET(PCTraitAction_STS_ModifyCurValue):
+    def newValue(self, args: list[str]):
+        return self.trait['max_value'] if (int(self.trait['trackertype']) != TrackerType.UNCAPPED) else 0
+    def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
+        self.db_setTextValue('')
+        return [PCActionResultTrait(self.trait)]
+
+class PCTraitAction_STS_EQ(PCTraitAction_STS_ModifyCurValue):
+    def newValue(self, args: list[str]):
+        return self.validateInteger(args[0])
+    def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
+        inp = args[0]
+        counts = list(map(lambda x: inp.count(x), DAMAGE_TYPES))
+        if sum(counts) != len(inp) or sum(counts) > self.trait['max_value'] :
+            raise GreedyTraitOperationError("string_error_invalid_health_expr", (inp,))
+        new_health = "".join(list(map(lambda x: x[0]*x[1], zip(DAMAGE_TYPES, counts)))) # siamo generosi e riordiniamo l'input
+        self.db_setTextValue(new_health)
+        return [PCActionResultTrait(self.trait)] 
+
+class PCTraitAction_STS_ADD(PCTraitAction_STS_ModifyCurValue):
+    def newValue(self, args: list[str]):
+        return self.trait['cur_value'] + self.validateInteger(args[0])
+    def doImmediatelyConvertBashingToLethal(self) -> bool:
+        return False
+    def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
+        n, dmgtype = self.validateDamageExpr(args[0])
+        new_health: str = self.trait['text_value']
+        
+        rip = False
+        for i in range(n): # apply damage one by one
+            if len(new_health) < self.trait['max_value']: # Damage  tracker is not filled yet
+                if dmgtype == DMG_BASHING:
+                    if new_health.endswith(DMG_BASHING) and self.doImmediatelyConvertBashingToLethal():
+                        new_health = new_health[:-1]+DMG_LETHAL
+                    else:
+                        new_health += DMG_BASHING
+                elif dmgtype == DMG_AGGRAVATED:
+                    new_health = DMG_AGGRAVATED+new_health
+                else:
+                    la = new_health.rfind(DMG_AGGRAVATED)+1
+                    new_health = new_health[:la] + DMG_LETHAL + new_health[la:]    
+            else: # Damage tracker is full
+                convert_to_agg = False
+                if dmgtype == DMG_AGGRAVATED:
+                    rip = True
+                
+                # attempt to convert bashing+bashing to lethal, otherwise just convert the last non aggravated level to aggravated
+                if dmgtype == DMG_BASHING:
+                    first_bashing = new_health.find(DMG_BASHING)
+                    if first_bashing >= 0:
+                        new_health = new_health[:first_bashing] + DMG_LETHAL + new_health[first_bashing+1:]
+                    else: # no bashing to convert to lethal 
+                        convert_to_agg = True
+                else:
+                    convert_to_agg = True
+
+                if convert_to_agg:
+                    la = new_health.rfind(DMG_AGGRAVATED)+1
+                    if la < len(new_health):
+                        new_health = new_health[:la] + DMG_AGGRAVATED + new_health[la+1:]
+                    else: # tracker is filled with aggravated
+                        rip = True
+
+        if new_health.count(DMG_AGGRAVATED) == self.trait['max_value']:
+            rip = True
+
+        self.db_setTextValue(new_health)
+        response = [PCActionResultTrait(self.trait)]
+        if rip:
+            response.append(PCActionResultText("+RIP+"))
+        return response
+
+class PCTraitAction_STS_SUB(PCTraitAction_STS_ModifyCurValue):
+    def newValue(self, args: list[str]):
+        return self.trait['cur_value'] - self.validateInteger(args[0])
+    def canUnpackLethalToBashing(self) -> bool:
+        return False
+    def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
+        n, dmgtype = self.validateDamageExpr(args[0])
+        new_health: str = self.trait['text_value']
+
+        if dmgtype == DMG_AGGRAVATED:
+            if new_health.count(dmgtype) < n:
+                raise GreedyTraitOperationError("string_error_not_enough_X", (self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_aggravated_dmg_plural"),))
+            else:
+                new_health = new_health[n:]
+        elif dmgtype == DMG_LETHAL:
+            if new_health.count(dmgtype) < n:
+                raise GreedyTraitOperationError("string_error_not_enough_X", (self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_lethal_dmg_plural"),))
+            else:
+                fl = new_health.find(dmgtype)
+                new_health = new_health[:fl]+new_health[fl+n:]
+        else:
+            unpack_lethal = self.canUnpackLethalToBashing() 
+            if (new_health.count(dmgtype) + new_health.count(DMG_LETHAL)*2*int(unpack_lethal)) < n:
+                raise GreedyTraitOperationError("string_error_not_enough_X", (self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_bashing_dmg_plural"),))
+            
+            for i in range(n):
+                if new_health[-1] == DMG_BASHING:
+                    new_health = new_health[:-1]
+                elif new_health[-1] == DMG_LETHAL and unpack_lethal:
+                    new_health = new_health[:-1]+DMG_BASHING
+                else:
+                    raise GreedyTraitOperationError("string_error_not_enough_X", (self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_bashing_dmg_plural"),))
+
+        self.db_setTextValue(new_health)
+        return [PCActionResultTrait(self.trait)]
+
+class PCTraitAction_V20HB_ADD(PCTraitAction_STS_ADD):
+    def doImmediatelyConvertBashingToLethal(self) -> bool:
+        return True
+
+class PCTraitAction_V20HB_SUB(PCTraitAction_STS_SUB):
+    def canUnpackLethalToBashing(self) -> bool:
+        return True

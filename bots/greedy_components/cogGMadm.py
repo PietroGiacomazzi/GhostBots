@@ -29,7 +29,7 @@ newTrait_description = """Argomenti: <id> <tipo> <tracker> <standard> <nome comp
 """
 
 listChronicles_description = "Nessun argomento richiesto"
-newChronicle_description = "Argomenti: <id> <nome completo> \n\nId non ammette spazi."
+newChronicle_description = "Argomenti: <id> <nome completo> <sistema di gioco> <nome lungo> \n\nId non ammette spazi."
 unlink_description = "Argomenti: nome breve del pg, nome breve della cronaca"
 updt_description = "Argomenti: <vecchio_id> <nuovo_id> <tipo> <tracker> <standard> <nome completo>\n\nInvocare il comando senza argomenti per ottenere più informazioni"
 #delet_description = "Argomenti: nome breve del pg, nome breve del tratto"
@@ -139,7 +139,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
 
     @gmadm.command(name = 'newChronicle', brief = gmadm_help['newChronicle'][1], description = newChronicle_description)
     @commands.before_invoke(gs.command_security(gs.basicStoryTeller))
-    async def newChronicle(self, ctx: commands.Context, shortname: gc.GreedyShortIdConverter,  *args):
+    async def newChronicle(self, ctx: commands.Context, shortname: gc.GreedyShortIdConverter, gamesystem: gc.GameSystemConverter, *args):
         if len(args) == 0:
             self.bot.atSend(ctx, newChronicle_description)
             return 
@@ -151,7 +151,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         # todo existence
         t = self.bot.dbm.db.transaction()
         try:
-            self.bot.dbm.db.insert("Chronicle", id=shortname, name = fullname)
+            self.bot.dbm.db.insert("Chronicle", id=shortname, name = fullname, gamesystemid = gamesystem)
             self.bot.dbm.db.insert("StoryTellerChronicleRel", storyteller=issuer, chronicle=shortname)
         except:
             t.rollback()

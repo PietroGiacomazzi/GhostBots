@@ -31,6 +31,8 @@ class SecurityContext:
         raise NotImplementedError()
     def getLanguageProvider(self) -> lng.LanguageStringProvider:
         raise NotImplementedError()
+    def getMessageContents(self) -> str:
+        raise NotImplementedError()
 
     def _loadUserInfo(self):
         self.registeredUser, self.userData = self.getDBManager().validators.getValidateBotUser(self.getUserId()).validate()
@@ -269,6 +271,7 @@ def AND(*cs_sequence: type[CommandSecurity]) -> type[CommandSecurity]:
 # PREMADE BLOCKS:
 
 genCanEditCharacter = lambda target_character:  OR(genIsCharacterStoryTeller(target_character), AND(genIsCharacterPlayer(target_character), genIsSessionRunningforCharacter(target_character)))
+genCanViewCharacter = lambda target_character:  OR(genIsCharacterStoryTeller(target_character), genIsCharacterPlayer(target_character))
 
 # PREMADE FULL PERMISSIONS:
 

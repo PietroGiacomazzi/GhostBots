@@ -81,7 +81,7 @@ class TraitConverter(Converter):
 
 class GameSystemConverter(Converter):
     """ Validates a gamesystem identifier """
-    async def convert(self, ctx, argument):
+    async def convert(self, ctx: Context, argument):
         if not argument in GAMESYSTEMS_LIST:
             raise gb.GreedyCommandError("string_error_invalid_rollsystem", (argument,))
         #return getRollSystem(argument)
