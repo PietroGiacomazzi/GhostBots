@@ -413,7 +413,7 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
         return int(traitvalue)
     def _parse_internal(self, ctx: gb.GreedyContext, refSetup: gms.RollSetup):
         expr = self.parseItem()
-        self.dice, self.dice_base, self.traits_seen = self.decodeDiceExpression_Mixed(ctx, refSetup, expr, self.firstNegative)
+        self.decodeDiceExpression_Mixed(ctx, refSetup, expr, self.firstNegative)
     def _save_setup(self, currentSetup: gms.RollSetup):
         super()._save_setup(currentSetup)
         self.mergeDice(self.dice, self.dice_base, currentSetup)
