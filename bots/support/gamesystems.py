@@ -425,19 +425,18 @@ class PCTraitAction(PCAction):
     def handle(self, *args: list[str]) -> list[PCActionResult]:
         _ = super().handle(*args)
         ttype = int(self.trait['trackertype'])
-        match ttype:
-            case TrackerType.NORMAL:
-                if self.trait['pimp_max'] == 0:
-                    raise GreedyTraitOperationError("string_error_cannot_modify_trait_curvalue", (self.trait['traitName'],))
-                return self._handleOperation_NORMAL(*args)
-            case TrackerType.CAPPED:
-                return self._handleOperation_CAPPED(*args)
-            case TrackerType.HEALTH:
-                return self._handleOperation_HEALTH(*args)
-            case TrackerType.UNCAPPED:
-                return self._handleOperation_UNCAPPED(*args)
-            case _:
-                raise GreedyTraitOperationError("string_error_unknown_trackertype", (ttype,))
+        if ttype == TrackerType.NORMAL:
+            if self.trait['pimp_max'] == 0:
+                raise GreedyTraitOperationError("string_error_cannot_modify_trait_curvalue", (self.trait['traitName'],))
+            return self._handleOperation_NORMAL(*args)
+        elif ttype == TrackerType.CAPPED:
+            return self._handleOperation_CAPPED(*args)
+        elif ttype == TrackerType.HEALTH:
+            return self._handleOperation_HEALTH(*args)
+        elif ttype == TrackerType.UNCAPPED:
+            return self._handleOperation_UNCAPPED(*args)
+        else:
+            raise GreedyTraitOperationError("string_error_unknown_trackertype", (ttype,))
     def _handleOperation_Base(self, *args: list[str]) -> list[PCActionResult]:
         raise NotImplementedError()
     def _handleOperation_NORMAL(self, *args: list[str]) -> list[PCActionResult]:
