@@ -396,7 +396,7 @@ function renderhealth(health_text, max_value)
 	health_render.setAttribute("class", 'w3-table'); // why charsheet?
 	
 	var hs = health_text;
-    hs = hs + (" ".repeat(max_value-hs.length));
+    hs = hs + (" ".repeat(Math.max(max_value-hs.length, 0)));
     var levels = hurt_levels_vampire.length - 1 ;
     var columns = Math.floor(hs.length / levels )
     var extra = hs.length % levels;

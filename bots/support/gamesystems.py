@@ -18,6 +18,9 @@ DMG_LETHAL = 'l'
 DMG_AGGRAVATED = 'a'
 DAMAGE_TYPES = [DMG_AGGRAVATED, DMG_LETHAL, DMG_BASHING] # it is important that the order is a, l, c
 
+BASHING_idx = DAMAGE_TYPES.index(DMG_BASHING)
+LETHAL_idx = DAMAGE_TYPES.index(DMG_LETHAL)
+
 GameSystems = enum(*GAMESYSTEMS_LIST)
 
 def getGamesystem(gamesystem: str) -> int:
@@ -475,6 +478,18 @@ class PCTraitAction_STS(PCTraitAction):
         dmgamount_raw = param[:-1]
         dmgamount = 1 if dmgamount_raw == '' else self.validateInteger(dmgamount_raw)
         return dmgamount, dmgtype
+    def doImmediatelyConvertBashingToLethal(self) -> bool:
+        return False
+    def validateHealth(self, health_string: str, max_length: int) -> str:
+        """ parses and validates a health string, reordering damage types and checking for allowed length """
+        counts = list(map(lambda x: health_string.count(x), DAMAGE_TYPES))
+        if sum(counts) != len(health_string) or sum(counts) > max_length :
+            raise GreedyTraitOperationError("string_error_invalid_health_expr", (health_string,))
+        if counts[BASHING_idx] > 1 and self.doImmediatelyConvertBashingToLethal():
+            counts[LETHAL_idx] = counts[LETHAL_idx] + counts[BASHING_idx]//2
+            counts[BASHING_idx] = counts[BASHING_idx] % 2
+        new_health = "".join(list(map(lambda x: x[0]*x[1], zip(DAMAGE_TYPES, counts)))) # siamo generosi e riordiniamo l'input
+        return new_health        
 
 class PCTraitAction_STS_ModifyCurValue(PCTraitAction_STS):
     def __init__(self, ctx: SecurityContext, character, trait) -> None:
@@ -511,29 +526,25 @@ class PCTraitAction_STS_EQ(PCTraitAction_STS_ModifyCurValue):
     def newValue(self, args: list[str]):
         return self.validateInteger(args[0])
     def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
-        inp = args[0]
-        counts = list(map(lambda x: inp.count(x), DAMAGE_TYPES))
-        if sum(counts) != len(inp) or sum(counts) > self.trait['max_value'] :
-            raise GreedyTraitOperationError("string_error_invalid_health_expr", (inp,))
-        new_health = "".join(list(map(lambda x: x[0]*x[1], zip(DAMAGE_TYPES, counts)))) # siamo generosi e riordiniamo l'input
+        new_health = self.validateHealth(args[0], self.trait['max_value'])
         self.db_setTextValue(new_health)
         return [PCActionResultTrait(self.trait)] 
 
 class PCTraitAction_STS_ADD(PCTraitAction_STS_ModifyCurValue):
     def newValue(self, args: list[str]):
         return self.trait['cur_value'] + self.validateInteger(args[0])
-    def doImmediatelyConvertBashingToLethal(self) -> bool:
-        return False
     def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
         n, dmgtype = self.validateDamageExpr(args[0])
-        new_health: str = self.trait['text_value']
+        new_health = self.validateHealth(self.trait['text_value'], self.trait['max_value'])
         
         rip = False
         for i in range(n): # apply damage one by one
             if len(new_health) < self.trait['max_value']: # Damage  tracker is not filled yet
                 if dmgtype == DMG_BASHING:
-                    if new_health.endswith(DMG_BASHING) and self.doImmediatelyConvertBashingToLethal():
-                        new_health = new_health[:-1]+DMG_LETHAL
+                    first_bashing = new_health.find(DMG_BASHING)
+                    if first_bashing >= 0 and self.doImmediatelyConvertBashingToLethal():
+                        # converting the last char to an l is faster, but does not keep a consistent health string if we switch between systems
+                        new_health = new_health[:first_bashing] + DMG_LETHAL + new_health[first_bashing+1:]
                     else:
                         new_health += DMG_BASHING
                 elif dmgtype == DMG_AGGRAVATED:
@@ -563,9 +574,10 @@ class PCTraitAction_STS_ADD(PCTraitAction_STS_ModifyCurValue):
                     else: # tracker is filled with aggravated
                         rip = True
 
-        if new_health.count(DMG_AGGRAVATED) == self.trait['max_value']:
+        if new_health.count(DMG_AGGRAVATED) >= self.trait['max_value']:
             rip = True
 
+        new_health = self.validateHealth(new_health, self.trait['max_value'])
         self.db_setTextValue(new_health)
         response = [PCActionResultTrait(self.trait)]
         if rip:
@@ -579,7 +591,7 @@ class PCTraitAction_STS_SUB(PCTraitAction_STS_ModifyCurValue):
         return False
     def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
         n, dmgtype = self.validateDamageExpr(args[0])
-        new_health: str = self.trait['text_value']
+        new_health = self.validateHealth(self.trait['text_value'], self.trait['max_value'])
 
         if dmgtype == DMG_AGGRAVATED:
             if new_health.count(dmgtype) < n:
@@ -605,6 +617,7 @@ class PCTraitAction_STS_SUB(PCTraitAction_STS_ModifyCurValue):
                 else:
                     raise GreedyTraitOperationError("string_error_not_enough_X", (self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_bashing_dmg_plural"),))
 
+        new_health = self.validateHealth(new_health, self.trait['max_value'])
         self.db_setTextValue(new_health)
         return [PCActionResultTrait(self.trait)]
 

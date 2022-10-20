@@ -79,8 +79,11 @@ class HealthTraitFormatter(TraitFormatter):
     def format(self, trait) -> str:
         penalty, parsed = utils.parseHealth(trait, self.levelList)
         prettytext = f'{trait["traitName"]}:'
-        for line in parsed:
-            prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], line)))
+        try:
+            for line in parsed:
+                prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], line)))
+        except KeyError:
+            raise gb.GreedyCommandError("string_error_invalid_health_expr", (trait['text_value'],))
         return self.lp.get(self.lid, penalty[1]) +"\n"+ prettytext
 
 class VampireHealthFormatter(HealthTraitFormatter):

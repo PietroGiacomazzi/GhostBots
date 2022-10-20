@@ -14,6 +14,7 @@ from pyresources.UtilsWebLib import *
 import lang.lang as lng
 import support.ghostDB as ghostDB
 import support.security as sec
+import support.gamesystems as gms
 
 config = configparser.ConfigParser()
 config.read("/var/www/greedy_ghost_web.ini")
@@ -543,8 +544,8 @@ class editCharacterTraitNumber(APIResponseLang): # no textbased
         charId = character['id']
         
         trait = dbm.getTrait(charId, trait_id)
-        
-        dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val, max_value = new_val)
+        text_val = trait['text_value'][:new_val] if int(trait['trackertype']) == gms.TrackerType.HEALTH else trait['text_value'] # truncate health if shortening health tracker
+        dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val, max_value = new_val, text_value = text_val)
         dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.MAX_VALUE, new_val, trait['max_value'], "web")
         dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], "web")
         return dbm.getTrait_LangSafe(charId, trait_id, getLanguage(self.session, dbm))

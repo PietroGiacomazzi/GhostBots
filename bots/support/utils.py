@@ -23,7 +23,7 @@ def parseHealth(trait, levels_list = hurt_levels_vampire):
     levels = len(levels_list) - 1 
 
     hs = trait['text_value']
-    hs = hs + (" "*(trait['max_value']-len(hs))) + ("B"*(levels-trait['max_value']))
+    hs = hs + (" "*(trait['max_value']-len(hs))) + ("B"*(max(0,levels-trait['max_value'])))
 
     columns = len(hs) // levels 
     extra = len(hs) % levels

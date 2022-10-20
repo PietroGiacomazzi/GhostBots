@@ -10,6 +10,7 @@ import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 import support.security as sec
+import support.gamesystems as gms
 
 create_description = "Argomenti: nome breve (senza spazi), @menzione al proprietario (oppure Discord ID), nome completo del personaggio (spazi ammessi)"
 link_description = "Argomenti: nome breve del pg, nome breve della cronaca"
@@ -107,7 +108,8 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
             self.bot.dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.TEXT_VALUE, val, chartrait['text_value'], ctx.message.content)
         else:
             val = int(value)
-            self.bot.dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']), cur_value = val, max_value = val)
+            text_val = chartrait['text_value'][:val] if int(chartrait['trackertype']) == gms.TrackerType.HEALTH else chartrait['text_value'] # truncate health if shortening health tracker
+            self.bot.dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=character['id']), cur_value = val, max_value = val, text_value = text_val)
             self.bot.dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.MAX_VALUE, val, chartrait['max_value'], ctx.message.content)
             self.bot.dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.CUR_VALUE, val, chartrait['cur_value'], ctx.message.content)
         
