@@ -48,6 +48,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
             try:
                 msgsplit = ctx.message.content.split(" ")
                 msgsplit[0] = msgsplit[0][1:] # toglie prefisso
+                msgsplit = [y for y in msgsplit if y != '']  # toglie stringhe vuote
                 charid = msgsplit[0]
                 ic, character = self.bot.dbm.validators.getValidateCharacter(charid).validate()
                 if ic:

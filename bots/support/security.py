@@ -273,5 +273,9 @@ def AND(*cs_sequence: type[CommandSecurity]) -> type[CommandSecurity]:
 genCanEditCharacter = lambda target_character:  OR(genIsCharacterStoryTeller(target_character), AND(genIsCharacterPlayer(target_character), genIsSessionRunningforCharacter(target_character)))
 genCanViewCharacter = lambda target_character:  OR(genIsCharacterStoryTeller(target_character), genIsCharacterPlayer(target_character))
 
-# PREMADE FULL PERMISSIONS:
+# PREMADE FULL PERMISSIONS (BOT):
+
+canEditCharacter_BOT = lambda target_character: OR(IsAdmin, AND( OR(IsActiveOnGuild, IsPrivateChannelWithRegisteredUser), genCanEditCharacter(target_character)))
+
+# PREMADE FULL PERMISSIONS (WEB):
 

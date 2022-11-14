@@ -23,6 +23,27 @@ LETHAL_idx = DAMAGE_TYPES.index(DMG_LETHAL)
 
 GameSystems = enum(*GAMESYSTEMS_LIST)
 
+OPCODES_ADD = ('+',)
+OPCODES_SUB = ('-',)
+OPCODES_EQ = ('=',)
+OPCODES_RESET = ('r', 'reset')
+DETACH_SPECIAL = OPCODES_ADD+OPCODES_SUB+OPCODES_EQ
+
+def detach_args(args: list[str]) -> list[str]:
+    """ Detach stuff like ["exp+1"] to ["exp", "+", "1"]" or ["exp-", "1"] to ["exp", "-", "1"] in args.
+
+    This is a fairly limited function as it is just a nice thing that we do for users."""
+    new_args = list(args)
+    i = 0
+    while i < len(new_args):
+        for op in DETACH_SPECIAL:
+            arg = new_args[i]
+            ix = arg.find(op)
+            if ix >= 0:
+                new_args = new_args[:i] + list(filter(lambda x: x != '', [arg[:ix], op, arg[ix+1:]])) + new_args[i+1:]
+        i += 1
+    return new_args
+
 def getGamesystem(gamesystem: str) -> int:
     """ Gets a game system enum from its identifier string """
     if gamesystem in GAMESYSTEMS_LIST:
@@ -35,7 +56,10 @@ class GreedyRollValidationError(lng.LangSupportException):
 class GreedyRollExecutionError(lng.LangSupportException):
     pass
 
-class GreedyTraitOperationError(lng.LangSupportException):
+class GreedyOperationError(lng.LangSupportException):
+    pass
+
+class GreedyTraitOperationError(GreedyOperationError):
     pass
 
 class RollItem:
@@ -410,11 +434,11 @@ class PCAction:
         self.ctx = ctx
         self.expectedParameterNumber: int = -1
     def handle(self, *args: tuple[str]) -> list[PCActionResult]:
-        self.checkParameterNumber(args)
+        #self.checkParameterNumber(args)
         return [PCActionResultText(self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_error_notimplemented"))]
-    def checkParameterNumber(self, args: list[tuple]):
-        if len(args) != self.expectedParameterNumber:
-            GreedyTraitOperationError("string_invalid_number_of_parameters")
+    #def checkParameterNumber(self, args: list[tuple]):
+    #    if len(args) != self.expectedParameterNumber:
+    #        raise GreedyTraitOperationError("string_invalid_number_of_parameters")
     def validateInteger(self, param) -> int:
         try:
             return int(param)
@@ -628,3 +652,105 @@ class PCTraitAction_V20HB_ADD(PCTraitAction_STS_ADD):
 class PCTraitAction_V20HB_SUB(PCTraitAction_STS_SUB):
     def canUnpackLethalToBashing(self) -> bool:
         return True
+
+class PCActionHandler:
+    def __init__(self, ctx: SecurityContext, character, can_edit: bool) -> None:
+        self.ctx = ctx
+        self.character = character
+        self.canEditCharacter = can_edit
+        self.actions: dict[tuple[str], type[PCAction]] = {}
+        self.traitOps: dict[tuple[str], type[PCTraitAction]] = {}
+        self.viewTraitAction: type[PCTraitAction] = None
+        self.nullAction: type[PCAction] = None
+    def handle(self, args, macro = False) -> list[PCActionResult]:
+        if len(args) == 0:
+            action = self.nullAction(self.ctx, self.character)
+            return action.handle()
+        
+        args = detach_args(args)
+        whatstr = args[0]
+        
+        # ACTIONS
+
+        for k, v in self.actions.items():
+            if whatstr in k:
+                action = v(self.ctx, self.character)
+                return action.handle(*args[1:])
+        
+        # MACROS
+        
+        if not macro: # we don't allow macro nesting
+            im, macro = self.ctx.getDBManager().validators.getValidateCharacterMacro(self.character['id'], whatstr).validate()
+            if im:
+                macro_content = macro[ghostDB.FIELDNAME_CHARACTERMACRO_MACROCOMMANDS]
+                return self.handle_macro(macro_content, args)
+
+        # TRAIT OPERATIONS
+
+        trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], whatstr, self.ctx.getLID())
+
+        if len(args) == 1: # only trait name
+            return self.viewTraitAction(self.ctx, self.character, trait).handle()
+
+        if not self.canEditCharacter:
+            raise GreedyOperationError("string_error_cannot_edit_character")
+
+        traitOpstr = args[1]
+
+        for k, v in self.traitOps.items():
+            if traitOpstr in k:
+                action = v(self.ctx, self.character, trait)
+                return action.handle(*args[2:])
+        raise GreedyOperationError("string_error_unsupported_operation", (traitOpstr,))
+    def handle_macro(self, macro_text: str, args: list[str]) -> list[PCActionResult]:
+        macro_commands = list(map(lambda x: x.strip(), macro_text.split("\n")))
+        results: list[PCActionResult] = []
+        silent = False
+        for cmd in macro_commands:
+            cmd_split = [y for y in cmd.split(" ") if y != ''] 
+            base_cmd = cmd_split[0]
+            try:
+                if base_cmd == "me":
+                    result = self.handle(cmd_split[1:], True)
+                    if not silent:
+                        results.extend(result)
+                elif base_cmd.lower() == "silent_mode_on":
+                    silent = True
+                elif base_cmd.lower() == "silent_mode_off":
+                    silent = False
+                elif base_cmd == "roll": # TODO
+                    raise NotImplementedError("Soon™")
+                else:
+                    #TODO check for character ID? remember that if we do, permissions need to be checked for the character
+                    raise GreedyOperationError("string_error_unsupported_operation", (base_cmd,))
+            except lng.LangSupportException as e:
+                results.append(PCActionResultText(self.ctx.getLanguageProvider().formatException(self.ctx.getLID(), e)))
+                
+        return results
+
+class PCActionHandler_STS(PCActionHandler):
+    def __init__(self, ctx: SecurityContext, character, can_edit: bool) -> None:
+        super().__init__(ctx, character, can_edit)
+        self.traitOps[OPCODES_ADD] = PCTraitAction_STS_ADD
+        self.traitOps[OPCODES_EQ] = PCTraitAction_STS_EQ
+        self.traitOps[OPCODES_RESET] = PCTraitAction_STS_RESET
+        self.traitOps[OPCODES_SUB] = PCTraitAction_STS_SUB
+        self.viewTraitAction = PCTraitAction_ViewTrait
+
+class PCActionHandler_V20HB(PCActionHandler_STS):
+    def __init__(self, ctx: SecurityContext, character, can_edit: bool) -> None:
+        super().__init__(ctx, character, can_edit)
+        self.traitOps[OPCODES_ADD] = PCTraitAction_V20HB_ADD
+        self.traitOps[OPCODES_SUB] = PCTraitAction_V20HB_SUB
+
+ActionHandlerMappings: dict[int, type[PCActionHandler]] = {
+    #gms.GameSystems.GENERAL: PCActionHandler_STS,
+    GameSystems.STORYTELLER_SYSTEM: PCActionHandler_STS,
+    GameSystems.V20_VTM_HOMEBREW_00: PCActionHandler_V20HB,
+    GameSystems.V20_VTM_VANILLA: PCActionHandler_STS
+    #gms.GameSystems.DND_5E: RollParser_DND5E,
+}
+
+def getHandler(gamesystem: int):
+    """ Gets an Action Handler from a GameSystem enum """
+    return ActionHandlerMappings[gamesystem]

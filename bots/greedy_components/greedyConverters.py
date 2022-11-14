@@ -90,7 +90,7 @@ class GameSystemConverter(Converter):
 # numeric stuff
 
 class TrackerTypeConverter(Converter):
-    """ Validates string a tracker type """
+    """ Validates a tracker type """
 
     async def convert(self, ctx: Context, argument: str) -> int:
         error = gb.GreedyCommandError("'{}' non è tracker valido!", (argument,))

@@ -24,16 +24,23 @@ TABLENAME_GUILD = "BotGuild"
 TABLENAME_GAMESYSTEM = "Gamesystem"
 TABLENAME_CHRONICLE = "Chronicle"
 TABLENAME_CHANNELGAMESYSTEM = "ChannelGamesystem"
+TABLENAME_CHARACTERMACRO = 'CharacterMacro'
 
 #Fieldnames
 
 GAMESYSTEMID = "gamesystemid"
 
 FIELDNAME_GAMESYSTEM_GAMESYSTEMID = GAMESYSTEMID
+
 FIELDNAME_CHRONICLE_CHRONICLEID = "id"
 FIELDNAME_CHRONICLE_GAMESYSTEMID = GAMESYSTEMID
+
 FIELDNAME_CHANNELGAMESYSTEM_CHANNELID = "channelid"
 FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID = GAMESYSTEMID
+
+FIELDNAME_CHARACTERMACRO_CHARID = 'characterid'
+FIELDNAME_CHARACTERMACRO_MACROID = 'macroid'
+FIELDNAME_CHARACTERMACRO_MACROCOMMANDS = 'macrocommands'
 
 # Objects
 
@@ -389,5 +396,8 @@ class ValidatorGenerator:
         """ Handles validation of a Discord Guild """
         return GetValidateRecordNoFormat(self.db, f"select * from {TABLENAME_GUILD} where guildid=$guildid", dict(guildid=guildid), "string_error_invalid_guild")
     def getValidateChannelGameSystem(self, channelid: str) -> GetValidateRecord:
-        """ Handles validation of saved channel gaamesystems """
+        """ Handles validation of saved channel gamesystems """
         return GetValidateRecordNoFormat(self.db, f'SELECT t.* FROM {TABLENAME_CHANNELGAMESYSTEM} t where t.{FIELDNAME_CHANNELGAMESYSTEM_CHANNELID} = $key', dict(key=channelid), "Il canale non ha un sistema di gioco impostato!")
+    def getValidateCharacterMacro(self, charid: str, macroid: str):
+        """ Handles validation of character macros """
+        return GetValidateRecord(self.db, f'SELECT t.* FROM {TABLENAME_CHARACTERMACRO} t where (t.{FIELDNAME_CHARACTERMACRO_CHARID} = $charid or t.{FIELDNAME_CHARACTERMACRO_CHARID} IS NULL) and t.{FIELDNAME_CHARACTERMACRO_MACROID} = $macroid', dict(charid=charid, macroid=macroid), "string_error_macro_not_found_for_char")

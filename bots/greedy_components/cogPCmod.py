@@ -68,7 +68,7 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, f"Non c\'è un\'associazione tra {character['fullname']} e {chronicle['name']}")
 
     @pgmod.command(name = 'addt', brief = "Aggiunge tratto ad un personaggio", description = addt_description)
-    @commands.before_invoke(gs.command_security(sec.OR(sec.IsAdmin, sec.AND( sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser), sec.genCanEditCharacter(target_character=2)))))
+    @commands.before_invoke(gs.command_security(sec.canEditCharacter_BOT(target_character=2)))
     async def addt(self, ctx: gb.GreedyContext, character: gc.CharacterConverter, trait: gc.TraitConverter, value, *args):
         issuer = str(ctx.message.author.id)
         
@@ -94,7 +94,7 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
         await self.bot.atSend(ctx, f"{character['fullname']} ora ha {trait['name']} {val}")
 
     @pgmod.command(name = 'modt', brief = "Modifica un tratto di un personaggio", description = modt_description)
-    @commands.before_invoke(gs.command_security(sec.OR(sec.IsAdmin, sec.AND( sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser), sec.genCanEditCharacter(target_character = 2)))))
+    @commands.before_invoke(gs.command_security(sec.canEditCharacter_BOT(target_character=2)))
     async def modt(self, ctx: gb.GreedyContext, character: gc.CharacterConverter, trait: gc.TraitConverter, value, *args):
         issuer = str(ctx.message.author.id)
         
@@ -117,7 +117,7 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
     
     
     @pgmod.command(name = 'rmt', brief = "Rimuovi un tratto ad un personaggio", description = rmt_description)
-    @commands.before_invoke(gs.command_security(sec.OR(sec.IsAdmin, sec.AND( sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser), sec.genCanEditCharacter(target_character = 2)))))
+    @commands.before_invoke(gs.command_security(sec.canEditCharacter_BOT(target_character=2)))
     async def rmt(self, ctx: gb.GreedyContext, character: gc.CharacterConverter, trait: gc.TraitConverter):
         issuer = str(ctx.message.author.id)
         chartrait = self.bot.dbm.getTrait_LangSafe(character['id'], trait['id'], ctx.getLID())
@@ -134,7 +134,7 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
             await self.bot.atSend(ctx, f"Nessun tratto rimosso")
 
     @pgmod.command(name = 'reassign', brief = pgmod_help["reassign"][1], description = pgmod_help["reassign"][0])
-    @commands.before_invoke(gs.command_security(sec.OR(sec.IsAdmin, sec.AND( sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser), sec.genCanEditCharacter(target_character = 2)))))
+    @commands.before_invoke(gs.command_security(sec.canEditCharacter_BOT(target_character=2)))
     async def reassign(self, ctx: commands.Context, character: gc.CharacterConverter, user: gc.RegisteredUserConverter):
         self.bot.dbm.reassignCharacter(character['id'], user['userid'])        
         await self.bot.atSendLang(ctx, "string_msg_character_reassigned_to_user", character["fullname"], user['name'])

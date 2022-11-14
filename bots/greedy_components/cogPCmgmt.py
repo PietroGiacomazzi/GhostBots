@@ -125,28 +125,6 @@ class GenerationTraitFormatter(TraitFormatter):
 
 # HANDLERS
 
-OPCODES_ADD = ('+',)
-OPCODES_SUB = ('-',)
-OPCODES_EQ = ('=',)
-OPCODES_RESET = ('r', 'reset')
-
-DETACH_SPECIAL = OPCODES_ADD+OPCODES_SUB+OPCODES_EQ
-
-def detach_args(args: list[str]) -> list[str]:
-    """ Detach stuff like ["exp+1"] to ["exp", "+", "1"]" or ["exp-", "1"] to ["exp", "-", "1"] in args.
-
-    This is a fairly limited function as it is just a nice thing that we do for users."""
-    new_args = list(args)
-    i = 0
-    while i < len(new_args):
-        for op in DETACH_SPECIAL:
-            arg = new_args[i]
-            ix = arg.find(op)
-            if ix >= 0:
-                new_args = new_args[:i] + list(filter(lambda x: x != '', [arg[:ix], op, arg[ix+1:]])) + new_args[i+1:]
-        i += 1
-    return new_args
-
 class PCActionResultOutputter():
     def __init__(self, ctx: sec.SecurityContext) -> None:
         self.ctx = ctx
@@ -193,71 +171,17 @@ class PCAction_CharacterLink(gms.PCAction):
         unparsed = urllib.parse.urlunparse(tuple(parsed)) # recreate url
         return [gms.PCActionResultText(self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_msg_charsheet_info", self.character['fullname'], unparsed) )]
 
-class PCActionHandler:
-    def __init__(self, ctx: gb.GreedyContext, character) -> None:
-        self.ctx = ctx
-        self.character = character
-        self.actions: dict[tuple[str], type[gms.PCAction]] = {}
-        self.traitOps: dict[tuple[str], type[gms.PCTraitAction]] = {}
-        self.viewTraitAction: type[gms.PCTraitAction] = None
-        self.nullAction: type[gms.PCAction] = PCAction_CharacterLink
-    def handle(self, args) -> list[gms.PCActionResult]:
-        if len(args) == 0:
-            action = self.nullAction(self.ctx, self.character)
-            return action.handle()
-        args = detach_args(args)
-
-        whatstr = args[0]
-
-        for k, v in self.actions.items():
-            if whatstr in k:
-                action = v(self.ctx, self.character)
-                return action.handle(*args[1:])
-
-        trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], whatstr, self.ctx.getLID())
-
-        if len(args) == 1: # only trait name
-            return self.viewTraitAction(self.ctx, self.character, trait).handle()
-
-        traitOpstr = args[1]
-
-        for k, v in self.traitOps.items():
-            if traitOpstr in k:
-                action = v(self.ctx, self.character, trait)
-                return action.handle(*args[2:])
-
-        raise gb.GreedyCommandError("string_error_unsupported_operation", (traitOpstr,))
-    def getOutputter(self) -> PCActionResultOutputter:
-        return NotImplementedError()
-      
-class PCActionHandler_STS(PCActionHandler):
-    def __init__(self, ctx: gb.GreedyContext, character) -> None:
-        super().__init__(ctx, character)
-        self.traitOps[OPCODES_ADD] = gms.PCTraitAction_STS_ADD
-        self.traitOps[OPCODES_EQ] = gms.PCTraitAction_STS_EQ
-        self.traitOps[OPCODES_RESET] = gms.PCTraitAction_STS_RESET
-        self.traitOps[OPCODES_SUB] = gms.PCTraitAction_STS_SUB
-        self.viewTraitAction = gms.PCTraitAction_ViewTrait
-    def getOutputter(self) -> PCActionResultOutputter:
-        return PCActionResultOutputter_STS(self.ctx)
-
-class PCActionHandler_V20HB(PCActionHandler_STS):
-    def __init__(self, ctx: gb.GreedyContext, character) -> None:
-        super().__init__(ctx, character)
-        self.traitOps[OPCODES_ADD] = gms.PCTraitAction_V20HB_ADD
-        self.traitOps[OPCODES_SUB] = gms.PCTraitAction_V20HB_SUB
-
-ActionHandlerMappings: dict[int, type[PCActionHandler]] = {
+ActionResultOutputterMappings: dict[int, type[PCActionResultOutputter]] = {
     #gms.GameSystems.GENERAL: PCActionHandler_STS,
-    gms.GameSystems.STORYTELLER_SYSTEM: PCActionHandler_STS,
-    gms.GameSystems.V20_VTM_HOMEBREW_00: PCActionHandler_V20HB,
-    gms.GameSystems.V20_VTM_VANILLA: PCActionHandler_STS
+    gms.GameSystems.STORYTELLER_SYSTEM: PCActionResultOutputter_STS,
+    gms.GameSystems.V20_VTM_HOMEBREW_00: PCActionResultOutputter_STS,
+    gms.GameSystems.V20_VTM_VANILLA: PCActionResultOutputter_STS
     #gms.GameSystems.DND_5E: RollParser_DND5E,
 }
 
-def getHandler(gamesystem: int):
-    """ Gets an Action Handler from a GameSystem enum """
-    return ActionHandlerMappings[gamesystem]
+def getOutputter(gamesystem: int, ctx: gb.GreedyContext):
+    """ Gets an ActionResultOutputter object from a GameSystem enum """
+    return ActionResultOutputterMappings[gamesystem](ctx)
 
 # COG 
 class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog): 
@@ -265,10 +189,11 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
     async def pc_interact(self, ctx: gb.GreedyContext, pc: object, can_edit: bool, *args_tuple) -> str:
         gamesystemid = self.bot.getGameSystemByChannel(ctx.channel.id)
         gamesystem = gms.getGamesystem(gamesystemid)
-        handlerClass = getHandler(gamesystem)
-        handler = handlerClass(ctx, pc)
+        handlerClass = gms.getHandler(gamesystem)
+        handler = handlerClass(ctx, pc, can_edit)
+        handler.nullAction = PCAction_CharacterLink
         result = handler.handle(args_tuple)
-        return handler.getOutputter().outputList(result)
+        return getOutputter(gamesystem, ctx).outputList(result)
 
     @commands.command(name = 'me', brief='Permette ai giocatori di interagire col proprio personaggio durante le sessioni' , help = me_description)
     @commands.before_invoke(gs.command_security(gs.basicRegisteredUser))
@@ -281,7 +206,7 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
     @commands.before_invoke(gs.command_security(sec.OR(sec.IsAdmin, sec.AND( sec.OR(sec.IsActiveOnGuild, sec.IsPrivateChannelWithRegisteredUser), sec.genCanViewCharacter(target_character=2)))))
     async def pgmanage(self, ctx: gb.GreedyContext, character: gc.CharacterConverter, *args):
         can_edit = False 
-        can_edit, _ = sec.genCanEditCharacter(target_character=2)(ctx).checkSecurity(*ctx.args, **ctx.kwargs)
+        can_edit, _ = sec.canEditCharacter_BOT(target_character=2)(ctx).checkSecurity(*ctx.args, **ctx.kwargs)
         
         response = await self.pc_interact(ctx, character, can_edit, *args)
         await self.bot.atSend(ctx, response)

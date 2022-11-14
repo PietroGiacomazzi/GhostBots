@@ -133,6 +133,8 @@
 	"string_error_unsupported_operation": "Operation '{}' is not supported",
 	"string_error_invalid_health_expr": "'{}' is not a valid health expression",
 	"string_msg_charsheet_info": "Character: {}\nSheet: {}",
+	"string_error_cannot_edit_character": "Without a session running you can only view your stats",
+	"string_error_macro_not_found_for_char": "Macro {} not found for {}",
 
 	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
 	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",

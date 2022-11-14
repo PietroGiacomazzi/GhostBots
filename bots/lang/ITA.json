@@ -133,6 +133,8 @@
 	"string_error_unsupported_operation": "Operazione '{}' non supportata",
 	"string_error_invalid_health_expr": "'{}' non è un'espressione valida per la salute",
 	"string_msg_charsheet_info": "Personaggio: {}\nScheda: {}",
+	"string_error_cannot_edit_character": "A sessione spenta puoi solo consultare le tue statistiche",
+	"string_error_macro_not_found_for_char": "Macro {} non trovaata per {}",
 
 	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
 	"help_gmadm_stunlink": "Argomenti: <id cronaca>, [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
