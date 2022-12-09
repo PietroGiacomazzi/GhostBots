@@ -478,7 +478,7 @@ class PCAction:
         raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
     def db_setTextValue(self, new_value: str, trait):
         u = self.ctx.getDBManager().db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=self.character['id']), text_value = new_value)
-        self.ctx.getDBManager().log(self.ctx.getUserId(), self.character['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_value, trait['text_value'], self.ctx.getMessageContents())
+        self.ctx.getDBManager().log(self.ctx.getUserId(), self.character['id'], trait['trait'], ghostDB.LogType.TEXT_VALUE, new_value, trait['text_value'], self.ctx.getMessageContents())
         if u == 1 or (u == 0 and trait['text_value'] == new_value):
             return self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], trait['id'], self.ctx.getLID())         
         raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
