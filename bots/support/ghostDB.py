@@ -6,6 +6,45 @@ from .utils import *
 
 LogType = enum("CUR_VALUE", "MAX_VALUE", "TEXT_VALUE", "PIMP_MAX", "ADD", "DELETE")
 
+
+#Table names:
+
+TABLENAME_GUILD = "BotGuild"
+TABLENAME_GAMESYSTEM = "Gamesystem"
+TABLENAME_CHRONICLE = "Chronicle"
+TABLENAME_CHANNELGAMESYSTEM = "ChannelGamesystem"
+TABLENAME_CHARACTERMACRO = 'CharacterMacro'
+TABLENAME_PLAYERCHARACTER = 'PlayerCharacter'
+TABLENAME_CHRONICLECHARACTERREL = 'ChronicleCharacterRel'
+TABLENAME_GAMESESSION = 'GameSession'
+
+#Fieldnames
+
+GAMESYSTEMID = "gamesystemid"
+GENERICID =  'id'
+CHRONICLE = 'chronicle'
+CHANNEL = 'channel'
+
+FIELDNAME_GAMESYSTEM_GAMESYSTEMID = GAMESYSTEMID
+
+FIELDNAME_CHRONICLE_CHRONICLEID = GENERICID
+FIELDNAME_CHRONICLE_GAMESYSTEMID = GAMESYSTEMID
+
+FIELDNAME_CHANNELGAMESYSTEM_CHANNELID = "channelid"
+FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID = GAMESYSTEMID
+
+FIELDNAME_CHARACTERMACRO_CHARID = 'characterid'
+FIELDNAME_CHARACTERMACRO_MACROID = 'macroid'
+FIELDNAME_CHARACTERMACRO_MACROCOMMANDS = 'macrocommands'
+
+FIELDNAME_PLAYERCHARACTER_CHARACTERID = GENERICID
+
+FIELDNAME_CHRONICLECHARACTERREL_PLAYERCHAR = 'playerchar'
+FIELDNAME_CHRONICLECHARACTERREL_CHRONICLE = CHRONICLE
+
+FIELDNAME_GAMESESSION_CHRONICLE = CHRONICLE
+FIELDNAME_GAMESESSION_CHANNEL = CHANNEL
+
 # Queries
 
 QUERY_UNTRANSLATED_TRAIT = """
@@ -18,29 +57,27 @@ QUERY_UNTRANSLATED_TRAIT = """
     WHERE t.id = $trait
 """
 
-#Table names:
+QUERY_CHARACTER_MACROS = f"""
+SELECT t.characterid, t.macroid
+FROM {TABLENAME_CHARACTERMACRO} t 
+WHERE t.{FIELDNAME_CHARACTERMACRO_CHARID} = $charid
+"""
 
-TABLENAME_GUILD = "BotGuild"
-TABLENAME_GAMESYSTEM = "Gamesystem"
-TABLENAME_CHRONICLE = "Chronicle"
-TABLENAME_CHANNELGAMESYSTEM = "ChannelGamesystem"
-TABLENAME_CHARACTERMACRO = 'CharacterMacro'
+QUERY_GENERAL_MACROS = f"""
+SELECT t.characterid, t.macroid
+FROM {TABLENAME_CHARACTERMACRO} t 
+WHERE t.{FIELDNAME_CHARACTERMACRO_CHARID} IS NULL
+"""
 
-#Fieldnames
-
-GAMESYSTEMID = "gamesystemid"
-
-FIELDNAME_GAMESYSTEM_GAMESYSTEMID = GAMESYSTEMID
-
-FIELDNAME_CHRONICLE_CHRONICLEID = "id"
-FIELDNAME_CHRONICLE_GAMESYSTEMID = GAMESYSTEMID
-
-FIELDNAME_CHANNELGAMESYSTEM_CHANNELID = "channelid"
-FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID = GAMESYSTEMID
-
-FIELDNAME_CHARACTERMACRO_CHARID = 'characterid'
-FIELDNAME_CHARACTERMACRO_MACROID = 'macroid'
-FIELDNAME_CHARACTERMACRO_MACROCOMMANDS = 'macrocommands'
+QUERY_CHARACTER_GAMESYSTEMS = f"""
+SELECT c.{FIELDNAME_CHRONICLE_GAMESYSTEMID}
+FROM {TABLENAME_PLAYERCHARACTER} pc
+join {TABLENAME_CHRONICLECHARACTERREL} ccr on (ccr.{FIELDNAME_CHRONICLECHARACTERREL_PLAYERCHAR} = pc.{FIELDNAME_PLAYERCHARACTER_CHARACTERID})
+join {TABLENAME_CHRONICLE} c on (c.{FIELDNAME_CHRONICLE_CHRONICLEID} = ccr.{FIELDNAME_CHRONICLECHARACTERREL_CHRONICLE})
+LEFT join {TABLENAME_GAMESESSION} gs on (gs.{FIELDNAME_GAMESESSION_CHRONICLE} = c.{FIELDNAME_CHRONICLE_CHRONICLEID})
+WHERE pc.{FIELDNAME_PLAYERCHARACTER_CHARACTERID} = $charid
+order by gs.{FIELDNAME_GAMESESSION_CHANNEL} desc
+"""
 
 # Objects
 
@@ -79,6 +116,12 @@ class DBManager:
         if is_channel:
             return channel[FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID]
         return None
+    def getGameSystemByCharacter(self, character, fallback) -> str:
+        """ Get a game system from a character. Checks all chronicles the character is in, prioritizing ones with running sessions """
+        r = self.db.query(QUERY_CHARACTER_GAMESYSTEMS, vars=dict(charid = character[FIELDNAME_PLAYERCHARACTER_CHARACTERID]))
+        if len(r):
+            return r[0][FIELDNAME_CHRONICLE_GAMESYSTEMID]
+        return fallback
     def newCharacter(self, chid, fullname, owner, player = None):
         if player == None:
             player = owner
@@ -206,6 +249,12 @@ insert into CharacterTrait
         if len(sts) == 0:
             raise DBException(f'Non ci sono sessioni attive in questo canale, oppure questa cronoca non ha un storyteller')
         return sts.list()
+    def getCharacterMacros(self, charid: str):
+        return self.db.query(QUERY_CHARACTER_MACROS, vars=dict(charid=charid))
+    def getGeneralMacros(self):
+        return self.db.query(QUERY_GENERAL_MACROS)
+    def newMacro(self, macroid: str, charid: str, text: str):
+        self.db.insert(TABLENAME_CHARACTERMACRO, characterid=charid, macroid=macroid, macrocommands=text)
     def registerGuild(self, guildid: str, guildname: str, authorized: bool):
         """ Registers a guild """
         self.db.insert(TABLENAME_GUILD, guildid=guildid, guildname=guildname, authorized = authorized)
@@ -401,3 +450,6 @@ class ValidatorGenerator:
     def getValidateCharacterMacro(self, charid: str, macroid: str):
         """ Handles validation of character macros """
         return GetValidateRecord(self.db, f'SELECT t.* FROM {TABLENAME_CHARACTERMACRO} t where (t.{FIELDNAME_CHARACTERMACRO_CHARID} = $charid or t.{FIELDNAME_CHARACTERMACRO_CHARID} IS NULL) and t.{FIELDNAME_CHARACTERMACRO_MACROID} = $macroid', dict(charid=charid, macroid=macroid), "string_error_macro_not_found_for_char")
+    def getValidateMacro(self, macroid: str):
+        """ Handles validation of macros """
+        return GetValidateRecord(self.db, f'SELECT t.* FROM {TABLENAME_CHARACTERMACRO} t where t.{FIELDNAME_CHARACTERMACRO_MACROID} = $macroid', dict(macroid=macroid), "string_error_macro_not_found")

@@ -309,7 +309,7 @@ class RollArgumentParser:
     def parseInteger(self, ctx: gb.GreedyContext, err_msg: str = None) -> int:
         item = self.parseItem()
         return self.validateInteger(item, ctx, err_msg)
-    def validateInteger(self, item, ctx: gb.GreedyContext, err_msg: str = None):
+    def validateInteger(self, item, ctx: gb.GreedyContext, err_msg: str = None): # TODO InputValidator
         try:
             return int(item)
         except ValueError:
@@ -319,7 +319,7 @@ class RollArgumentParser:
     def parseBoundedInteger(self, ctx: gb.GreedyContext, min_val: int = -inf, max_val: int = inf, err_msg : str = None) -> int:
         item = self.parseItem()
         return self.validateBoundedInteger(item, ctx, min_val, max_val, err_msg)
-    def validateBoundedInteger(self, item, ctx: gb.GreedyContext, min_val: int = -inf, max_val: int = inf, err_msg: str = None) -> int:
+    def validateBoundedInteger(self, item, ctx: gb.GreedyContext, min_val: int = -inf, max_val: int = inf, err_msg: str = None) -> int: # TODO InputValidator
         val = self.validateInteger(item, ctx)
         if val < min_val or val > max_val:
             if err_msg == None:

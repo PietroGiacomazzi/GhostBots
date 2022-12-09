@@ -58,7 +58,16 @@ urls = (
     '/newCharacterNote', 'newCharacterNote',
     '/getCharacterNotesList', 'getCharacterNotesList',
     '/characterNotesPage', 'characterNotesPage',
-    '/deleteCharacterNote', 'deleteCharacterNote'
+    '/deleteCharacterNote', 'deleteCharacterNote',
+    '/macrosPage', 'macrosPage',
+    '/getCharacterMacros', 'getCharacterMacros',
+    '/getGeneralMacros', 'getGeneralMacros',
+    '/getMacro', 'getMacro',
+    '/newGeneralMacro', 'newGeneralMacro',
+    '/newCharacterMacro', 'newCharacterMacro',
+    '/saveMacro', 'saveMacro',
+    '/deleteMacro', 'deleteMacro',
+    '/useMacro', 'useMacro'
     )
 
 
@@ -118,6 +127,8 @@ class WebContext(sec.SecurityContext):
         return config['WebApp']['default_language']
     def getMessageContents(self) -> str:
         return web.ctx.path
+    def getLanguageProvider(self) -> lng.LanguageStringProvider:
+        return lp
 
 def web_security(security_item: type[sec.CommandSecurity], **security_options):
     """ setup security permissions for a WebResponse object """
@@ -144,22 +155,31 @@ def web_security(security_item: type[sec.CommandSecurity], **security_options):
         return wrapper
     return decorator
 
-def check_web_security(response: WebResponse, security_item: type[sec.CommandSecurity], **security_options) -> bool:
-    """ Callable version of the web_security decorator. can be used to check a permission and get a boolean result """
+def assert_web_security(response: WebResponse, security_item: type[sec.CommandSecurity], **security_options) -> None:
+    """ Callable version of the web_security decorator. asserts the given permission or throws the relevant exception """
     decorator = web_security(security_item, **security_options)
     decorated = decorator(id) # it does not matter what we are decorating, so we just use id() 
+    decorated(response)
+
+def check_web_security(response: WebResponse, security_item: type[sec.CommandSecurity], **security_options) -> bool:
+    """ Callable version of the web_security decorator. can be used to check a permission and get a boolean result """
     try:
-        decorated(response)
+        assert_web_security(response, security_item, **security_options)
         return True
     except (sec.SecurityCheckException, sec.SecuritySetupError, sec.MissingParameterException) as e:
         return False
     except WebException: # in case we are using @langSupportExceptionTranslation
         return False
 
+
 # Security blocks
 
-canSeeCharacter = lambda target_character: sec.OR(sec.IsAdmin, sec.genCanViewCharacter(target_character))
+canSeeCharacter      = lambda target_character: sec.OR(sec.IsAdmin, sec.genCanViewCharacter(target_character))
+canEditCharacterPerm = lambda target_character: sec.OR(sec.IsAdmin, sec.genCanEditCharacter(target_character))
+
 notesPermission = canSeeCharacter
+macrosPermission = canSeeCharacter
+
 
 # --- STUFF ---
 
@@ -192,6 +212,11 @@ def make_session(token: str =None, state: str =None, scope: list =None) -> OAuth
 def validator_character(data: str) -> web.utils.Storage:
     _ = validator_str_range(1, 20)(data)
     return dbm.validators.getValidateCharacter(data).get()
+
+@langSupportExceptionTranslation
+def validator_macro(data: str) -> web.utils.Storage:
+    _ = validator_str_range(1, 20)(data)
+    return dbm.validators.getValidateMacro(data).get()
 
 def validator_language(data: str) -> str:
     string = validator_str_range(1, 3)(data)
@@ -703,6 +728,7 @@ class webFunctionVisibility(APIResponse):
             "side_menu": self.session.access_level >= 1, # any logged user
             "new_character": iu, # any logged registered user
             "translate_traits": ba or st, # storytellers or admins
+            "macro_new_general":  ba or st # storytellers or admins
         }
 
 class getModal(WebPageResponseLang):
@@ -883,6 +909,134 @@ class characterNotesPage(WebPageResponseLang):
     @web_security(notesPermission('charId'))
     def mGET(self):        
         return render.characterNotes(global_template_params, self.getLanguageDict())
+
+class macrosPage(WebPageResponseLang):
+    def __init__(self):
+        super(macrosPage, self).__init__(config, session, min_access_level=2, accepted_input = {
+            'charId': (MAY, validator_character),
+        })
+    @web_security(macrosPermission('charId'))
+    def mGET(self):        
+        return render.macros(global_template_params, self.getLanguageDict())
+
+class getCharacterMacros(APIResponse):
+    def __init__(self):
+        super().__init__(config, session, min_access_level = 2, accepted_input = {
+            'charId': (MUST, validator_character),
+        })
+    @web_security(macrosPermission('charId'))
+    def mGET(self):
+        return dbm.getCharacterMacros(self.input_data['charId']['id']).list()
+
+class getGeneralMacros(APIResponse):
+    def __init__(self):
+        super().__init__(config, session, min_access_level = 2)
+    @web_security(sec.IsUser)
+    def mGET(self):
+        return dbm.getGeneralMacros().list()
+
+class getMacro(APIResponse):
+    def __init__(self):
+        super().__init__(config, session, min_access_level = 2, accepted_input = {
+            'macroId': (MUST, validator_macro),
+        })
+    @web_security(sec.IsUser)
+    def mGET(self):
+        charid = self.input_data['macroId'][ghostDB.FIELDNAME_CHARACTERMACRO_CHARID]
+        if charid: # at this point the macro is valid, but we need to have access to the character, which is not provided in the call
+            self.input_data['charid'] = dbm.validators.getValidateCharacter(charid).get()
+            assert_web_security(self, macrosPermission('charid'))
+        return self.input_data['macroId']
+
+class newGeneralMacro(APIResponse):
+    def __init__(self):
+        super().__init__(config, session, min_access_level = 2, accepted_input = {
+            'macroId': (MUST, validator_str_range(1, 20)),
+        })
+    @web_security(sec.canEditGeneralMacro)
+    def mPOST(self):
+        macroid = self.input_data['macroId']
+        dbm.newMacro(macroid, None, '')
+        return [macroid]
+        
+class newCharacterMacro(APIResponse):
+    def __init__(self):
+        super().__init__(config, session, min_access_level = 2, accepted_input = {
+            'macroId': (MUST, validator_str_range(1, 20)),
+            'charId': (MUST, validator_character),
+        })
+    @web_security(macrosPermission('charId'))
+    def mPOST(self):
+        macroid = self.input_data['macroId']
+        charid = self.input_data['charId']['id']
+        dbm.newMacro(macroid, charid, '')
+        return [macroid]
+
+class saveMacro(APIResponse):
+    def __init__(self):
+        super().__init__(config, session, min_access_level = 2, accepted_input = {
+            'macroId': (MUST, validator_macro),
+            'macroText': (MUST, validator_str_range(0, 65535)),
+        })
+    @web_security(sec.IsUser)
+    def mPOST(self):
+        macroId = self.input_data['macroId'][ghostDB.FIELDNAME_CHARACTERMACRO_MACROID]
+        charid = self.input_data['macroId'][ghostDB.FIELDNAME_CHARACTERMACRO_CHARID]
+        if charid: # at this point the macro is valid, but we need to have access to the character, which is not provided in the call
+            self.input_data['charid'] = dbm.validators.getValidateCharacter(charid).get()
+            assert_web_security(self, macrosPermission('charid'))
+        else:
+            assert_web_security(self, sec.canEditGeneralMacro)
+
+        updated_rows = dbm.db.update(ghostDB.TABLENAME_CHARACTERMACRO, where=f'{ghostDB.FIELDNAME_CHARACTERMACRO_MACROID}=$macroId', vars=dict(macroId=macroId), macrocommands = self.input_data['macroText'])
+            
+        return [updated_rows]
+
+class deleteMacro(APIResponse):
+    def __init__(self):
+        super().__init__(config, session, min_access_level = 2, accepted_input = {
+            'macroId': (MUST, validator_macro)
+        })
+    @web_security(sec.IsUser)
+    def mPOST(self):
+        macroId = self.input_data['macroId'][ghostDB.FIELDNAME_CHARACTERMACRO_MACROID]
+        charid = self.input_data['macroId'][ghostDB.FIELDNAME_CHARACTERMACRO_CHARID]
+        if charid: # at this point the macro is valid, but we need to have access to the character, which is not provided in the call
+            self.input_data['charid'] = dbm.validators.getValidateCharacter(charid).get()
+            assert_web_security(self, macrosPermission('charid'))
+        else:
+            assert_web_security(self, sec.canEditGeneralMacro)
+
+        updated_rows = dbm.db.delete(ghostDB.TABLENAME_CHARACTERMACRO, where=f'{ghostDB.FIELDNAME_CHARACTERMACRO_MACROID}=$macroId', vars=dict(macroId=macroId))
+            
+        return [updated_rows]
+
+class useMacro(APIResponse):
+    def __init__(self):
+        super().__init__(config, session, min_access_level = 2, accepted_input = {
+            'macroId': (MUST, validator_macro),
+            'charId': (MUST, validator_character)
+        })
+    @web_security(macrosPermission('charid'))
+    def mPOST(self):
+        character = self.input_data['charId']
+
+        gamesystemid = dbm.getGameSystemByCharacter(character, config['Game']['default_gamesystem'])
+        gamesystem = gms.getGamesystem(gamesystemid)
+        can_edit = check_web_security(self, canEditCharacterPerm('charId'))
+
+        ctx = WebContext(self)
+        results = gms.getHandler(gamesystem)(ctx, character, can_edit).handle_macro(self.input_data['macroId'][ghostDB.FIELDNAME_CHARACTERMACRO_MACROCOMMANDS], [])
+
+        out = []
+        for result in results:
+            if isinstance(result, gms.PCActionResultText):
+                out.append(result.text)
+            elif isinstance(result, gms.PCActionResultTrait):
+                out.append(result.trait)  
+            else:
+                out.append("UNKNOWN ACTIONRESULT") # TODO
+        return out
 
 if __name__ == "__main__":
     app.run(Log)

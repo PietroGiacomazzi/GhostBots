@@ -45,12 +45,25 @@
 }
 
 .tab-page{
-  width: 60%;
+  width: 70%;
 }
 
 .large-textarea{
   height: 45vw;
   resize: none;
+}
+
+.medium-textarea{
+  height: 30vw;
+  resize: none;
+}
+
+.float-right{
+  float: right;
+}
+
+.extra-health{
+  filter: sepia();
 }
 
 /* autocomplete stuff */

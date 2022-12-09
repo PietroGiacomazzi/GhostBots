@@ -24,12 +24,15 @@ PLAYER_NAME_CONTROL = 'PLAYER_NAME_CONTROL';
 
 CHARACTER_ID_CONTROL = 'CHARACTER_ID_CONTROL';
 
+TAB_MACROS = "tab_macros";
+
 //var replace_HTMLattribute = []
 //replace_HTMLattribute
 
 class TabManager{
-	constructor(tab_id){
+	constructor(tab_id, menu_id){
 		this.tab_id = tab_id;
+		this.menu_id = menu_id;
 	}
 	switch(){
 		throw "Implement me!";
@@ -39,7 +42,7 @@ class TabManager{
 		state = getState();
 		try{
 			// perform exit logic for prev tab
-			state.tabs[state.current_tab].tabPost();
+			state.tabs[state.current_tab].tabPost(this.tab_id);
 
 			// run pre
 			this.tabPre();
@@ -65,23 +68,43 @@ class TabManager{
 			post_error(err);
 		}
 	}
-	tabPost(){}
-	tabPre(){} // maybe add a selftab member so each tab can auto disable its own menu item
+	tabPost(new_tab_id){
+		getState().runTabAvailability(new_tab_id);
+	}
+	tabPre(){
+		//  hide own menu item
+		this.hideTab();
+	}
+	isTabAvailable(new_tab_id)
+	{
+		return new_tab_id !== this.tab_id;
+	}
+	hideTab()
+	{
+		var mi = document.getElementById(this.menu_id);
+		if (mi !== null){
+			mi.style.display = 'none';
+		}
+	}
+	showTab()
+	{
+		var mi = document.getElementById(this.menu_id);
+		if (mi !== null){
+			mi.style.display = 'block';
+		}
+	}
 }
 
 class TabMsg extends TabManager
 {
-	constructor() {super("central_msg")}
 	switch() {
-		document.getElementById("central_msg").style.display = 'block';
+		document.getElementById(this.tab_id).style.display = 'block';
 	}
 }
 class TabCharSheet extends TabManager
 {
-	constructor() {super("charsheet")}
 	switch() {
 		state = getState();
-		document.getElementById("chartab").style.display = 'none';  // hide own item
 		if (state.selected_character === null){
 			throw "No character selected!";
 		}
@@ -97,12 +120,8 @@ class TabCharSheet extends TabManager
 }
 class TabCharNotes extends TabManager
 {
-	constructor() {super("character_notes")}
 	switch() {
-		document.getElementById("charnotes").style.display = 'none'; // hide own item
-		
-		document.getElementById("chartab").style.display = 'block';
-		load_charNotes(state.selected_character);
+		load_charNotes();
 	}
 	tabPost(){
 		super.tabPost();
@@ -111,13 +130,38 @@ class TabCharNotes extends TabManager
 	}
 }
 
+class TabMacros extends TabManager
+{
+	switch() {
+		load_Macros(state.selected_character);
+	}
+	tabPost(){
+		super.tabPost();
+		getState().selected_macro = null;
+	}
+}
+
+function tabswitch(tab_id){
+	var state = getState();
+
+	//note: we currently reload the tab by design even if it's the same because the target char changes
+
+	if (state.tabs[tab_id] === undefined)
+	{
+		post_error(getLangStringFormatted("web_error_invalid_tab", tab_id));
+		return;
+	}
+	state.tabs[tab_id].runswitch();
+}
+
 class AppState {
 	constructor() {
 		this.tabs = [];
-		this.tabs["central_msg"] = new TabMsg();
-		this.tabs["charsheet"] = new TabCharSheet();
+		this.tabs["central_msg"] = new TabMsg("central_msg");
+		this.tabs["charsheet"] = new TabCharSheet("charsheet", "chartab");
 		//this.tabs["translations"] = TODO;
-		this.tabs["character_notes"] = new TabCharNotes();
+		this.tabs["character_notes"] = new TabCharNotes("character_notes", "charnotes");
+		this.tabs[TAB_MACROS] = new TabMacros(TAB_MACROS, "mi_macros");
 		this.current_tab = "central_msg";
 
 		this.charEditMode = false;
@@ -127,12 +171,28 @@ class AppState {
 		this.input_modal = null;
 		this.noyes_modal = null;
 		this.newchar_modal = null;
+		this.message_modal = null;
+		this.funcVisibility = null;
 
 		this.sheet_template = null;
 		this.selected_charid = null;
 		this.selected_character = null;
 		this.selected_noteid = null;
 		this.language_dictionary = null;
+		this.selected_macro = null;
+	}
+	runTabAvailability(new_tab_id)
+	{
+		for (var key in this.tabs) {
+			var tab =  this.tabs[key];
+			if (tab.isTabAvailable(new_tab_id))
+			{
+				tab.showTab();
+			}else
+			{
+				tab.hideTab();
+			}
+		}
 	}
 }
 
@@ -183,6 +243,56 @@ function getLangString(string_id){
 	}
 }
 
+
+// input modal
+
+/**
+ * 
+ * @param {string} modal_title 
+ * @param {string} placeholder_text 
+ * @param {callback} onsave_func 
+ * @param {*} autocomplete_data 
+ * @param {string} ok_btn_text 
+ */
+ function flow_input_modal(modal_title, placeholder_text, onsave_func, autocomplete_data = null, ok_btn_text = "web_label_save")
+ {
+	 if (getState().input_modal != null){
+		 // inject the modal
+		 var modal_area = document.getElementById('inputmodal_area');	
+		 modal_area.innerHTML = getState().input_modal
+ 
+		 var modal = document.getElementById('input_modal')
+		 modal.style.display = 'block';
+		 // setup the modal
+		 document.getElementById('input_modal_title').innerHTML = getLangString(modal_title);
+		 var form = document.getElementById('input_modal_form');
+ 
+		 var input_tag = document.getElementById('input_modal_myInput');
+		 input_tag.setAttribute("placeholder", getLangString(placeholder_text)+"...");
+ 
+		 var input_save = document.getElementById('input_modal_submit');
+		 input_save.innerHTML = getLangString(ok_btn_text);
+		 input_save.addEventListener('click', function(event){
+			 var inp = document.getElementById('input_modal_myInput');
+			 
+			 onsave_func(inp.value);
+ 
+			 modal.style.display='none';
+			 modal.remove();
+		 });
+ 
+		 if (autocomplete_data !== null)
+		 {
+			 autocomplete(document.getElementById("input_modal_myInput"), autocomplete_data);
+		 }
+	 }
+	 else{
+		 console.log("not yet!");
+	 }
+ }
+ 
+
+
 function getCharMenuItem(characters){
 	get_remote_resource('../html_res/charMenuItem.html', 'text',  function(menuItem){populate_charmenu(menuItem, characters)});
 }
@@ -225,93 +335,39 @@ function openNewChar(event){
 }
 
 function openNewTrait(){
-	if (getState().charEditMode && getState().input_modal != null  && getState().traitList != null ){
-		// inject the modal
-		var modal_area = document.getElementById('inputmodal_area');	
-		modal_area.innerHTML = getState().input_modal
-
-		var modal = document.getElementById('input_modal')
-		modal.style.display = 'block';
-		// setup the modal
-		document.getElementById('input_modal_title').innerHTML = getLangString("web_label_add_trait");
-		var form = document.getElementById('input_modal_form');
-
-		var input_tag = document.getElementById('input_modal_myInput');
-		input_tag.setAttribute("placeholder", getLangString("web_label_trait")+"...");
-
-		var input_save = document.getElementById('input_modal_submit');
-		input_save.innerHTML = getLangString("web_label_save");
-		input_save.addEventListener('click', function(event){
-			var inp = document.getElementById('input_modal_myInput');
-			// todo post
-			const params = new URLSearchParams({
-				traitId: inp.value,
-				charId: getState().selected_charid
-			});
-			get_remote_resource('./editCharacterTraitAdd?'+params.toString(), 'json', 
-			function (traitdata){
-				var sheetspot = document.getElementById(traitdata.traittype);
-				if (sheetspot)
-				{
-					var c = createTraitElement(traitdata);
-					sheetspot.appendChild(c);
-				}
-			}/*, 
-			function(xhr){
-			}*/)
-			modal.style.display='none';
-			modal.remove();
+	flow_input_modal("web_label_add_trait", "web_label_trait", function(inp) {
+		// todo post
+		const params = new URLSearchParams({
+			traitId: inp,
+			charId: getState().selected_charid
 		});
-
-		autocomplete(document.getElementById("input_modal_myInput"), getState().traitList);
-	}
-	else{
-		console.log("not yet!");
-	}
+		get_remote_resource('./editCharacterTraitAdd?'+params.toString(), 'json', 
+		function (traitdata){
+			var sheetspot = document.getElementById(traitdata.traittype);
+			if (sheetspot)
+			{
+				var c = createTraitElement(traitdata);
+				sheetspot.appendChild(c);
+			}
+		})
+	}, getState().traitList);
 }
 
 function openChangePlayer(){
-	if (getState().charEditMode && getState().input_modal != null  && getState().userList != null ){
-		// inject the modal
-		var modal_area = document.getElementById('inputmodal_area');	
-		modal_area.innerHTML = getState().input_modal
-
-		var modal = document.getElementById('input_modal')
-		modal.style.display = 'block';
-		// setup the modal
-		document.getElementById('input_modal_title').innerHTML = getLangString("web_label_change_player");
-		var form = document.getElementById('input_modal_form');
-
-		var input_tag = document.getElementById('input_modal_myInput');
-		input_tag.setAttribute("placeholder", getLangString("web_label_user")+"...");
-
-		var input_save = document.getElementById('input_modal_submit');
-		input_save.innerHTML = getLangString("web_label_save");
-		input_save.addEventListener('click', function(event){
-			var inp = document.getElementById('input_modal_myInput');
-			// todo post
-			const params = new URLSearchParams({
-				userId: inp.value,
-				charId: getState().selected_charid
-			});
-			get_remote_resource('./editCharacterReassign?'+params.toString(), 'json', 
-			function (data){
-				var newPlayer = createPlayerNameControl(data.name);
-				var oldPlayer = document.getElementById(PLAYER_NAME_CONTROL);
-				oldPlayer.parentNode.replaceChild(newPlayer, oldPlayer);
-				// TODO should unload the character if we lost access to it, and also reload the character list
-			}/*, 
-			function(xhr){
-			}*/)
-			modal.style.display='none';
-			modal.remove();
-		 });
-
-		autocomplete(document.getElementById("input_modal_myInput"), getState().userList);
-	}
-	else{
-		console.log("not yet!");
-	}
+	flow_input_modal("web_label_change_player", "web_label_user", function(inp){
+		// todo post
+		const params = new URLSearchParams({
+			userId: inp,
+			charId: getState().selected_charid
+		});
+		get_remote_resource('./editCharacterReassign?'+params.toString(), 'json', 
+		function (data){
+			var newPlayer = createPlayerNameControl(data.name);
+			var oldPlayer = document.getElementById(PLAYER_NAME_CONTROL);
+			oldPlayer.parentNode.replaceChild(newPlayer, oldPlayer);
+			// TODO should unload the character if we lost access to it, and also reload the character list
+		})
+	}, getState().userList);
 }
 
 function enableCharEditMode(){
@@ -364,7 +420,7 @@ function switchEditMode(){
 	}
 }
 
-function renderhealth(health_text, max_value)
+function renderhealth(health_text, max_value, cur_value)
 {
 	if (max_value <= 0)
 	{	
@@ -396,7 +452,7 @@ function renderhealth(health_text, max_value)
 	health_render.setAttribute("class", 'w3-table'); // why charsheet?
 	
 	var hs = health_text;
-    hs = hs + (" ".repeat(Math.max(max_value-hs.length, 0)));
+    hs = hs + (" ".repeat(Math.max(cur_value-hs.length, 0)));
     var levels = hurt_levels_vampire.length - 1 ;
     var columns = Math.floor(hs.length / levels )
     var extra = hs.length % levels;
@@ -446,6 +502,8 @@ function renderhealth(health_text, max_value)
 			img.setAttribute('height', "20");
 			img.setAttribute('width', "20");
 			img.className = "w3-border";
+			if (j >= max_value)
+				img.className = img.className + ' extra-health'
 			img.src = '../img_res/'+img_map.get(hs[j]);
 			cell.appendChild(img);
 			line.appendChild(cell);
@@ -747,7 +805,7 @@ function createTraitElement(traitdata){
 	else if (traitdata.trait == 'salute')
 	{
 		c.appendChild(createMaxModElement(traitdata));
-		c.appendChild(renderhealth(traitdata['text_value'], traitdata['max_value']));
+		c.appendChild(renderhealth(traitdata['text_value'], traitdata['max_value'], traitdata['cur_value']));
 	}
 	else if (traitdata.trait == 'exp') // i need this here because the other traits are in <td>'s -> might be worth to generalize
 	{
@@ -1002,8 +1060,8 @@ function populateSheet(characterTraits, character){
 					}*/)
 
 	//notes
-	var notescontrol = document.getElementById("charnotes");
-	notescontrol.style.display = 'block';
+	//var notescontrol = document.getElementById("charnotes");
+	//notescontrol.style.display = 'block';
 
 	// do stuff
 	document.getElementById('title_pgname').innerHTML = '<b>'+character.fullname+'</b>';
@@ -1317,6 +1375,7 @@ function populate_page(){
 		if (data.translate_traits){
 			document.getElementById("traittranslation").style.display = 'block';
 		}
+		getState().funcVisibility = data;
 	})
 	
 	if (state.input_modal == null){
@@ -1324,6 +1383,9 @@ function populate_page(){
 	}
 	if (state.noyes_modal == null){
 		get_remote_resource('../html_res/noYesBox.html', 'text',  function(modaldata){getState().noyes_modal = modaldata;});
+	}
+	if (state.message_modal == null){
+		get_remote_resource('../html_res/messageModal.html', 'text',  function(modaldata){getState().message_modal = modaldata;});
 	}
 
 	get_remote_resource('./getLanguageDictionary', 'json', getMyCharacters)
@@ -1523,19 +1585,6 @@ function autocomplete(inp, arr) {
 	});
 } 
 
-function tabswitch(tab_id){
-	var state = getState();
-
-	//note: we currently reload the tab by design even if it's the same because the target char changes
-
-	if (state.tabs[tab_id] === undefined)
-	{
-		post_error(getLangStringFormatted("web_error_invalid_tab", tab_id));
-		return;
-	}
-	state.tabs[tab_id].runswitch();
-}
-
 function ui_notes()
 {
 	if (getState().selected_character === null)
@@ -1613,48 +1662,47 @@ function save_note(silent=true){
 
 function new_note(){
 	save_note(true);
-	if (getState().input_modal != null){
-		// inject the modal
-		var modal_area = document.getElementById('inputmodal_area');	
-		modal_area.innerHTML = getState().input_modal
-
-		var modal = document.getElementById('input_modal')
-		modal.style.display = 'block';
-		// setup the modal
-		document.getElementById('input_modal_title').innerHTML = getLangString("web_label_note_new");
-		var form = document.getElementById('input_modal_form');
-
-		var input_tag = document.getElementById('input_modal_myInput');
-		input_tag.setAttribute("placeholder", getLangString("web_label_note_name")+"...");
-
-		var input_save = document.getElementById('input_modal_submit');
-		input_save.innerHTML = getLangString("web_label_save");
-		input_save.addEventListener('click', function(event){
-			var inp = document.getElementById('input_modal_myInput');
-			const params = new URLSearchParams({
-				noteId: inp.value,
-				charId: getState().selected_charid
-			});
-			post_request('./newCharacterNote', 'json', params, 
-			function (data){
-				var menuDropDown = document.getElementById('note_list');
-				createNoteItem(menuDropDown, data[0]);
-				load_note(data[0]);
-			}/*, 
-			function(xhr){
-			}*/)
-			modal.style.display='none';
-			modal.remove();
+	flow_input_modal("web_label_note_new", "web_label_note_name", function (inp) {
+		const params = new URLSearchParams({
+			noteId: inp,
+			charId: getState().selected_charid
 		});
+		post_request('./newCharacterNote', 'json', params, 
+		function (data){
+			var menuDropDown = document.getElementById('note_list');
+			createNoteItem(menuDropDown, data[0]);
+			load_note(data[0]);
+		})
+	});
 
-		//autocomplete(document.getElementById("input_modal_myInput"), getState().traitList);
+}
+
+function delete_note(askconfirm)
+{
+	state = getState();
+	if (state.selected_noteid === null)
+	{
+		post_error(getLangString("string_error_no_note_loaded"));
+		return;
 	}
-	else{
-		console.log("not yet!");
+	if (askconfirm)
+	{
+		noYesConfirm(
+			getLangString("web_label_note_delet")+"?",
+			function (){
+				do_delete_note();
+			},
+			getLangString("web_label_ok"),
+			getLangString("web_label_cancel")
+		);
+	}
+	else
+	{
+		do_delete_note();
 	}
 }
 
-function delete_note(){
+function do_delete_note(){
 	if (_note_autosavetimer){ // clear autosave timer
 		window.clearTimeout(_note_autosavetimer);
 	}
@@ -1735,21 +1783,7 @@ function view_notestab(content)
 	notes.innerHTML = content
 
 	document.getElementById("note_save").addEventListener("click", function(event) {save_note(false);});
-	document.getElementById("note_delete").addEventListener("click", function(event){
-		if (state.selected_noteid === null)
-		{
-			post_error(getLangString("string_error_no_note_loaded"));
-			return;
-		}
-		noYesConfirm(
-			getLangString("web_label_note_delet")+"?",
-			function (){
-				delete_note();
-			},
-			getLangString("web_label_ok"),
-			getLangString("web_label_cancel")
-		);
-	});
+	document.getElementById("note_delete").addEventListener("click", function(event){delete_note(true);});
 	document.getElementById("note_new").addEventListener("click", function(event) {new_note();}); 
 
 	get_remote_resource('./getCharacterNotesList?charId='+state.selected_charid, 'json',  setupNoteList);
@@ -1811,7 +1845,322 @@ function noYesConfirm(title, yes_func, yes_text = "Y", no_text = "N", details=""
 	}
 }
 
+// Macros
 
+function load_Macros()
+{
+	get_remote_resource('./macrosPage?charId='+getState().selected_charid, 'text',  view_macrosTab);
+}
+
+function view_macrosTab(content) //copied from view_notes, the first bit is generalizable
+{
+	state = getState();
+	macros = document.getElementById(TAB_MACROS);
+	if (macros === null)
+	{
+		macros = document.createElement('div');
+		macros.id = TAB_MACROS;
+		macros.className = "w3-display-topmiddle under-navbar central_content tab-page"
+		document.getElementById("main_content").appendChild(macros);
+	}
+
+	macros.innerHTML = content
+
+	// setup buttons
+	document.getElementById("macro_save").addEventListener("click", function(event) {save_macro(false);});
+	document.getElementById("macro_delete").addEventListener("click", function(event) {delete_macro(true);});
+	new_macro_btn = document.getElementById("macro_new_general");
+	if (state.funcVisibility.macro_new_general)
+	{
+		new_macro_btn.addEventListener("click", function(event) {new_macro(null);}); 
+		new_macro_btn.style.display = 'block';
+	}
+	else
+	{
+		new_macro_btn.style.display = 'none';
+	}
+
+	if (state.selected_character !== null)
+	{
+		document.getElementById("macro_new_char").addEventListener("click", function(event) {new_macro(state.selected_character.id);}); 
+	}
+
+	document.getElementById("macro_use").addEventListener("click", function(event) {use_macro(true);});
+
+	reload_macros()
+	
+	macros.style.display = 'block';
+}
+
+function reload_macros()
+{
+	state = getState();
+
+	// load general macros
+	get_remote_resource('./getGeneralMacros', 'json', function (data) {setupMacroList('macros_general_container', data)});
+
+	// load character macros
+	if (state.selected_character !== null)
+	{
+		get_remote_resource('./getCharacterMacros?charId='+state.selected_charid, 'json', function (data) {setupMacroList('macros_character_container', data)});
+	}
+}
+
+function setupMacroList(target_node, data)
+{
+	var i;
+	var section_node = document.getElementById(target_node);
+	var menu_node = document.getElementById(target_node+'_list');
+	while (menu_node.firstChild) { // clear garbage from deletes
+		menu_node.removeChild(menu_node.lastChild);
+	}
+
+	for (i = 0; i<data.length; ++i){
+		createMacroItem(menu_node, data[i].macroid);
+	}
+	
+	section_node.style.display = 'block';
+}
+
+function createMacroItem(menu, macro_id)
+{
+	var macroItem = document.createElement('a');
+	macroItem.href = '#';
+	macroItem.className = 'w3-button w3-bar-item';
+	macroItem.innerText = macro_id;
+	macroItem.addEventListener("click", function (macro_id) {
+			return function(event)
+			{
+				load_macro(macro_id);
+			}
+		}(macro_id)
+	);
+	menu.appendChild(macroItem);
+}
+
+function load_macro(macro_id)
+{
+	//save_macro(true);
+	state = getState();
+	const params = new URLSearchParams({
+		macroId: macro_id
+	});
+	get_remote_resource('./getMacro?'+params.toString(), 'json', function(macrodata){
+		var textarea = document.getElementById("macro_text");
+		textarea.value = macrodata.macrocommands;
+		textarea.removeAttribute('disabled');
+		state = getState();
+		state.selected_macro = macrodata.macroid;
+		title = macrodata.macroid
+		if (state.selected_character !== null && macrodata.characterid !== null)
+		{
+			title = state.selected_character.fullname+": "+title
+		}
+		document.getElementById("macro_title").innerHTML = title;
+		/*
+		//setup autosave
+		textarea.addEventListener("keyup", function (event) {
+			if (_note_autosavetimer){
+				window.clearTimeout(_note_autosavetimer);
+			}
+			_note_autosavetimer = window.setTimeout(function() {
+				save_note();
+			}, 5000);
+		})*/
+	}) 
+}
+
+function save_macro(silent = true)
+{
+	/*if (_note_autosavetimer){ // clear autosave timer so that we don't save if the user saves manually
+		window.clearTimeout(_note_autosavetimer);
+	}*/
+	state = getState();
+	macro_text_node = document.getElementById("macro_text");
+	if (state.selected_macro === null || macro_text_node === null)
+	{
+		if (!silent) {
+			post_error(getLangString("string_error_no_macro_loaded"));
+		}
+		return;
+	}
+	const params = new URLSearchParams({
+		macroId: state.selected_macro,
+		macroText: macro_text_node.value
+	});
+
+	post_request('./saveMacro', 'json', params, function(data){
+		if (!silent)
+		{
+			post_message(getLangStringFormatted("web_msg_macro_saved", state.selected_macro) );
+		}
+	});
+}
+function new_macro(character_id)
+{
+	// save?
+	flow_input_modal("web_label_macro_new", "web_label_macro_id", function(inp){
+		var params = new URLSearchParams({
+			macroId: inp,
+		});
+		var reqpage = './newGeneralMacro'
+		var target_menu = 'macros_general_container_list'
+		if (character_id !== null)
+		{
+			params.append('charId', character_id);
+			reqpage = './newCharacterMacro'
+			target_menu = 'macros_character_container_list'
+		}
+
+		post_request(reqpage, 'json', params, function (data){
+			var menu = document.getElementById(target_menu);
+			createMacroItem(menu, data[0]);
+			load_macro(data[0]);
+		}/*, 
+		function(xhr){
+		}*/)
+	});
+}
+
+function delete_macro(askconfirm = true)
+{
+	state = getState();
+	if (state.selected_macro === null)
+	{
+		post_error(getLangString("string_error_no_macro_loaded"));
+		return;
+	}
+	if (askconfirm)
+	{
+		noYesConfirm(
+			getLangString("web_label_macro_delet")+"?",
+			function (){
+				do_delete_macro();
+			},
+			getLangString("web_label_ok"),
+			getLangString("web_label_cancel")
+		);
+	}
+	else
+	{
+		do_delete_macro();
+	}
+}
+
+function do_delete_macro()
+{
+	/*if (_note_autosavetimer){ // clear autosave timer
+		window.clearTimeout(_note_autosavetimer);
+	}*/
+	state = getState();
+	if (state.selected_macro === null)
+	{
+		post_error(getLangString("string_error_no_macro_loaded"));
+		return;
+	}
+	const params = new URLSearchParams({
+		macroId: state.selected_macro
+	});
+
+	post_request('./deleteMacro', 'json', params, function(data){
+		post_message(getLangString("string_msg_macro_deleted"));
+		// cleanup
+		getState().selected_macro = null;
+		document.getElementById("macro_title").innerHTML = '';
+		textarea = document.getElementById("macro_text");
+		textarea.value = '';
+		textarea.setAttribute("disabled", 1);
+		// reload macros
+		reload_macros()
+	});
+}
+
+function use_macro(askconfirm = true)
+{
+	state = getState();
+	if (state.selected_macro === null)
+	{
+		post_error(getLangString("string_error_no_macro_loaded"));
+		return;
+	}
+	if (askconfirm)
+	{
+		noYesConfirm(
+			getLangString("web_label_macro_use")+"?",
+			function (){
+				do_use_macro();
+			},
+			getLangString("web_label_ok"),
+			getLangString("web_label_cancel")
+		);
+	}
+	else
+	{
+		do_use_macro();
+	}
+}
+
+function do_use_macro()
+{
+	state = getState();
+	if (state.selected_macro === null)
+	{
+		post_error(getLangString("string_error_no_macro_loaded"));
+		return;
+	}
+	const params = new URLSearchParams({
+		macroId: state.selected_macro,
+		charId: state.selected_charid
+	});
+
+	post_request('./useMacro', 'json', params, function(data){
+		modal = message_modal("web_label_macro_results");
+		fillMacroResults(modal, data);
+	});
+}
+
+function fillMacroResults(node, data)
+{
+	for (i = 0; i<data.length; ++i){
+		dataitem = data[i]
+		var childItem;
+		if (typeof dataitem === 'string' )
+		{
+			childItem = document.createElement('p');
+			childItem.innerHTML = dataitem;
+		}
+		else
+		{
+			childItem = createTraitElement(dataitem)
+		}
+		node.appendChild(childItem);
+	}
+}
+
+
+//Message Modal
+
+function message_modal(modal_title)
+{
+	state = getState();
+	if (state.message_modal != null){
+		// inject the modal
+		var modal_area = document.getElementById('message_modal_area');	
+		modal_area.innerHTML = state.message_modal
+
+		var modal = document.getElementById('message_modal')
+		modal.style.display = 'block';
+		
+		// setup the modal
+		document.getElementById('message_modal_title').innerHTML = getLangString(modal_title);
+		
+		return document.getElementById('message_modal_details')
+	}
+	else{
+		console.log("not yet!");
+		return null;
+	}
+}
 
 //error
 

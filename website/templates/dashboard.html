@@ -25,6 +25,8 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 	</div>
 	<div id = "newchar_modal_area">
 	</div>
+	<div id = "message_modal_area">
+	</div>
 	<div class="w3-bar w3-black w3-top">
 		<button class="w3-button w3-indigo w3-bar-item" onclick="w3_open()" id="openNav" style="display:none">☰</button>
 
@@ -40,13 +42,17 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 			<button onclick="w3_close()" class="w3-bar-item w3-button w3-large">$language_strings['web_label_sidebar_close']</button>
 			<div id = "action-menu">
 				<h3>$language_strings['web_label_actions']:</h3>
+				<!-- fixed actions -->
 				<a href="editTranslations" id = "traittranslation" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_trait_translation']</a>
 				<a href="#" id = "newchar" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_new_character']</a>
 				<a href="#" id = "modregister" class="w3-bar-item w3-button" style="display:none">$language_strings['web_label_mod_register']</a>
-				<a href="#" id = "editchar" class="w3-bar-item w3-button" onclick="switchEditMode()" style="display:none">$language_strings['web_label_edit_character']</a>
-				<a href="#" id = "addtraitchar" class="w3-bar-item w3-button" onclick="openNewTrait()" style="display:none">$language_strings['web_label_addt_character']</a>
+				<!-- tabs -->
 				<a href="#" id = "charnotes" class="w3-bar-item w3-button" onclick="ui_notes()" style="display:none">$language_strings['web_label_character_notes']</a>
 				<a href="#" id = "chartab" class="w3-bar-item w3-button" onclick="tabswitch('charsheet')" style="display:none">$language_strings['web_label_character_tab']</a>
+				<a href="#" id = "mi_macros" class="w3-bar-item w3-button" onclick="tabswitch('tab_macros')" style="display:none">$language_strings['web_label_macros_tab']</a>
+				<!-- conditional actions -->
+				<a href="#" id = "editchar" class="w3-bar-item w3-button" onclick="switchEditMode()" style="display:none">$language_strings['web_label_edit_character']</a>
+				<a href="#" id = "addtraitchar" class="w3-bar-item w3-button" onclick="openNewTrait()" style="display:none">$language_strings['web_label_addt_character']</a>
 			</div>
 		</div>
 

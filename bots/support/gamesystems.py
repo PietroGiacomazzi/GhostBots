@@ -29,6 +29,10 @@ OPCODES_EQ = ('=',)
 OPCODES_RESET = ('r', 'reset')
 DETACH_SPECIAL = OPCODES_ADD+OPCODES_SUB+OPCODES_EQ
 
+OPCODES_ALL = OPCODES_ADD + OPCODES_EQ + OPCODES_RESET +  OPCODES_SUB
+
+ACTIONS_DAMAGE = ('danni', 'danno', 'damage')
+
 def detach_args(args: list[str]) -> list[str]:
     """ Detach stuff like ["exp+1"] to ["exp", "+", "1"]" or ["exp-", "1"] to ["exp", "-", "1"] in args.
 
@@ -415,6 +419,29 @@ class RollSetupValidator_V20HB_SPLIT(RollSetupValidator):
 
 # PC interactions
 
+def validateDamageExprSTS(param: str, ctx: SecurityContext) -> tuple[int, str]:
+    dmgtype = param[-1].lower()
+    if not dmgtype in DAMAGE_TYPES:
+        raise GreedyTraitOperationError("string_error_invalid_damage_type", (dmgtype,))
+    dmgamount_raw = param[:-1]
+    dmgamount = 1 if dmgamount_raw == '' else InputValidator(ctx).validateInteger(dmgamount_raw)
+    return dmgamount, dmgtype
+
+def validateHealthSTS(health_string: str, max_length: int, immediately_convert_bashing_to_lethal: bool = False) -> str:
+    """ parses and validates a health string, reordering damage types and adjusting to allowed length 
+    \nimmediately_convert_bashing_to_lethal determines whether bashing damage should be collapsed into lethal on validation
+    """
+    counts = list(map(lambda x: health_string.count(x), DAMAGE_TYPES))
+    if sum(counts) != len(health_string):
+        raise GreedyTraitOperationError("string_error_invalid_health_expr", (health_string,))
+    if counts[BASHING_idx] > 1 and immediately_convert_bashing_to_lethal:
+        counts[LETHAL_idx] = counts[LETHAL_idx] + counts[BASHING_idx]//2
+        counts[BASHING_idx] = counts[BASHING_idx] % 2
+    new_health = "".join(list(map(lambda x: x[0]*x[1], zip(DAMAGE_TYPES, counts)))) # siamo generosi e riordiniamo l'input
+    if sum(counts) > max_length: #  truncate if too long
+        new_health = new_health[:max_length]
+    return new_health   
+
 class PCActionResult:
     pass
 
@@ -429,28 +456,38 @@ class PCActionResultText(PCActionResult):
         self.text = text
 
 class PCAction:
-    def __init__(self, ctx: SecurityContext, character) -> None:
+    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character) -> None:
         self.character = character
         self.ctx = ctx
-        self.expectedParameterNumber: int = -1
-    def handle(self, *args: tuple[str]) -> list[PCActionResult]:
-        #self.checkParameterNumber(args)
+        self.expectedParameterNumbers: tuple[int] = () # remember, for  TraitActions this means parameters beyond the OPERATION, while for actions it is anything beyond the action code
+        self.handler = handler
+    def doHandle(self, *args):
         return [PCActionResultText(self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_error_notimplemented"))]
-    #def checkParameterNumber(self, args: list[tuple]):
-    #    if len(args) != self.expectedParameterNumber:
-    #        raise GreedyTraitOperationError("string_invalid_number_of_parameters")
-    def validateInteger(self, param) -> int:
-        try:
-            return int(param)
-        except ValueError:
-            raise GreedyTraitOperationError("string_error_not_an_integer", (param,))
+    def handle(self, *args: tuple[str]) -> list[PCActionResult]:
+        self.checkParameterNumber(args)
+        return self.doHandle(*args)
+    def checkParameterNumber(self, args: list[tuple]):
+        if len(self.expectedParameterNumbers) > 0 and not (len(args) in self.expectedParameterNumbers):
+            raise GreedyTraitOperationError("string_invalid_number_of_parameters")
+    def db_setCurvalue(self, new_val: int, trait):
+        u = self.ctx.getDBManager().db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=self.character['id']), cur_value = new_val)
+        self.ctx.getDBManager().log(self.ctx.getUserId(), self.character['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], self.ctx.getMessageContents())
+        if u == 1 or (u == 0 and trait['cur_value'] == new_val):
+            return self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], trait['id'], self.ctx.getLID())
+            
+        raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
+    def db_setTextValue(self, new_value: str, trait):
+        u = self.ctx.getDBManager().db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=self.character['id']), text_value = new_value)
+        self.ctx.getDBManager().log(self.ctx.getUserId(), self.character['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_value, trait['text_value'], self.ctx.getMessageContents())
+        if u == 1 or (u == 0 and trait['text_value'] == new_value):
+            return self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], trait['id'], self.ctx.getLID())         
+        raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
 
 class PCTraitAction(PCAction):
-    def  __init__(self, ctx: SecurityContext, character, trait) -> None:
-        super().__init__(ctx, character)
+    def  __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
+        super().__init__(handler, ctx, character)
         self.trait = trait
-    def handle(self, *args: list[str]) -> list[PCActionResult]:
-        _ = super().handle(*args)
+    def doHandle(self, *args: list[str]) -> list[PCActionResult]:
         ttype = int(self.trait['trackertype'])
         if ttype == TrackerType.NORMAL:
             if self.trait['pimp_max'] == 0:
@@ -474,51 +511,20 @@ class PCTraitAction(PCAction):
         return self._handleOperation_Base(*args)
     def _handleOperation_UNCAPPED(self, *args: list[str]) -> list[PCActionResult]:
         return self._handleOperation_Base(*args)
-    def db_setCurvalue(self, new_val: int):
-        u = self.ctx.getDBManager().db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=self.trait['id'], pc=self.character['id']), cur_value = new_val)
-        self.ctx.getDBManager().log(self.ctx.getUserId(), self.character['id'], self.trait['trait'], ghostDB.LogType.CUR_VALUE, new_val, self.trait['cur_value'], self.ctx.getMessageContents())
-        if u == 1 or (u == 0 and self.trait['cur_value'] == new_val):
-            self.trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], self.trait['id'], self.ctx.getLID())
-            return
-        raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
-    def db_setTextValue(self, new_value: str):
-        u = self.ctx.getDBManager().db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=self.trait['id'], pc=self.character['id']), text_value = new_value)
-        self.ctx.getDBManager().log(self.ctx.getUserId(), self.character['id'], self.trait['trait'], ghostDB.LogType.CUR_VALUE, new_value, self.trait['text_value'], self.ctx.getMessageContents())
-        if u == 1 or (u == 0 and self.trait['text_value'] == new_value):
-            self.trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], self.trait['id'], self.ctx.getLID())
-            return         
-        raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
     
 
 class PCTraitAction_ViewTrait(PCTraitAction):
-    def handle(self, *args) -> list[PCActionResult]:
+    def doHandle(self, *args) -> list[PCActionResult]:
         return [PCActionResultTrait(self.trait)]
 
 class PCTraitAction_STS(PCTraitAction):
-    def validateDamageExpr(self, param) -> tuple[int, str]:
-        dmgtype = param[-1].lower()
-        if not dmgtype in DAMAGE_TYPES:
-            raise GreedyTraitOperationError("string_error_invalid_damage_type", (dmgtype,))
-        dmgamount_raw = param[:-1]
-        dmgamount = 1 if dmgamount_raw == '' else self.validateInteger(dmgamount_raw)
-        return dmgamount, dmgtype
     def doImmediatelyConvertBashingToLethal(self) -> bool:
-        return False
-    def validateHealth(self, health_string: str, max_length: int) -> str:
-        """ parses and validates a health string, reordering damage types and checking for allowed length """
-        counts = list(map(lambda x: health_string.count(x), DAMAGE_TYPES))
-        if sum(counts) != len(health_string) or sum(counts) > max_length :
-            raise GreedyTraitOperationError("string_error_invalid_health_expr", (health_string,))
-        if counts[BASHING_idx] > 1 and self.doImmediatelyConvertBashingToLethal():
-            counts[LETHAL_idx] = counts[LETHAL_idx] + counts[BASHING_idx]//2
-            counts[BASHING_idx] = counts[BASHING_idx] % 2
-        new_health = "".join(list(map(lambda x: x[0]*x[1], zip(DAMAGE_TYPES, counts)))) # siamo generosi e riordiniamo l'input
-        return new_health        
+        return False 
 
 class PCTraitAction_STS_ModifyCurValue(PCTraitAction_STS):
-    def __init__(self, ctx: SecurityContext, character, trait) -> None:
-        super().__init__(ctx, character, trait)
-        self.expectedParameterNumber = 1
+    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
+        super().__init__(handler, ctx, character, trait)
+        self.expectedParameterNumbers = (0, 1)
     def newValue(self, args: list[str]):
         raise NotImplementedError()
     def checkBounds(self, args: list[str]):
@@ -534,36 +540,75 @@ class PCTraitAction_STS_ModifyCurValue(PCTraitAction_STS):
     def _handleOperation_NORMAL(self, *args: list[str]) -> list[PCActionResult]:
         self.checkBounds(args)
         return super()._handleOperation_NORMAL(*args)
+    def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
+        self.checkBounds(args)
+        new_val = self.newValue(args)
+        new_health = validateHealthSTS(self.trait['text_value'], new_val, self.doImmediatelyConvertBashingToLethal())
+        self.trait = self.db_setCurvalue(new_val, self.trait)
+        self.trait = self.db_setTextValue(new_health, self.trait)
+        return [PCActionResultTrait(self.trait)] 
     def _handleOperation_Base(self, *args: list[str]) -> list[PCActionResult]:
         new_val = self.newValue(args)
-        self.db_setCurvalue(new_val)
+        self.trait = self.db_setCurvalue(new_val, self.trait)
         return [PCActionResultTrait(self.trait)]
 
 class PCTraitAction_STS_RESET(PCTraitAction_STS_ModifyCurValue):
     def newValue(self, args: list[str]):
         return self.trait['max_value'] if (int(self.trait['trackertype']) != TrackerType.UNCAPPED) else 0
-    def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
-        self.db_setTextValue('')
-        return [PCActionResultTrait(self.trait)]
 
 class PCTraitAction_STS_EQ(PCTraitAction_STS_ModifyCurValue):
     def newValue(self, args: list[str]):
-        return self.validateInteger(args[0])
-    def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
-        new_health = self.validateHealth(args[0], self.trait['max_value'])
-        self.db_setTextValue(new_health)
-        return [PCActionResultTrait(self.trait)] 
+        return InputValidator(self.ctx).validateInteger(args[0])
 
 class PCTraitAction_STS_ADD(PCTraitAction_STS_ModifyCurValue):
     def newValue(self, args: list[str]):
-        return self.trait['cur_value'] + self.validateInteger(args[0])
-    def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
-        n, dmgtype = self.validateDamageExpr(args[0])
-        new_health = self.validateHealth(self.trait['text_value'], self.trait['max_value'])
+        return self.trait['cur_value'] + InputValidator(self.ctx).validateInteger(args[0])
+
+class PCTraitAction_STS_SUB(PCTraitAction_STS_ModifyCurValue):
+    def newValue(self, args: list[str]):
+        return self.trait['cur_value'] - InputValidator(self.ctx).validateInteger(args[0])
+
+class PCActionDamage_STS(PCAction):
+    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character) -> None:
+        super().__init__(handler, ctx, character)
+        self.trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], 'salute', self.ctx.getLID())
+        self.expectedParameterNumbers = (0, 1, 2)
+    def doImmediatelyConvertBashingToLethal(self) -> bool:
+        return False
+    def canUnpackLethalToBashing(self) -> bool:
+        return False
+    def doHandle(self, *args: tuple[str]) -> list[PCActionResult]:
+        if len(args) == 0: # we're nice and show the health trait if no argument is passed
+            return self.handler.viewTraitAction(self.handler, self.ctx, self.character, self.trait).handle()
+
+        op = args[0]
+        dmgstr = ""
+        if not op in OPCODES_ALL:
+            raise GreedyOperationError("string_error_unsupported_operation", (op,))
+        if not op in OPCODES_RESET:
+            dmgstr = args[1]
+
+        if op in OPCODES_RESET:
+            self.trait = self.db_setTextValue('', self.trait)
+            response = [PCActionResultTrait(self.trait)]
+        elif op in OPCODES_EQ:
+            new_health = validateHealthSTS(dmgstr, self.trait['cur_value'], self.doImmediatelyConvertBashingToLethal())
+            self.trait = self.db_setTextValue(new_health, self.trait)
+            response = [PCActionResultTrait(self.trait)]
+        elif op in OPCODES_ADD:
+            response = self.doAddDamage(dmgstr)
+        elif op in OPCODES_SUB:
+            response = self.doSubtractDamage(dmgstr)
+        
+        
+        return response
+    def doAddDamage(self, damage_expression: str):
+        n, dmgtype = validateDamageExprSTS(damage_expression, self.ctx)
+        new_health = validateHealthSTS(self.trait['text_value'], self.trait['cur_value'], self.doImmediatelyConvertBashingToLethal())
         
         rip = False
         for i in range(n): # apply damage one by one
-            if len(new_health) < self.trait['max_value']: # Damage  tracker is not filled yet
+            if len(new_health) < self.trait['cur_value']: # Damage  tracker is not filled yet
                 if dmgtype == DMG_BASHING:
                     first_bashing = new_health.find(DMG_BASHING)
                     if first_bashing >= 0 and self.doImmediatelyConvertBashingToLethal():
@@ -598,24 +643,18 @@ class PCTraitAction_STS_ADD(PCTraitAction_STS_ModifyCurValue):
                     else: # tracker is filled with aggravated
                         rip = True
 
-        if new_health.count(DMG_AGGRAVATED) >= self.trait['max_value']:
+        if new_health.count(DMG_AGGRAVATED) >= self.trait['cur_value']:
             rip = True
 
-        new_health = self.validateHealth(new_health, self.trait['max_value'])
-        self.db_setTextValue(new_health)
+        new_health = validateHealthSTS(new_health, self.trait['cur_value'], self.doImmediatelyConvertBashingToLethal())
+        self.trait = self.db_setTextValue(new_health, self.trait)
         response = [PCActionResultTrait(self.trait)]
         if rip:
             response.append(PCActionResultText("+RIP+"))
         return response
-
-class PCTraitAction_STS_SUB(PCTraitAction_STS_ModifyCurValue):
-    def newValue(self, args: list[str]):
-        return self.trait['cur_value'] - self.validateInteger(args[0])
-    def canUnpackLethalToBashing(self) -> bool:
-        return False
-    def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
-        n, dmgtype = self.validateDamageExpr(args[0])
-        new_health = self.validateHealth(self.trait['text_value'], self.trait['max_value'])
+    def doSubtractDamage(self, damage_expression: str):
+        n, dmgtype = validateDamageExprSTS(damage_expression, self.ctx)
+        new_health = validateHealthSTS(self.trait['text_value'], self.trait['cur_value'], self.doImmediatelyConvertBashingToLethal())
 
         if dmgtype == DMG_AGGRAVATED:
             if new_health.count(dmgtype) < n:
@@ -641,15 +680,13 @@ class PCTraitAction_STS_SUB(PCTraitAction_STS_ModifyCurValue):
                 else:
                     raise GreedyTraitOperationError("string_error_not_enough_X", (self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_bashing_dmg_plural"),))
 
-        new_health = self.validateHealth(new_health, self.trait['max_value'])
-        self.db_setTextValue(new_health)
+        new_health = validateHealthSTS(new_health, self.trait['cur_value'], self.doImmediatelyConvertBashingToLethal())
+        self.trait = self.db_setTextValue(new_health, self.trait)
         return [PCActionResultTrait(self.trait)]
 
-class PCTraitAction_V20HB_ADD(PCTraitAction_STS_ADD):
+class PCActionDamage_V20HB(PCActionDamage_STS):
     def doImmediatelyConvertBashingToLethal(self) -> bool:
         return True
-
-class PCTraitAction_V20HB_SUB(PCTraitAction_STS_SUB):
     def canUnpackLethalToBashing(self) -> bool:
         return True
 
@@ -664,7 +701,7 @@ class PCActionHandler:
         self.nullAction: type[PCAction] = None
     def handle(self, args, macro = False) -> list[PCActionResult]:
         if len(args) == 0:
-            action = self.nullAction(self.ctx, self.character)
+            action = self.nullAction(self, self.ctx, self.character)
             return action.handle()
         
         args = detach_args(args)
@@ -674,7 +711,7 @@ class PCActionHandler:
 
         for k, v in self.actions.items():
             if whatstr in k:
-                action = v(self.ctx, self.character)
+                action = v(self, self.ctx, self.character)
                 return action.handle(*args[1:])
         
         # MACROS
@@ -690,7 +727,7 @@ class PCActionHandler:
         trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], whatstr, self.ctx.getLID())
 
         if len(args) == 1: # only trait name
-            return self.viewTraitAction(self.ctx, self.character, trait).handle()
+            return self.viewTraitAction(self, self.ctx, self.character, trait).handle()
 
         if not self.canEditCharacter:
             raise GreedyOperationError("string_error_cannot_edit_character")
@@ -699,7 +736,7 @@ class PCActionHandler:
 
         for k, v in self.traitOps.items():
             if traitOpstr in k:
-                action = v(self.ctx, self.character, trait)
+                action = v(self, self.ctx, self.character, trait)
                 return action.handle(*args[2:])
         raise GreedyOperationError("string_error_unsupported_operation", (traitOpstr,))
     def handle_macro(self, macro_text: str, args: list[str]) -> list[PCActionResult]:
@@ -707,24 +744,25 @@ class PCActionHandler:
         results: list[PCActionResult] = []
         silent = False
         for cmd in macro_commands:
-            cmd_split = [y for y in cmd.split(" ") if y != ''] 
-            base_cmd = cmd_split[0]
-            try:
-                if base_cmd == "me":
-                    result = self.handle(cmd_split[1:], True)
-                    if not silent:
-                        results.extend(result)
-                elif base_cmd.lower() == "silent_mode_on":
-                    silent = True
-                elif base_cmd.lower() == "silent_mode_off":
-                    silent = False
-                elif base_cmd == "roll": # TODO
-                    raise NotImplementedError("Soon™")
-                else:
-                    #TODO check for character ID? remember that if we do, permissions need to be checked for the character
-                    raise GreedyOperationError("string_error_unsupported_operation", (base_cmd,))
-            except lng.LangSupportException as e:
-                results.append(PCActionResultText(self.ctx.getLanguageProvider().formatException(self.ctx.getLID(), e)))
+            if cmd != '':
+                cmd_split = [y for y in cmd.split(" ") if y != ''] 
+                base_cmd = cmd_split[0]
+                try:
+                    if base_cmd == "me":
+                        result = self.handle(cmd_split[1:], True)
+                        if not silent:
+                            results.extend(result)
+                    elif base_cmd.lower() == "silent_mode_on":
+                        silent = True
+                    elif base_cmd.lower() == "silent_mode_off":
+                        silent = False
+                    elif base_cmd == "roll": # TODO
+                        raise NotImplementedError("Soon™")
+                    else:
+                        #TODO check for character ID? remember that if we do, permissions need to be checked for the character
+                        raise GreedyOperationError("string_error_unsupported_operation", (base_cmd,))
+                except lng.LangSupportException as e:
+                    results.append(PCActionResultText(self.ctx.getLanguageProvider().formatException(self.ctx.getLID(), e)))
                 
         return results
 
@@ -735,13 +773,13 @@ class PCActionHandler_STS(PCActionHandler):
         self.traitOps[OPCODES_EQ] = PCTraitAction_STS_EQ
         self.traitOps[OPCODES_RESET] = PCTraitAction_STS_RESET
         self.traitOps[OPCODES_SUB] = PCTraitAction_STS_SUB
+        self.actions[ACTIONS_DAMAGE] = PCActionDamage_STS
         self.viewTraitAction = PCTraitAction_ViewTrait
 
 class PCActionHandler_V20HB(PCActionHandler_STS):
     def __init__(self, ctx: SecurityContext, character, can_edit: bool) -> None:
         super().__init__(ctx, character, can_edit)
-        self.traitOps[OPCODES_ADD] = PCTraitAction_V20HB_ADD
-        self.traitOps[OPCODES_SUB] = PCTraitAction_V20HB_SUB
+        self.actions[ACTIONS_DAMAGE] = PCActionDamage_V20HB
 
 ActionHandlerMappings: dict[int, type[PCActionHandler]] = {
     #gms.GameSystems.GENERAL: PCActionHandler_STS,

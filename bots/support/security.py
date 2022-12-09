@@ -11,6 +11,9 @@ class MissingParameterException(lng.LangSupportException):
 class SecuritySetupError(lng.LangSupportException):
     pass
 
+class InputValidationError(lng.LangSupportException):
+    pass
+
 class SecurityContext:
 
     registeredUser: bool = None
@@ -58,6 +61,15 @@ class SecurityContext:
             return self.userData
         else:
             raise self.userData
+
+class InputValidator:
+    def __init__(self, ctx: SecurityContext):
+        self.ctx = ctx
+    def validateInteger(self, param) -> int:
+        try:
+            return int(param)
+        except ValueError:
+            raise InputValidationError("string_error_not_an_integer", (param,))
 
 class CommandSecurity:
     def __init__(self, ctx: SecurityContext, **kwargs):
@@ -179,7 +191,7 @@ def genIsSelf(optional_target_user):
     return GeneratedCommandSecurity
 
 def genIsCharacterStoryTeller(target_character):
-    """ Passes if the command is issued by a Storyteller that is associated to a chronicle in whwich this character plays in """
+    """ Passes if the command is issued by a Storyteller that is associated to a chronicle in which this character plays in """
     class GeneratedCommandSecurity(ParametrizedCommandSecurity):
         def checkSecurity(self, *command_args, **command_kwargs) -> tuple: #[bool, Any]:
             issuer = str(self.ctx.getUserId())  
@@ -279,3 +291,4 @@ canEditCharacter_BOT = lambda target_character: OR(IsAdmin, AND( OR(IsActiveOnGu
 
 # PREMADE FULL PERMISSIONS (WEB):
 
+canEditGeneralMacro = OR(IsAdmin, IsStoryteller)

@@ -1,0 +1,45 @@
+$def with (global_params, language_strings)
+<div>
+    <div class="w3-bar w3-light-grey">
+        <div id="macro_title" class="w3-bar-item">Macro</div>
+        <a id="macro_delete" href="#"
+            class="w3-bar-item w3-button w3-red w3-right">$language_strings['web_label_macro_delet']</a>
+        <a id="macro_save" href="#"
+            class="w3-bar-item w3-button w3-green w3-right">$language_strings['web_label_macro_save']</a>
+        <a id="macro_use" href="#"
+            class="w3-bar-item w3-button w3-deep-purple w3-right">$language_strings['web_label_macro_use']</a>
+    </div>
+    <div class="w3-row">
+        <!-- macro selection -->
+        <div class="w3-quarter w3-container">
+            <div id="macros_character_container" style="display:none">
+                <div class="w3-bar" >
+                    <h4 class="w3-bar-item" >$language_strings['web_label_macro_character']</h4>
+                    <button id="macro_new_char" class="w3-btn w3-blue w3-bar-item w3-right w3-margin">$language_strings['web_label_macro_new_short']</button>
+                </div>
+                <div id="macros_character_container_list" class="w3-bar-block">
+                    <a href="#" class="w3-button w3-bar-item">macro</a>
+                </div>
+            </div>
+            <div id="macros_general_container" style="display:none">
+                <div class="w3-bar" >
+                    <h4 class="w3-bar-item" >$language_strings['web_label_macro_general']</h4>
+                    <button id="macro_new_general" class="w3-btn w3-blue w3-bar-item w3-right w3-margin">$language_strings['web_label_macro_new_short']</button>
+                </div>
+                <div id="macros_general_container_list" class="w3-bar-block">
+                    <a href="#" class="w3-button w3-bar-item">macro</a>
+                </div>
+            </div>
+        </div>
+        <!-- macro editor -->
+        <div class="w3-threequarter w3-container">
+            <div class="w3-margin-top">
+                <textarea maxlength="65535" id="macro_text" class="w3-input w3-border medium-textarea"
+                    disabled></textarea>
+            </div>
+            <div>
+                <p>$language_strings['web_text_macro_docs']</p>
+            </div>
+        </div>
+    </div>
+</div>
