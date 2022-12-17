@@ -137,6 +137,7 @@ insert into CharacterTrait
     "" as text_value,
     case 
     WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
+    WHEN t.id = 'salute' THEN 100
     else 0
     end
     as pimp_max
