@@ -770,7 +770,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
         traits = self.bot.dbm.db.select("LangTrait", where="langId=$langid and (traitId like $search_lower or traitShort like $search_lower or traitName like $search_string)", vars=dict(search_lower=lower_version, search_string = searchstring, langid=ctx.getLID()))
         
         if not len(traits):
-            await self.bot.atSendLang("string_msg_no_match")
+            await self.bot.atSendLang(ctx, "string_msg_no_match")
             return
 
         response = self.bot.getStringForUser(ctx, "string_msg_found_traits") +":\n"
