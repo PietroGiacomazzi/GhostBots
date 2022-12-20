@@ -218,7 +218,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
         response = f'Il tratto {traitname} è stato aggiornato'
         t = self.bot.dbm.db.transaction()
         try:
-            self.bot.dbm.db.update("Trait", where= 'id = $oldid' , vars=dict(oldid = old_traitid), id = new_traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std, ordering = 1.0)
+            self.bot.dbm.db.update("Trait", where= 'id = $oldid' , vars=dict(oldid = old_traitid), id = new_traitid, name = traitname, traittype = traittypeid, trackertype = tracktype, standard = std)
             # now we update the language description, but only of the current language
             self.bot.dbm.db.update("LangTrait", where= 'traitId = $traitid and langId = $lid' , vars=dict(traitid=new_traitid, lid = ctx.getLID()), traitName = traitname)
             if std and not old_trait['standard']:
