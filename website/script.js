@@ -1140,11 +1140,14 @@ function populateSheet(characterTraits, character){
 		}
 	}
 	// generazione
-	var sheetspot = document.getElementById("testata");
-	var c = document.createElement('tr'); 
-	c.setAttribute("id", "generazione_calcolata");
-	c.innerHTML = String.format(getLangString("web_string_calc_generation"), generation); 
-	sheetspot.appendChild(c);
+	if (generation >= 0)
+	{
+		var sheetspot = document.getElementById("testata");
+		var c = document.createElement('tr'); 
+		c.setAttribute("id", "generazione_calcolata");
+		c.innerHTML = String.format(getLangString("web_string_calc_generation"), generation); 
+		sheetspot.appendChild(c);
+	}
 	// spegni blocchi vantaggi vuoti
 	for (var key of switchesFree.keys()) {
 		if (switchesFree.get(key))
