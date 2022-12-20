@@ -779,7 +779,7 @@ function createTraitElement(traitdata){
 	if (traitdata.trait == 'volonta')
 	{
 		var trait_title = document.createElement('h4');
-		trait_title.innerHTML = getLangString("web_label_willpower")
+		trait_title.innerHTML = out_sanitize(traitdata.traitName);
 		c.appendChild(trait_title);
 
 		// permanent
