@@ -181,7 +181,10 @@ ActionResultOutputterMappings: dict[int, type[PCActionResultOutputter]] = {
 
 def getOutputter(gamesystem: int, ctx: gb.GreedyContext):
     """ Gets an ActionResultOutputter object from a GameSystem enum """
-    return ActionResultOutputterMappings[gamesystem](ctx)
+    try:
+        return ActionResultOutputterMappings[gamesystem](ctx)
+    except KeyError:
+        raise gms.GreedyGamesystemError('string_error_gamesystem_missing_mapping', (gms.getGamesystemId(gamesystem),))
 
 # COG 
 class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog): 

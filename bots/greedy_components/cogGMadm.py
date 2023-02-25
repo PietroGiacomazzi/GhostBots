@@ -29,7 +29,7 @@ newTrait_description = """Argomenti: <id> <tipo> <tracker> <standard> <nome comp
 """
 
 listChronicles_description = "Nessun argomento richiesto"
-newChronicle_description = "Argomenti: <id> <nome completo> <sistema di gioco> <nome lungo> \n\nId non ammette spazi."
+newChronicle_description = "Argomenti: <id> <sistema di gioco> <nome completo> \n\nId non ammette spazi."
 unlink_description = "Argomenti: nome breve del pg, nome breve della cronaca"
 updt_description = "Argomenti: <vecchio_id> <nuovo_id> <tipo> <tracker> <standard> <nome completo>\n\nInvocare il comando senza argomenti per ottenere più informazioni"
 #delet_description = "Argomenti: nome breve del pg, nome breve del tratto"

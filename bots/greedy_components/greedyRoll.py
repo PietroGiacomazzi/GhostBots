@@ -67,6 +67,8 @@ class RollFormatter:
     def __init__(self, langProvider: lng.LanguageStringProvider, lid: str):
         self.langProvider = langProvider
         self.langId = lid
+    def formatRollSummary(self, rolldata: gms.RollData) -> str:
+        return ''
     def format(self, item: gms.RollItem) -> str:
         return f'{self.formatHeader(item)}{self.formatRoll(item)}{self.formatTail(item)}'
     def formatHeader(self, item: gms.RollItem):
@@ -75,6 +77,23 @@ class RollFormatter:
         return f'{item.results}'
     def formatTail(self, item: gms.RollItem):
         return ''
+    def lstr(self, string_id: str, *formats) -> str:
+        return self.langProvider.get(self.langId, string_id, *formats)
+
+class RollFormatter_GENERAL_Difficulty(RollFormatter):
+    def formatRoll(self, item: gms.RollItem):
+        return f'{self.formatSuccessStatus(item)}: {self.formatHighlightSuccesses(item)}'
+    def formatSuccessStatus(self, item: gms.RollItem):
+        if item.count_successes == 1:
+            return self.lstr('roll_status_generic_1succ')
+        else:
+            return self.lstr('roll_status_generic_nsucc', item.count_successes)
+    def formatHighlightSuccesses(self, item: gms.RollItem):
+        return f'[{", ".join(map(lambda x: f"**{x}**" if x >= item.difficulty else str(x), item.results))}]'
+    def formatRollSummary(self, rolldata: gms.RollData) -> str:
+        count_successes = sum(map(lambda x: x.count_successes, rolldata.data))
+        success_str = self.lstr('roll_status_generic_1succ') if count_successes == 1 else self.lstr('roll_status_generic_nsucc', count_successes)
+        return f'\n**{self.lstr("string_word_total")}:** {success_str}'
 
 class RollFormatter_STS(RollFormatter):
     def formatHead(self, item: gms.RollItem_STS):
@@ -201,7 +220,9 @@ class RollOutputter:
         if rolldata.rolltype == gms.RollType.SUM:
             total = sum(map(lambda x: sum(x.results), rolldata.data))
             return f'{" ".join(results)} = {total}'
-        return "\n".join(results)
+        return self.getJoinString().join(results)
+    def getJoinString(self) -> str:
+        return "\n"
     def getFormatter(self, rolltype: int):
         return self.itemFormatters[rolltype] if rolltype in self.itemFormatters else RollFormatter
     def getStatsFormatter(self, rolltype: int):
@@ -212,13 +233,18 @@ class RollOutputter:
         results = []
         for ri in rolldata.data:
             results.append(formatter.format(ri))
-        return self.joinResults(results,  rolldata, ctx)
+        return f'{self.joinResults(results, rolldata, ctx)} {formatter.formatRollSummary(rolldata)}'
+
+class RollOutputter_GENERAL(RollOutputter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.itemFormatters[gms.RollType.DIFFICULTY] = RollFormatter_GENERAL_Difficulty
 
 class RollOutputter_STS(RollOutputter):
     def __init__(self) -> None:
         super().__init__()
         self.itemFormatters[gms.RollType.DAMAGE] = RollFormatter_STS_DMG
-        self.itemFormatters[gms.RollType.NORMAL] = RollFormatter_STS_Normal
+        self.itemFormatters[gms.RollType.DIFFICULTY] = RollFormatter_STS_Normal
         self.itemFormatters[gms.RollType.REFLEXES] = RollFormatter_STS_Reflexes
         self.itemFormatters[gms.RollType.SOAK] = RollFormatter_STS_Soak
         self.itemFormatters[gms.RollType.SUM] = RollFormatter_PlainValues  
@@ -230,7 +256,7 @@ class RollOutputter_V20HB(RollOutputter_STS):
     def __init__(self) -> None:
         super().__init__()
         self.itemFormatters[gms.RollType.PROGRESS] = RollFormatter_STS_Progress
-        self.itemFormatters[gms.RollType.NORMAL] = RollFormatter_V20HB_Normal
+        self.itemFormatters[gms.RollType.DIFFICULTY] = RollFormatter_V20HB_Normal
 
 class RollOutPutter_V20VANILLA(RollOutputter_STS):
     pass
@@ -528,7 +554,8 @@ class RollArgumentParser_SimpleArgumentList(RollArgumentParser):
         self.rollArgVal: int = rollArgVar
         self.parametersList: list[Any] = []
     def allowMultiple(self, refSetup: gms.RollSetup) -> bool:
-        return gms.RollArg.ROLLTYPE in refSetup.rollArguments and refSetup.rollArguments[gms.RollArg.ROLLTYPE] != gms.RollType.NORMAL
+        #return gms.RollArg.ROLLTYPE in refSetup.rollArguments and refSetup.rollArguments[gms.RollArg.ROLLTYPE] != gms.RollType.DIFFICULTY ????
+        return False
     def _parse_internal(self, ctx: gb.GreedyContext, refSetup: gms.RollSetup):
         if self.rollArgVal in refSetup.rollArguments and not self.allowMultiple(refSetup):
             raise GreedyParseValidationError('string_error_multiple_X', (self.current_keyword,))
@@ -549,13 +576,29 @@ class RollArgumentParser_SingleParameter(RollArgumentParser_SimpleArgumentList):
     def parseSingleParameter(self, ctx: gb.GreedyContext, refSetup: gms.RollSetup) -> Any:
         raise NotImplementedError()
 
-class RollArgumentParser_STS_DIFF(RollArgumentParser_SingleParameter):
-    def __init__(self) -> None:
-        super().__init__(gms.RollSetupValidator_STS_DIFF, gms.RollArg.DIFF)
-    def parseDifficulty(self, ctx: gb.GreedyContext):
-        return self.parseBoundedInteger(ctx, 2, 10, ctx.bot.getStringForUser(ctx, "string_errorpiece_valid_diff"))
+class RollArgumentParser_DIFF(RollArgumentParser_SingleParameter):
+    def __init__(self, validator: type[gms.RollSetupValidator], min_diff: int, max_diff: int) -> None:
+        super().__init__(validator, gms.RollArg.DIFF)
+        self.minDiff = min_diff
+        self.maxDiff  = max_diff
+    def parseDifficulty(self, ctx: gb.GreedyContext) -> int:
+        return self.parseBoundedInteger(ctx, self.minDiff, self.maxDiff, ctx.bot.getStringForUser(ctx, "string_errorpiece_valid_diff"))
     def parseSingleParameter(self, ctx: gb.GreedyContext, refSetup: gms.RollSetup):
         return self.parseDifficulty(ctx)
+
+class RollArgumentParser_GENERAL_DIFF(RollArgumentParser_DIFF):
+    def __init__(self) -> None:
+        super().__init__(gms.RollSetupValidator_GENERAL_DIFF, 1, 0)
+    def parseDifficulty(self, ctx: gb.GreedyContext) -> int:
+        self.maxDiff = int(ctx.bot.config['BotOptions']['max_faces'])
+        return super().parseDifficulty(ctx)
+    def _save_setup(self, currentSetup: gms.RollSetup):
+        super()._save_setup(currentSetup)
+        currentSetup.rollArguments[gms.RollArg.ROLLTYPE] = gms.RollType.DIFFICULTY
+
+class RollArgumentParser_STS_DIFF(RollArgumentParser_DIFF):
+    def __init__(self) -> None:
+        super().__init__(gms.RollSetupValidator_STS_DIFF, 2, 10)
 
 class RollArgumentParser_STS_MULTI(RollArgumentParser_SingleParameter):
     def __init__(self, validator: type[gms.RollSetupValidator] = gms.RollSetupValidator_STS_MULTI) -> None:
@@ -675,12 +718,15 @@ class RollParser:
 class RollParser_General(RollParser):
     def  __init__(self):
         super().__init__()
+        self.rollRollArgumentParsers[DIFF_CMD] = RollArgumentParser_GENERAL_DIFF()
         self.rollRollArgumentParsers[SOMMA_CMD] = RollArgumentParser_KeywordActivateOnly(gms.RollSetupValidator, gms.RollArg.ROLLTYPE, rollTypeVal = gms.RollType.SUM)
         self.rollRollArgumentParsers[(ADD_CMD,)] = RollArgumentParser_DiceExpression(gms.RollSetupValidator_DICE, has_parameters=True, detachEnd=True)
         self.rollRollArgumentParsers[(SUB_CMD,)] = RollArgumentParser_DiceExpression(gms.RollSetupValidator_DICE, has_parameters=True, firstNegative = True, detachEnd=True)
         self.nullParser = RollArgumentParser_DiceExpression(gms.RollSetupValidator_DICE)
     def getSetup(self, ctx: sec.SecurityContext) -> gms.RollSetup:
         return gms.RollSetup_General(ctx)
+    def getOutputter(self) -> RollOutputter:
+        return RollOutputter_GENERAL()
 
 class RollParser_STS(RollParser_General):
     def __init__(self):
@@ -741,4 +787,7 @@ RollSystemMappings: dict[int, type[RollParser]] = {
 
 def getParser(gamesystem: int):
     """ Gets a roll parser from a GameSystem enum """
-    return RollSystemMappings[gamesystem]
+    try:
+        return RollSystemMappings[gamesystem]
+    except KeyError:
+        raise gms.GreedyGamesystemError('string_error_gamesystem_missing_mapping', (gms.getGamesystemId(gamesystem),))

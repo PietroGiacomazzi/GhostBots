@@ -4,6 +4,8 @@
     "string_invalid_number_of_parameters": "Wrong number of parameters",
 	"string_PC_does_not_have_TRAIT": "{} does not have the {} trait",
 	"string_TRAIT_is_ambiguous_N_found": "{} is ambiguous, I have found {} traits",
+	"roll_status_generic_1succ": "**1 Success**",
+	"roll_status_generic_nsucc": "**{} Successes**",
 	"roll_status_dmg_1dmg": ":green_square: **1 Damage**",
 	"roll_status_dmg_ndmg": ":green_square: **{} Damage**",
 	"roll_status_dmg_0dmg": ":red_square: **No damage**",
@@ -138,6 +140,8 @@
 	"string_error_cannot_edit_character": "Without a session running you can only view your stats",
 	"string_error_macro_not_found_for_char": "Macro {} not found for {}",
 	"string_error_macro_not_found": "Macro {} not found",
+	"string_error_gamesystem_missing_mapping": "Game system {} is not supported",
+	"string_word_total": "Total",
 
 	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
 	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",

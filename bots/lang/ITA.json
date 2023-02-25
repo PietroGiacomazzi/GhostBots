@@ -4,6 +4,8 @@
     "string_invalid_number_of_parameters": "Numero di parametri errato",
 	"string_PC_does_not_have_TRAIT": "{} non ha il tratto {}",
 	"string_TRAIT_is_ambiguous_N_found": "{} è ambiguo, ho trovato {} tratti",
+	"roll_status_generic_1succ": "**1 Successo**",
+	"roll_status_generic_nsucc": "**{} Successi**",
 	"roll_status_dmg_1dmg": ":green_square: **1 Danno**",
 	"roll_status_dmg_ndmg": ":green_square: **{} Danni**",
 	"roll_status_dmg_0dmg": ":red_square: **Nessun danno**",
@@ -138,6 +140,8 @@
 	"string_error_cannot_edit_character": "A sessione spenta puoi solo consultare le tue statistiche",
 	"string_error_macro_not_found_for_char": "Macro {} non trovata per {}",
 	"string_error_macro_not_found": "Macro {} non trovata",
+	"string_error_gamesystem_missing_mapping": "Il sistema di gioco {} non è supportato",
+	"string_word_total": "Totale",
 
 	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
 	"help_gmadm_stunlink": "Argomenti: <id cronaca>, [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",

@@ -8,7 +8,7 @@ from .security import *
 from .vtm_res import *
 
 
-RollType = enum("NORMAL", "SUM", "DAMAGE", "PROGRESS", "INITIATIVE", "REFLEXES", "SOAK")
+RollType = enum("NORMAL", "DIFFICULTY", "SUM", "DAMAGE", "PROGRESS", "INITIATIVE", "REFLEXES", "SOAK")
 RollArg = enum("DIFF", "MULTI", "SPLIT", "ROLLTYPE", "PENALTY", "DICE", "PERMANENT_DICE", "PERMANENT", "STATS", "CHARACTER", "MINSUCC") # argomenti del tiro
 
 TrackerType = enum("NORMAL", "CAPPED", "HEALTH", "UNCAPPED")
@@ -50,11 +50,18 @@ def detach_args(args: list[str]) -> list[str]:
         i += 1
     return new_args
 
-def getGamesystem(gamesystem: str) -> int:
+def getGamesystem(gamesystemid: str) -> int:
     """ Gets a game system enum from its identifier string """
-    if gamesystem in GAMESYSTEMS_LIST:
-        return getattr(GameSystems, gamesystem)
+    if gamesystemid in GAMESYSTEMS_LIST:
+        return getattr(GameSystems, gamesystemid)
+    raise lng.LangException("string_error_invalid_rollsystem", gamesystemid)
+
+def getGamesystemId(gamesystem: int) -> str:
+    """ Gets a Game system string from its enum value """
+    if gamesystem >=0 and gamesystem < len(GAMESYSTEMS_LIST):
+        return GAMESYSTEMS_LIST[gamesystem]
     raise lng.LangException("string_error_invalid_rollsystem", gamesystem)
+
 
 class GreedyRollValidationError(lng.LangSupportException):
     pass
@@ -68,19 +75,23 @@ class GreedyOperationError(lng.LangSupportException):
 class GreedyTraitOperationError(GreedyOperationError):
     pass
 
+class GreedyGamesystemError(lng.LangSupportException):
+    pass
+
+
 class RollItem:
     def __init__(self) -> None:
         self.tag:  str = None
         self.results: list[int] = None
         self.faces: int = None
         self.additional_data: Any = None
+        self.count_successes: int = None
+        self.difficulty: int = None
 
 class RollItem_STS(RollItem):
     def  __init__(self) -> None:
         super().__init__()
-        self.count_successes: int = None
         self.canceled: int = None
-        self.difficulty: int = None
         self.minsucc: int = None
         self.extra_succ: int = None
 
@@ -98,12 +109,14 @@ class RollSetup:
         self.actionHandlers: dict[int, type[RollAction]] = {}
         self.traits = set()
     def roll(self) -> RollData:
-        action = self.rollArguments[RollArg.ROLLTYPE] if RollArg.ROLLTYPE in self.rollArguments else RollType.NORMAL  
+        action = self.rollArguments[RollArg.ROLLTYPE] if RollArg.ROLLTYPE in self.rollArguments else self.getDefaultRollType() 
         if action in self.actionHandlers:
             handlerClass= self.actionHandlers[action]
             handler = handlerClass(self)
             return handler.execute(action)
         raise GreedyRollExecutionError("string_error_roll_invalid_param_combination")
+    def getDefaultRollType(self) -> int:
+        return RollType.NORMAL
     def validate(self):
         for cls in self.validatorClasses:
             validator = cls()
@@ -125,14 +138,18 @@ class RollSetup_General(RollSetup):
         super().__init__(ctx)
         self.actionHandlers[RollType.NORMAL] = RollAction_GeneralRoll
         self.actionHandlers[RollType.SUM] = RollAction_GeneralRoll
+        self.actionHandlers[RollType.DIFFICULTY] = RollAction_GeneralRoll
 
 class RollSetup_STS(RollSetup_General):
     def __init__(self, ctx: SecurityContext) -> None:
         super().__init__(ctx)
+        self.actionHandlers[RollType.DIFFICULTY] = RollAction_STS_RegularRoll
         self.actionHandlers[RollType.DAMAGE] = RollAction_STS_Damage
         self.actionHandlers[RollType.INITIATIVE] = RollAction_STS_Initiative
         self.actionHandlers[RollType.REFLEXES] = RollAction_STS_RegularRoll
         self.actionHandlers[RollType.SOAK] = RollAction_STS_RegularRoll
+    def getDefaultRollType(self) -> int:
+        return RollType.DIFFICULTY
     def shouldUseBasePool(self):
         return RollArg.PERMANENT in self.rollArguments
     def getPool(self) -> int:
@@ -194,7 +211,7 @@ class RollSetup_STS(RollSetup_General):
 class RollSetup_V20HB(RollSetup_STS):        
     def __init__(self, ctx: SecurityContext) -> None:
         super().__init__(ctx)
-        self.actionHandlers[RollType.NORMAL] = RollAction_V20HB_RegularRoll
+        self.actionHandlers[RollType.DIFFICULTY] = RollAction_V20HB_RegularRoll
         self.actionHandlers[RollType.DAMAGE] = RollAction_V20HB_Damage
         self.actionHandlers[RollType.PROGRESS] = RollAction_V20HB_RegularRoll
         self.actionHandlers[RollType.REFLEXES] = RollAction_V20HB_RegularRoll
@@ -216,15 +233,21 @@ class RollAction_GeneralRoll(RollAction):
     def execute(self, rolltype: int) -> RollData:
         rdata = self.initRollData(rolltype)
         if RollArg.DICE in self.setup.rollArguments: 
+            diff = self.setup.rollArguments[RollArg.DIFF] if RollArg.DIFF in self.setup.rollArguments else 0
             for faces, number in self.setup.rollArguments[RollArg.DICE].items():
                 item = RollItem()
                 item.faces = faces
+                item.difficulty = diff
+                item.count_successes = 0
                 if faces:
                     item.tag = f'd{faces}'
                     item.results = list(map(lambda x: random.randint(1, faces), range(0, number))) 
+                    if diff:
+                        item.count_successes = len(list(filter(lambda x: x >= diff, item.results)))
                 else:
                     item.tag = f'flat'
                     item.results = [number]
+                    item.count_successes = number
                 rdata.data.append(item)
         return rdata
 
@@ -233,7 +256,7 @@ class RollAction_STS(RollAction):
         super().__init__(setup)
         self.setup = setup # here just for type hinting suggestions
 
-class RollAction_STS_Initiative(RollAction):
+class RollAction_STS_Initiative(RollAction_STS):
     def execute(self, rolltype: int) -> RollData:
         lid = self.setup.ctx.getLID()
         rd = self.initRollData(rolltype)
@@ -368,6 +391,16 @@ class RollSetupValidator_DICE(RollSetupValidator):
             raise GreedyRollValidationError("string_error_toomany_dice", (max_dice,))
         if pool <= 0:
             raise GreedyRollValidationError("string_error_toofew_dice", (pool,))
+
+class RollSetupValidator_GENERAL_DIFF(RollSetupValidator):
+    def validate(self, setup: RollSetup):
+        super().validate(setup)
+        if RollArg.DIFF in setup.rollArguments and RollArg.DICE in setup.rollArguments:
+            diff = setup.rollArguments[RollArg.DIFF]
+            face_list = list(filter(lambda x: x > 0, setup.rollArguments[RollArg.DICE].keys()))
+            min_faces = min(face_list) if len(face_list) else 0 # if no dice, min_faces is 0, which wil fail the check as diff must be at least 1
+            if diff < 1 or diff > min_faces:
+                raise GreedyRollValidationError('string_error_x_isnot_y', (diff, setup.ctx.getLanguageProvider().get(setup.ctx.getLID(), 'string_errorpiece_valid_diff')))
 
 class RollSetupValidator_STS_DIFF(RollSetupValidator):
     def validate(self, setup: RollSetup):
@@ -794,4 +827,7 @@ ActionHandlerMappings: dict[int, type[PCActionHandler]] = {
 
 def getHandler(gamesystem: int):
     """ Gets an Action Handler from a GameSystem enum """
-    return ActionHandlerMappings[gamesystem]
+    try:
+        return ActionHandlerMappings[gamesystem]
+    except KeyError:
+        raise GreedyGamesystemError('string_error_gamesystem_missing_mapping', (getGamesystemId(gamesystem),))
