@@ -505,18 +505,39 @@ class PCAction:
         if len(self.expectedParameterNumbers) > 0 and not (len(args) in self.expectedParameterNumbers):
             raise GreedyTraitOperationError("string_invalid_number_of_parameters")
     def db_setCurvalue(self, new_val: int, trait):
-        u = self.ctx.getDBManager().db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=self.character['id']), cur_value = new_val)
-        self.ctx.getDBManager().log(self.ctx.getUserId(), self.character['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], self.ctx.getMessageContents())
-        if u == 1 or (u == 0 and trait['cur_value'] == new_val):
-            return self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], trait['id'], self.ctx.getLID())
-            
-        raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
+        dbm = self.ctx.getDBManager()
+        transaction = dbm.db.transaction()
+
+        try:
+            u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=self.character['id']), cur_value = new_val)
+            if u == 1:
+                dbm.log(self.ctx.getUserId(), self.character['id'], trait['trait'], ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], self.ctx.getMessageContents())
+            elif (u > 1 or (u == 0 and trait['cur_value'] != new_val)):
+                raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
+        except:
+            transaction.rollback()
+            raise
+        else:
+            transaction.commit()
+
+        return dbm.getTrait_LangSafe(self.character['id'], trait['id'], self.ctx.getLID())
     def db_setTextValue(self, new_value: str, trait):
-        u = self.ctx.getDBManager().db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=self.character['id']), text_value = new_value)
-        self.ctx.getDBManager().log(self.ctx.getUserId(), self.character['id'], trait['trait'], ghostDB.LogType.TEXT_VALUE, new_value, trait['text_value'], self.ctx.getMessageContents())
-        if u == 1 or (u == 0 and trait['text_value'] == new_value):
-            return self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], trait['id'], self.ctx.getLID())         
-        raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
+        dbm = self.ctx.getDBManager()
+        transaction = dbm.db.transaction()
+
+        try:
+            u = dbm.db.update('CharacterTrait', where='trait = $trait and playerchar = $pc', vars=dict(trait=trait['id'], pc=self.character['id']), text_value = new_value)
+            if u == 1:
+                dbm.log(self.ctx.getUserId(), self.character['id'], trait['trait'], ghostDB.LogType.TEXT_VALUE, new_value, trait['text_value'], self.ctx.getMessageContents())
+            elif (u > 1 or (u == 0 and trait['text_value'] != new_value)):
+                raise GreedyTraitOperationError('string_error_database_unexpected_update_rowcount', (u,))
+        except:
+            transaction.rollback()
+            raise
+        else:
+            transaction.commit()
+            
+        return dbm.getTrait_LangSafe(self.character['id'], trait['id'], self.ctx.getLID())
 
 class PCTraitAction(PCAction):
     def  __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
