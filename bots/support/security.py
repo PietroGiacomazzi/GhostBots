@@ -96,7 +96,7 @@ class IsActiveOnGuild(CommandSecurity):
         
         valid, comment = (False, SecurityCheckException("string_error_server_not_authorized"))
 
-        if not guildid is None:
+        if not (guildid is None or guildid == 0):
             ig, guild = self.ctx.getDBManager().validators.getValidateGuild(guildid).validate()
             active = False
             if ig:
@@ -113,7 +113,7 @@ class IsPrivateChannelWithRegisteredUser(CommandSecurity):
 
         valid, comment = (False, SecurityCheckException("string_error_server_not_authorized"))
 
-        if guildid is None:
+        if guildid is None or guildid == 0:
             valid, comment =  self.ctx.validateUserInfo()
         
         return valid, comment 
@@ -168,7 +168,7 @@ class ParametrizedCommandSecurity(CommandSecurity):
 
 def genIsChronicleStoryteller(target_chronicle):
     """ Passes if the command is issued by a Storyteller that can control target_chronicle """
-    class GeneratedCommandSecurity(ParametrizedCommandSecurity):
+    class IsChronicleStoryteller(ParametrizedCommandSecurity):
         def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
             issuer_id = str(self.ctx.getUserId())  
             chronicle = self.getParameter(target_chronicle, args, kwargs)
@@ -177,22 +177,22 @@ def genIsChronicleStoryteller(target_chronicle):
             valid = st
             comment = None if valid else SecurityCheckException("L'Utente non è Storyteller della cronaca {}", (chronicle['name'],)) 
             return valid, comment
-    return GeneratedCommandSecurity
+    return IsChronicleStoryteller
 
 def genIsSelf(optional_target_user):
     """ Passes if the command is issued by someone that is targeting themselves """
-    class GeneratedCommandSecurity(ParametrizedCommandSecurity):
+    class IsSelf(ParametrizedCommandSecurity):
         def checkSecurity(self, *args, **kwargs) -> tuple: #[bool, Any]:
             issuer_id = str(self.ctx.getUserId())  
             target_usr = self.tryGetParameter(optional_target_user, args, kwargs, issuer_id)
             target_usr_id = target_usr['userid']
             valid =  target_usr_id == issuer_id
             return valid, None if valid else SecurityCheckException("Non puoi indicare una persona diversa da te") 
-    return GeneratedCommandSecurity
+    return IsSelf
 
 def genIsCharacterStoryTeller(target_character):
     """ Passes if the command is issued by a Storyteller that is associated to a chronicle in which this character plays in """
-    class GeneratedCommandSecurity(ParametrizedCommandSecurity):
+    class IsCharacterStoryTeller(ParametrizedCommandSecurity):
         def checkSecurity(self, *command_args, **command_kwargs) -> tuple: #[bool, Any]:
             issuer = str(self.ctx.getUserId())  
             character = self.getParameter(target_character, command_args, command_kwargs)
@@ -202,7 +202,7 @@ def genIsCharacterStoryTeller(target_character):
                    
             comment = None if st else SecurityCheckException("Non hai il ruolo di storyteller per questo personaggio") 
             return st, comment
-    return GeneratedCommandSecurity
+    return IsCharacterStoryTeller
 
 def genIsCharacterPlayer(target_character):
     """ Passes if the command is issued by the character's player/owner """
@@ -218,27 +218,48 @@ def genIsCharacterPlayer(target_character):
             return co, comment
     return GeneratedCommandSecurity
 
-def genIsSessionRunningforCharacter(target_character):
-    """ Passes if the the character is linked to an active game session OR the character is not linked to any chronicle """
-    class GeneratedCommandSecurity(ParametrizedCommandSecurity):
+def genIsCharacterLinked(target_character):
+    """ Passes if the the character is linked to any chronicle """
+    class IsCharacterLinked(ParametrizedCommandSecurity):
         def checkSecurity(self, *command_args, **command_kwargs) -> tuple: #[bool, Any]:
             character = self.getParameter(target_character, command_args, command_kwargs)
             charid = character['id']
 
-            #1: unlinked
             cl, _ = self.ctx.getDBManager().isCharacterLinked(charid)
-            #2 active session
+                    
+            comment = None if cl else SecurityCheckException("Il personaggio non deve essere collegato ad una cronaca") 
+            return cl, comment
+    return IsCharacterLinked
+
+def genIsAnySessionRunningForCharacter(target_character):
+    """ Passes if the the character is linked to an active game session  """
+    class IsSessionRunningforCharacter(ParametrizedCommandSecurity):
+        def checkSecurity(self, *command_args, **command_kwargs) -> tuple: #[bool, Any]:
+            character = self.getParameter(target_character, command_args, command_kwargs)
+            charid = character['id']
+
+            sa, _ = self.ctx.getDBManager().isAnySessionActiveForCharacter(charid)
+            
+            comment = None if sa else SecurityCheckException("Il personaggio deve avere una sessione aperta") 
+            return sa, comment
+    return IsSessionRunningforCharacter
+
+def genIsSessionRunningForCharacterHere(target_character):
+    """ Passes if the the character is linked to an active game session in the current channel """
+    class IsSessionRunningforCharacter(ParametrizedCommandSecurity):
+        def checkSecurity(self, *command_args, **command_kwargs) -> tuple: #[bool, Any]:
+            character = self.getParameter(target_character, command_args, command_kwargs)
+            charid = character['id']
+
             sa, _ = self.ctx.getDBManager().isSessionActiveForCharacter(charid, self.ctx.getChannelId())
             
-            ce = (not cl) or sa            
-
-            comment = None if ce else SecurityCheckException("Il personaggio deve avere una sessione aperta oppure non essere collegato ad una cronaca") 
-            return ce, comment
-    return GeneratedCommandSecurity
+            comment = None if sa else SecurityCheckException("Il personaggio deve avere una sessione aperta in questo canale") 
+            return sa, comment
+    return IsSessionRunningforCharacter
 
 def OR(*cs_sequence: type[CommandSecurity]) -> type[CommandSecurity]:
     """ returns a CommandSecurity type that performs an OR between the checkSecurity method results of all the argument CommandSecurity types """
-    class CombinedCommandSecurity(CommandSecurity):
+    class CombinedCommandSecurityOR(CommandSecurity):
         def checkSecurity(self, *args, **kwargs) -> tuple:
             valid = False
             errors = []
@@ -256,11 +277,11 @@ def OR(*cs_sequence: type[CommandSecurity]) -> type[CommandSecurity]:
                 comment = lng.LangSupportErrorGroup("MultiError", errors)
             return valid, comment
 
-    return CombinedCommandSecurity
+    return CombinedCommandSecurityOR
 
 def AND(*cs_sequence: type[CommandSecurity]) -> type[CommandSecurity]:
     """ returns a CommandSecurity type that performs an AND between the checkSecurity method results of all the argument CommandSecurity types """
-    class CombinedCommandSecurity(CommandSecurity):
+    class CombinedCommandSecurityAND(CommandSecurity):
         def checkSecurity(self, *args, **kwargs) -> tuple:
             valid = True
             errors = []
@@ -278,17 +299,37 @@ def AND(*cs_sequence: type[CommandSecurity]) -> type[CommandSecurity]:
                 comment = lng.LangSupportErrorGroup("MultiError", errors)
             return valid, comment
 
-    return CombinedCommandSecurity
+    return CombinedCommandSecurityAND
+
+def NOT(cs_to_negate: type[CommandSecurity]) -> type[CommandSecurity]:
+    """ returns a CommandSecurity type that passes if the parameter does NOT paass its checkSecurity method """
+    class CombinedCommandSecurityNOT(CommandSecurity):
+        def checkSecurity(self, *args, **kwargs) -> tuple:
+            assert issubclass(cs_to_negate, CommandSecurity)
+            cs_item: CommandSecurity = cs_to_negate(self.ctx, **self.options)
+
+            vt, _ = cs_item.checkSecurity(*args, **kwargs)
+
+            valid = not vt
+            comment = None
+            if not valid:
+                comment =  SecurityCheckException(f'Il controllo {cs_to_negate} non doveva passare') # TODO have some sort of string in each CommandSecurity that can be retireved
+                
+            return valid, comment
+
+    return CombinedCommandSecurityNOT
 
 # PREMADE BLOCKS:
 
-genCanEditCharacter = lambda target_character:  OR(genIsCharacterStoryTeller(target_character), AND(genIsCharacterPlayer(target_character), genIsSessionRunningforCharacter(target_character)))
+genCanEditCharacterAnyChannel = lambda target_character:  OR(genIsCharacterStoryTeller(target_character), AND(genIsCharacterPlayer(target_character), OR(NOT(genIsCharacterLinked(target_character)), genIsAnySessionRunningForCharacter(target_character)) )) 
+genCanEditCharacterThisChannel = lambda target_character:  OR(genIsCharacterStoryTeller(target_character), AND(genIsCharacterPlayer(target_character), OR(NOT(genIsCharacterLinked(target_character)), genIsSessionRunningForCharacterHere(target_character))))
 genCanViewCharacter = lambda target_character:  OR(genIsCharacterStoryTeller(target_character), genIsCharacterPlayer(target_character))
 
 # PREMADE FULL PERMISSIONS (BOT):
 
-canEditCharacter_BOT = lambda target_character: OR(IsAdmin, AND( OR(IsActiveOnGuild, IsPrivateChannelWithRegisteredUser), genCanEditCharacter(target_character)))
+canEditCharacter_BOT = lambda target_character: OR(IsAdmin, AND( OR(IsActiveOnGuild, IsPrivateChannelWithRegisteredUser), genCanEditCharacterThisChannel(target_character)))
 
 # PREMADE FULL PERMISSIONS (WEB):
 
 canEditGeneralMacro = OR(IsAdmin, IsStoryteller)
+canEditCharacter_WEB = lambda target_character: OR(IsAdmin, AND( IsUser, genCanEditCharacterAnyChannel(target_character)))

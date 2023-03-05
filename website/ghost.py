@@ -175,7 +175,7 @@ def check_web_security(response: WebResponse, security_item: type[sec.CommandSec
 # Security blocks
 
 canSeeCharacter      = lambda target_character: sec.OR(sec.IsAdmin, sec.genCanViewCharacter(target_character))
-canEditCharacterPerm = lambda target_character: sec.OR(sec.IsAdmin, sec.genCanEditCharacter(target_character))
+canEditCharacterPerm = lambda target_character: sec.canEditCharacter_WEB(target_character)
 
 notesPermission = canSeeCharacter
 macrosPermission = canSeeCharacter
@@ -560,7 +560,7 @@ class editCharacterTraitNumber(APIResponseLang): # no textbased
             'charId': (MUST, validator_character),
             'newValue': (MUST, validator_positive_integer),   
         })
-    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
+    @web_security(sec.canEditCharacter_WEB(target_character='charId'))
     def mGET(self):
         issuer = self.session.discord_userid
         character = self.input_data['charId']
@@ -583,7 +583,7 @@ class editCharacterTraitNumberCurrent(APIResponse): # no textbased
             'charId': (MUST, validator_character),
             'newValue': (MUST, validator_positive_integer),   
         })
-    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
+    @web_security(sec.canEditCharacter_WEB(target_character='charId'))
     def mGET(self):
         lid = getLanguage(self.session, dbm)      
         issuer = self.session.discord_userid
@@ -613,7 +613,7 @@ class editCharacterTraitText(APIResponse): #textbased
             'charId': (MUST, validator_character),
             'newValue': (MUST, validator_str_range(1, 50)),   
         })
-    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
+    @web_security(sec.canEditCharacter_WEB(target_character='charId'))
     def mGET(self):
         issuer = self.session.discord_userid
         character = self.input_data['charId']
@@ -634,7 +634,7 @@ class editCharacterTraitRemove(APIResponse): #textbased
             'traitId': (MUST, validator_trait), 
             'charId': (MUST, validator_character),
         })
-    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
+    @web_security(sec.canEditCharacter_WEB(target_character='charId'))
     def mGET(self):
         issuer = self.session.discord_userid
         character = self.input_data['charId']
@@ -672,7 +672,7 @@ class editCharacterTraitAdd(APIResponse):
             'traitId': (MUST, validator_str_range(1, 20)), # I'm validating the trait later because I also need trait data
             'charId': (MUST, validator_character),
         })
-    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
+    @web_security(sec.canEditCharacter_WEB(target_character='charId'))
     def mGET(self):
         lid = getLanguage(self.session, dbm)
         issuer = self.session.discord_userid
@@ -707,7 +707,7 @@ class canEditCharacter(APIResponse):
         })
     @web_security(sec.IsUser)
     def mGET(self):
-        return int(check_web_security(self, sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId')))))
+        return int(check_web_security(self, sec.canEditCharacter_WEB(target_character='charId')))
 
 class webFunctionVisibility(APIResponse):
     # This call tells the website what functions the user can see, but can easily be circumvented
@@ -796,7 +796,7 @@ class editCharacterReassign(APIResponse): #textbased
             'userId': (MUST, validator_bot_user), 
             'charId': (MUST, validator_character),
         })
-    @web_security(sec.OR(sec.IsAdmin, sec.AND( sec.IsUser, sec.genCanEditCharacter(target_character = 'charId'))))
+    @web_security(sec.canEditCharacter_WEB(target_character='charId'))
     def mGET(self):
         character = self.input_data['charId']
         charId = character['id']
