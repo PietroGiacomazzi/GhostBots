@@ -21,6 +21,7 @@ replace_HTMLElement["'"] = '&#x27;';
 
 PLAYER_EDIT_CONTROL = 'player-edit-control';
 PLAYER_NAME_CONTROL = 'PLAYER_NAME_CONTROL';
+CALCULATED_GEN_CONTROL = 'generazione_calcolata';
 
 CHARACTER_ID_CONTROL = 'CHARACTER_ID_CONTROL';
 
@@ -348,6 +349,12 @@ function openNewTrait(){
 			{
 				var c = createTraitElement(traitdata);
 				sheetspot.appendChild(c);
+
+				var generation = getGeneration(traitdata);
+				if (generation>=0)
+				{
+					renderCalcGeneration(generation);
+				}
 			}
 		})
 	}, getState().traitList);
@@ -540,6 +547,18 @@ function populate_clan_img(clan_name){
 	get_remote_resource('./getClanIcon?clan='+clan_name, 'json', render_clan_icon);
 }
 
+function rerenderTrait(data){
+	var newTrait = createTraitElement(data);
+	var oldTrait = document.getElementById(data.trait);
+	oldTrait.parentNode.replaceChild(newTrait, oldTrait);
+
+	var generation = getGeneration(data);
+	if (generation>=0)
+	{
+		renderCalcGeneration(generation);
+	}
+}
+
 function editTrait(event) {
     var span = event.target;
 	//console.log(span);
@@ -557,8 +576,21 @@ function editTrait(event) {
 				function (data){
 					var oldTrait = document.getElementById(data.trait);
 					//editElements = getState().editElements;
-					//TODO: remove from ediTelements. nothing will break if we don't but it's less messi if we do
+					//TODO: remove from ediTelements. nothing will break if we don't but it's less messy if we do
 					oldTrait.remove();
+
+					// remove calculated generation
+					// this is bad because it is not aware if one of the other 3 is available, we need an internal model of the character with all the trait data. this will suffice for now
+					if (data.trait ===  'generazione' || data.trait ===  '14gen' || data.trait === '15gen')
+					{
+						var old_gen = document.getElementById(CALCULATED_GEN_CONTROL);
+
+						if (old_gen)
+						{
+							old_gen.remove();
+						}
+					}
+
 				}/*, 
 				function(xhr){
 				}*/)
@@ -572,12 +604,7 @@ function editTrait(event) {
 							charId: getState().selected_charid,
 							newValue: span.dataset.dot_id
 						});
-						get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
-						function (data){
-							var newTrait = createTraitElement(data);
-							var oldTrait = document.getElementById(data.trait);
-							oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-						}/*, 
+						get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', rerenderTrait/*, 
 						function(xhr){
 						}*/)
 					}
@@ -592,12 +619,7 @@ function editTrait(event) {
 									charId: getState().selected_charid,
 									newValue: input_tag.value
 								});
-								get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', 
-								function (data){
-									var newTrait = createTraitElement(data);
-									var oldTrait = document.getElementById(data.trait);
-									oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-								}/*, 
+								get_remote_resource('./editCharacterTraitNumberCurrent?'+params.toString(), 'json', rerenderTrait/*, 
 								function(xhr){
 								}*/)
 							}
@@ -616,12 +638,7 @@ function editTrait(event) {
 							charId: getState().selected_charid,
 							newValue: span.dataset.dot_id
 						});
-						get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
-						function (data){
-							var newTrait = createTraitElement(data);
-							var oldTrait = document.getElementById(data.trait);
-							oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-						}/*, 
+						get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', rerenderTrait/*, 
 						function(xhr){
 						}*/)
 					}
@@ -636,12 +653,7 @@ function editTrait(event) {
 									charId: getState().selected_charid,
 									newValue: input_tag.value
 								});
-								get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', 
-								function (data){
-									var newTrait = createTraitElement(data);
-									var oldTrait = document.getElementById(data.trait);
-									oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-								}/*, 
+								get_remote_resource('./editCharacterTraitNumber?'+params.toString(), 'json', rerenderTrait/*, 
 								function(xhr){
 								}*/)
 							}
@@ -664,12 +676,7 @@ function editTrait(event) {
 							charId: getState().selected_charid,
 							newValue: input_tag.value
 						});
-						get_remote_resource('./editCharacterTraitText?'+params.toString(), 'json', 
-						function (data){
-							var newTrait = createTraitElement(data);
-							var oldTrait = document.getElementById(data.trait);
-							oldTrait.parentNode.replaceChild(newTrait, oldTrait);
-						}/*, 
+						get_remote_resource('./editCharacterTraitText?'+params.toString(), 'json', rerenderTrait/*, 
 						function(xhr){
 						}*/)
 					}
@@ -1027,6 +1034,48 @@ function createPlayerNameControl(ownername){
 	return c;
 }
 
+function getGeneration(traitdata)
+{
+	var generation = -1;
+
+	if (traitdata.trait === 'generazione')
+	{
+		generation = 13-traitdata.max_value;
+	}
+	if (traitdata.trait === '14gen')
+	{
+		generation = 14;
+	}
+	if (traitdata.trait === '15gen')
+	{
+		generation = 15;
+	}
+
+	return generation
+}
+
+function renderCalcGeneration(generation)
+{
+	var sheetspot = document.getElementById("testata");
+	if (sheetspot)
+	{
+		var c = document.createElement('tr'); 
+		c.setAttribute("id", CALCULATED_GEN_CONTROL);
+		c.innerHTML = String.format(getLangString("web_string_calc_generation"), generation); 
+		
+		var old_gen = document.getElementById(CALCULATED_GEN_CONTROL);
+
+		if (old_gen)
+		{
+			old_gen.parentNode.replaceChild(c, old_gen)
+		}
+		else
+		{
+			sheetspot.appendChild(c);
+		}
+	}
+}
+
 function populateSheet(characterTraits, character){
 	state = getState();
 	state.editElements = Array();
@@ -1119,9 +1168,11 @@ function populateSheet(characterTraits, character){
 			var c = createTraitElement(traitdata);
 			sheetspot.appendChild(c);
 			
-			if (traitdata.trait == 'generazione')
+			// adjust generation
+			var temp_gen = getGeneration(traitdata);
+			if (temp_gen >= 0)
 			{
-				generation = 13-traitdata.max_value;
+				generation = temp_gen;
 			}
 		}
 		else
@@ -1139,14 +1190,10 @@ function populateSheet(characterTraits, character){
 			//c.addEventListener('click', function(id){var cid = id; return function() {load_charSheet(cid);}}(character.id))
 		}
 	}
-	// generazione
+	// generazione 
 	if (generation >= 0)
 	{
-		var sheetspot = document.getElementById("testata");
-		var c = document.createElement('tr'); 
-		c.setAttribute("id", "generazione_calcolata");
-		c.innerHTML = String.format(getLangString("web_string_calc_generation"), generation); 
-		sheetspot.appendChild(c);
+		renderCalcGeneration(generation);
 	}
 	// spegni blocchi vantaggi vuoti
 	for (var key of switchesFree.keys()) {
