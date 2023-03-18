@@ -131,7 +131,7 @@ class WebContext(sec.SecurityContext):
         return lp
 
 def web_security(security_item: type[sec.CommandSecurity], **security_options):
-    """ setup security permissions for a WebResponse object """
+    """ setup security permissions for a WebResponse method """
     def decorator(func):
         @langSupportExceptionTranslation
         def wrapper(self: WebResponse, *args, **kwargs):
