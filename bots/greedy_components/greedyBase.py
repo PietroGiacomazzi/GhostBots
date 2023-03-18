@@ -3,6 +3,7 @@ from discord.ext import commands
 import discord
 
 import support.ghostDB as ghostDB
+import support.ghostAlchemy as ga
 import lang.lang as lng
 import support.utils as utils
 import support.security as sec
@@ -43,6 +44,8 @@ class GreedyContext(commands.Context, sec.SecurityContext):
         return self.message.author.id
     def getDBManager(self) -> ghostDB.DBManager:
         return self.bot.dbm
+    def getAlchemyManager(self) -> ga.AlchemyManager:
+        return self.bot.alchemyManager
     def getDefaultLanguageId(self) -> str:
         return self.bot.config['BotOptions']['default_language']
     def getChannelId(self) -> int:
@@ -65,7 +68,8 @@ class GreedyBot(commands.Bot):
     def __init__(self, configuration: configparser.ConfigParser, db_manager: ghostDB.DBManager, *args, **options):
         super(GreedyBot, self).__init__(*args, **options)
         self.config = configuration
-        self.dbm = db_manager
+        self.dbm = db_manager # to be removed
+        self.alchemyManager = ga.AlchemyManager(configuration['Database'])
         self.languageProvider = self._initLanguageProvider(configuration['BotOptions']['language_files_path'])
     def _initLanguageProvider(self, language_file_path: str) -> GreedyLanguageStringProvider:
         return GreedyLanguageStringProvider(self.config, self.dbm, language_file_path)
@@ -106,6 +110,13 @@ class GreedyBot(commands.Bot):
     async def get_context(self, message, *, cls=...):
         """ overrides context creation to calculate some extra info """
         return await super().get_context(message, cls=GreedyContext)
+    async def invoke(self, ctx: GreedyContext):
+        ret = None
+        assert isinstance(ctx, GreedyContext)
+        with ctx.getSession() as session:
+            with session.begin(): # this ensures commit on success/rollback on failure
+                ret = await super().invoke(ctx)    
+        return ret
 
 class GreedyGhost(GreedyBot):
     """ Functionality specific to Greedy Ghost """

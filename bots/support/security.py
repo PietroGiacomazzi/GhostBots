@@ -1,5 +1,6 @@
 from configparser import ConfigParser
 from support import ghostDB
+from support import ghostAlchemy
 import lang.lang as lng
 
 class SecurityCheckException(lng.LangSupportException):
@@ -14,53 +15,54 @@ class SecuritySetupError(lng.LangSupportException):
 class InputValidationError(lng.LangSupportException):
     pass
 
-class SecurityContext:
-
-    registeredUser: bool = None
-    userData = None #  web.utils.Storage | ghostDB.DBException # usupported type hint by 3.9
-    language_id = None
-
-    def getUserId(self) -> int:
-        raise NotImplementedError()
-    def getGuildId(self) -> int:
-        raise NotImplementedError()
-    def getChannelId(self) -> int:
-        raise NotImplementedError
-    def getDBManager(self) -> ghostDB.DBManager:
-        raise NotImplementedError()
-    def getDefaultLanguageId(self) -> str:
-        raise NotImplementedError()
-    def getAppConfig(self) -> ConfigParser:
-        raise NotImplementedError()
-    def getLanguageProvider(self) -> lng.LanguageStringProvider:
-        raise NotImplementedError()
-    def getMessageContents(self) -> str:
-        raise NotImplementedError()
-
-    def _loadUserInfo(self):
-        self.registeredUser, self.userData = self.getDBManager().validators.getValidateBotUser(self.getUserId()).validate()
-        if self.registeredUser:
-            self.language_id = self.userData['langId']
-        else:
-            self.language_id = self.getDefaultLanguageId()
-    def getLID(self) -> str:
-        if self.registeredUser is None:
-            self._loadUserInfo()
-
-        return self.language_id
-    def validateUserInfo(self):
-        if self.registeredUser is None:
-            self._loadUserInfo()
-
-        return self.registeredUser, self.userData
-    def getUserInfo(self):
-        if self.registeredUser is None:
-            self._loadUserInfo()
-
-        if self.registeredUser:
-            return self.userData
-        else:
-            raise self.userData
+class SecurityContext(ghostAlchemy.ExecutionContext):
+    """ just a temp proxy to the new ExecutionContext """
+    pass
+##    registeredUser: bool = None
+##    userData = None #  web.utils.Storage | ghostDB.DBException # usupported type hint by 3.9
+##    language_id = None
+##
+##    def getUserId(self) -> int:
+##        raise NotImplementedError()
+##    def getGuildId(self) -> int:
+##        raise NotImplementedError()
+##    def getChannelId(self) -> int:
+##        raise NotImplementedError
+##    def getDBManager(self) -> ghostDB.DBManager:
+##        raise NotImplementedError()
+##    def getDefaultLanguageId(self) -> str:
+##        raise NotImplementedError()
+##    def getAppConfig(self) -> ConfigParser:
+##        raise NotImplementedError()
+##    def getLanguageProvider(self) -> lng.LanguageStringProvider:
+##        raise NotImplementedError()
+##    def getMessageContents(self) -> str:
+##        raise NotImplementedError()
+##
+##    def _loadUserInfo(self):
+##        self.registeredUser, self.userData = self.getDBManager().validators.getValidateBotUser(self.getUserId()).validate()
+##        if self.registeredUser:
+##            self.language_id = self.userData['langId']
+##        else:
+##            self.language_id = self.getDefaultLanguageId()
+##    def getLID(self) -> str:
+##        if self.registeredUser is None:
+##            self._loadUserInfo()
+##
+##        return self.language_id
+##    def validateUserInfo(self):
+##        if self.registeredUser is None:
+##            self._loadUserInfo()
+##
+##        return self.registeredUser, self.userData
+##    def getUserInfo(self):
+##        if self.registeredUser is None:
+##            self._loadUserInfo()
+##
+##        if self.registeredUser:
+##            return self.userData
+##        else:
+##            raise self.userData
 
 class InputValidator:
     def __init__(self, ctx: SecurityContext):
