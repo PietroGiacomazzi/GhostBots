@@ -139,6 +139,8 @@ class RollSetup_General(RollSetup):
         self.actionHandlers[RollType.NORMAL] = RollAction_GeneralRoll
         self.actionHandlers[RollType.SUM] = RollAction_GeneralRoll
         self.actionHandlers[RollType.DIFFICULTY] = RollAction_GeneralRoll
+    def getDefaultRollType(self) -> int:
+        return RollType.SUM
 
 class RollSetup_STS(RollSetup_General):
     def __init__(self, ctx: SecurityContext) -> None:
