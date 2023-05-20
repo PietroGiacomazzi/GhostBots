@@ -109,12 +109,14 @@ class RollSetup:
         self.actionHandlers: dict[int, type[RollAction]] = {}
         self.traits = set()
     def roll(self) -> RollData:
-        action = self.rollArguments[RollArg.ROLLTYPE] if RollArg.ROLLTYPE in self.rollArguments else self.getDefaultRollType() 
+        action = self.getRollType()
         if action in self.actionHandlers:
             handlerClass= self.actionHandlers[action]
             handler = handlerClass(self)
             return handler.execute(action)
         raise GreedyRollExecutionError("string_error_roll_invalid_param_combination")
+    def getRollType(self) -> int:
+        return self.rollArguments[RollArg.ROLLTYPE] if RollArg.ROLLTYPE in self.rollArguments else self.getDefaultRollType() 
     def getDefaultRollType(self) -> int:
         return RollType.NORMAL
     def validate(self):
@@ -215,7 +217,7 @@ class RollSetup_V20HB(RollSetup_STS):
         super().__init__(ctx)
         self.actionHandlers[RollType.DIFFICULTY] = RollAction_V20HB_RegularRoll
         self.actionHandlers[RollType.DAMAGE] = RollAction_V20HB_Damage
-        self.actionHandlers[RollType.PROGRESS] = RollAction_V20HB_RegularRoll
+        self.actionHandlers[RollType.PROGRESS] = RollAction_V20HB_ProgressRoll
         self.actionHandlers[RollType.REFLEXES] = RollAction_V20HB_RegularRoll
         self.actionHandlers[RollType.SOAK] = RollAction_V20HB_Damage
         
@@ -257,6 +259,10 @@ class RollAction_STS(RollAction):
     def __init__(self, setup: RollSetup_STS) -> None:
         super().__init__(setup)
         self.setup = setup # here just for type hinting suggestions
+    def shouldCancel(self) -> bool:
+        return True
+    def shouldSpec(self) -> bool:
+        return False
 
 class RollAction_STS_Initiative(RollAction_STS):
     def execute(self, rolltype: int) -> RollData:
@@ -290,8 +296,6 @@ class RollAction_STS_Initiative(RollAction_STS):
         return rd
 
 class RollAction_STS_Damage(RollAction_STS):
-    def shouldCancel(self):
-        return True
     def execute(self, rolltype: int) -> RollData:
         lid = self.setup.ctx.getLID()
         diff = self.setup.rollArguments[RollArg.DIFF]
@@ -300,7 +304,7 @@ class RollAction_STS_Damage(RollAction_STS):
         
         rd = self.initRollData(rolltype)
 
-        roll_item = self.setup.rollPool(ndice, diff, extra_successes, canceling=self.shouldCancel())
+        roll_item = self.setup.rollPool(ndice, diff, extra_successes, canceling=self.shouldCancel(), spec=self.shouldSpec())
         roll_item.tag = f'{self.setup.ctx.getLanguageProvider().get(lid, "string_roll")}'
         rd.data.append(roll_item)
 
@@ -322,11 +326,11 @@ class RollAction_STS_RegularRoll(RollAction_STS):
             ndice_rem = ndice % multi
             for i in range(multi):
                 extra_die = 1 if i < ndice_rem else 0
-                roll_item = self.setup.rollPool(ndice_multi+extra_die, diff, extra_successes, minsucc=min_succ)
+                roll_item = self.setup.rollPool(ndice_multi+extra_die, diff, extra_successes, canceling=self.shouldCancel(), spec=self.shouldSpec(), minsucc=min_succ)
                 roll_item.tag = f'{self.setup.ctx.getLanguageProvider().get(lid, "string_action")} {i+1}'
                 rd.data.append(roll_item)
         else: # 1 tiro solo 
-            roll_item = self.setup.rollPool(ndice, diff, extra_successes, minsucc=min_succ)
+            roll_item = self.setup.rollPool(ndice, diff, extra_successes, canceling=self.shouldCancel(), spec=self.shouldSpec(), minsucc=min_succ)
             roll_item.tag = f'{self.setup.ctx.getLanguageProvider().get(lid, "string_roll")}'
             rd.data.append(roll_item)
         return rd
@@ -358,11 +362,11 @@ class RollAction_V20HB_RegularRoll(RollAction_STS):
                     split_diffs = split[i]
                     pools = [(ndice_m-ndice_m//2), ndice_m//2]
                     for j in range(len(pools)):
-                        roll_item = self.setup.rollPool(pools[j], split_diffs[j], extra_successes, minsucc=min_succ)
+                        roll_item = self.setup.rollPool(pools[j], split_diffs[j], extra_successes, canceling=self.shouldCancel(), spec=self.shouldSpec(), minsucc=min_succ)
                         roll_item.tag = f'{base_tag}: {self.setup.ctx.getLanguageProvider().get(lid, "string_roll")} {j+1}'
                         rd.data.append(roll_item)
                 else:
-                    roll_item = self.setup.rollPool(ndice_m, diff, extra_successes, minsucc=min_succ)
+                    roll_item = self.setup.rollPool(ndice_m, diff, extra_successes, canceling=self.shouldCancel(), spec=self.shouldSpec(), minsucc=min_succ)
                     roll_item.tag = base_tag
                     rd.data.append(roll_item)
         else: # 1 tiro solo 
@@ -370,14 +374,20 @@ class RollAction_V20HB_RegularRoll(RollAction_STS):
                 split_diffs = split[0]
                 pools = [(ndice-ndice//2), ndice//2]
                 for j in range(len(pools)):
-                    roll_item = self.setup.rollPool(pools[j], split_diffs[j], extra_successes,  minsucc=min_succ)
+                    roll_item = self.setup.rollPool(pools[j], split_diffs[j], extra_successes, canceling=self.shouldCancel(), spec=self.shouldSpec(), minsucc=min_succ)
                     roll_item.tag = f'{self.setup.ctx.getLanguageProvider().get(lid, "string_roll")} {j+1}'
                     rd.data.append(roll_item)
             else:
-                roll_item = self.setup.rollPool(ndice, diff, extra_successes, minsucc=min_succ)
+                roll_item = self.setup.rollPool(ndice, diff, extra_successes, canceling=self.shouldCancel(), spec=self.shouldSpec(), minsucc=min_succ)
                 roll_item.tag = f'{self.setup.ctx.getLanguageProvider().get(lid, "string_roll")}'
                 rd.data.append(roll_item)
         return rd
+
+class RollAction_V20HB_ProgressRoll(RollAction_V20HB_RegularRoll):
+    def shouldSpec(self) -> bool:
+        return True
+    def shouldCancel(self) -> bool:
+        return False
 
 class RollSetupValidator:
     def validate(self, setup: RollSetup):

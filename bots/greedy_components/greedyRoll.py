@@ -734,7 +734,6 @@ class RollParser_STS(RollParser_General):
         self.rollRollArgumentParsers[DIFF_CMD] = RollArgumentParser_STS_DIFF()
         self.rollRollArgumentParsers[MULTI_CMD] = RollArgumentParser_STS_MULTI()
         self.rollRollArgumentParsers[DANNI_CMD] = RollArgumentParser_KeywordActivateOnly(gms.RollSetupValidator, gms.RollArg.ROLLTYPE, rollTypeVal = gms.RollType.DAMAGE)
-        self.rollRollArgumentParsers[PROGRESSI_CMD] = RollArgumentParser_KeywordActivateOnly(gms.RollSetupValidator, gms.RollArg.ROLLTYPE, rollTypeVal = gms.RollType.PROGRESS)
         self.rollRollArgumentParsers[(ADD_CMD,)] = RollArgumentParser_STS_DiceExpression(gms.RollSetupValidator_STS_DICE, has_parameters=True, detachEnd=True)
         self.rollRollArgumentParsers[(SUB_CMD,)] = RollArgumentParser_STS_DiceExpression(gms.RollSetupValidator_STS_DICE, has_parameters=True, firstNegative = True, detachEnd=True)
         self.rollRollArgumentParsers[PENALITA_CMD] = RollArgumentParser_KeywordActivateOnly(gms.RollSetupValidator, gms.RollArg.PENALTY)
@@ -756,6 +755,7 @@ class RollParser_V20HB(RollParser_STS):
         self.rollRollArgumentParsers[SPLIT_CMD] = RollArgumentParser_V20HB_SPLIT()
         self.rollRollArgumentParsers[MULTI_CMD] = RollArgumentParser_STS_MULTI(gms.RollSetupValidator_V20HB_MULTI)
         self.rollRollArgumentParsers[RIFLESSI_CMD] = RollArgumentParser_V20HB_Reflexes()
+        self.rollRollArgumentParsers[PROGRESSI_CMD] = RollArgumentParser_KeywordActivateOnly(gms.RollSetupValidator, gms.RollArg.ROLLTYPE, rollTypeVal = gms.RollType.PROGRESS)
     def getSetup(self, ctx: gb.GreedyContext):
         return gms.RollSetup_V20HB(ctx)
     def getOutputter(self) -> RollOutputter_V20HB:
