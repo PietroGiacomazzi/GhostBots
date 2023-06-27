@@ -49,12 +49,12 @@
 }
 
 .large-textarea{
-  height: 45vw;
+  height: 80vh;
   resize: none;
 }
 
 .medium-textarea{
-  height: 30vw;
+  height: 60vh;
   resize: none;
 }
 
