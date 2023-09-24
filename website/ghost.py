@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from configparser import ConfigParser
+from dataclasses import dataclass
 import sys, os
 
 abspath = os.path.dirname(__file__)+"/"
@@ -129,6 +131,10 @@ class WebContext(sec.SecurityContext):
         return web.ctx.path
     def getLanguageProvider(self) -> lng.LanguageStringProvider:
         return lp
+    def getActiveCharacter(self):
+        return self.response.input_data['charId'] # we ASSUME that access has been confirmed by a security check
+    def getAppConfig(self) -> ConfigParser:
+        return config
 
 def web_security(security_item: type[sec.CommandSecurity], **security_options):
     """ setup security permissions for a WebResponse object """
@@ -414,14 +420,14 @@ class dashboard(WebPageResponseLang):
             return render.dashboard(global_template_params, self.getLanguageDict(), '', self.getString("web_label_login"), "doLogin",  self.getString("web_default_dashboard_msg_notlogged"))
             
 my_chars_query_admin = """
-select pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername
+select pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername, cr.gamesystemid
 from PlayerCharacter pc
 join People po on (pc.owner = po.userid)
 left join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
 left join Chronicle cr on (ccr.chronicle = cr.id)"""
 
 my_chars_query_st = """
-select distinct pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername
+select distinct pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername, cr.gamesystemid
 from PlayerCharacter pc
 join People po on (pc.owner = po.userid)
 left join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
@@ -431,7 +437,7 @@ where stcr.storyteller = $storyteller_id
 or pc.owner = $userid or pc.player = $userid"""
 
 my_chars_query_player = """
-select pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername
+select pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername, cr.gamesystemid
 from PlayerCharacter pc
 join People po on (pc.owner = po.userid)
 left join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
@@ -1011,6 +1017,11 @@ class deleteMacro(APIResponse):
             
         return [updated_rows]
 
+@dataclass
+class ActionResult:
+    type: str
+    data: Any
+
 class useMacro(APIResponse):
     def __init__(self):
         super().__init__(config, session, min_access_level = 2, accepted_input = {
@@ -1026,16 +1037,20 @@ class useMacro(APIResponse):
         can_edit = check_web_security(self, canEditCharacterPerm('charId'))
 
         ctx = WebContext(self)
-        results = gms.getHandler(gamesystem)(ctx, character, can_edit).handle_macro(self.input_data['macroId'][ghostDB.FIELDNAME_CHARACTERMACRO_MACROCOMMANDS], [])
+        results = gms.buildHandler(ctx, gamesystem, character, can_edit).handle_macro(self.input_data['macroId'][ghostDB.FIELDNAME_CHARACTERMACRO_MACROCOMMANDS], [])
 
         out = []
         for result in results:
+            item = None
             if isinstance(result, gms.PCActionResultText):
-                out.append(result.text)
+                item = ActionResult("TEXT", result.text)
             elif isinstance(result, gms.PCActionResultTrait):
-                out.append(result.trait)  
+                item = ActionResult("TRAIT", result.trait)
+            elif isinstance(result, gms.PCActionResultRollData):
+                item = ActionResult("ROLL", result.data)
             else:
                 out.append("UNKNOWN ACTIONRESULT") # TODO
+            out.append(item)
         return out
 
 if __name__ == "__main__":

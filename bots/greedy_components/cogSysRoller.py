@@ -11,11 +11,13 @@ from greedy_components.cogRoller import roll_longdescription
 
 class GreedyGhostCog_SysRoller(gb.GreedyGhostCog):
 
-    async def execute_roll(self, ctx: commands.Context, parser: gr.RollParser, args: list):
+    async def execute_roll(self, ctx: commands.Context, handler: gr.RollHandler, args: list):
+        parser = handler.rollParserCls()()
         setup = parser.parseRoll(ctx, args)
         setup.validate()
         rd = setup.roll()
-        response = parser.getOutputter().output(rd, ctx)
+        outputter = handler.rollOutputterCls()()
+        response = outputter.output(rd, ctx)
         await self.bot.atSendLang(ctx, response)
 
     @commands.command(name='roll', aliases=['r', 'tira', 'lancia', 'rolla'], brief = 'Tira dadi', description = roll_longdescription) 
@@ -25,11 +27,10 @@ class GreedyGhostCog_SysRoller(gb.GreedyGhostCog):
             raise gb.BotException(self.bot.getStringForUser(ctx, "string_error_x_what", "roll")+ " diomadonna") # xd
 
         gamesystem = self.bot.getGameSystemByChannel(ctx.channel.id)
-        parser_class = gr.getParser(gms.getGamesystem(gamesystem))
-        parser = parser_class()
+        handler = gr.getHandler(gms.getGamesystem(gamesystem))()
         
         args_list = list(args)
-        await self.execute_roll(ctx, parser, args_list)
+        await self.execute_roll(ctx, handler, args_list)
 
     @commands.command(name='rollGS', aliases=['rgs'], brief = 'Tira dadi con un sistema specifico', description = roll_longdescription) 
     @commands.before_invoke(gs.command_security(gs.basicRegisteredUser))

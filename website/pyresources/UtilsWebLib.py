@@ -132,12 +132,13 @@ class WebResponse:
                 result = self.postHook(self.mPOST())
         except WebException as e:
             # this currently breaks if the exception message contains non ascii characters, TODO find a way to fix this
-            self.logger.warning("Error in request of "+web.ctx.path+" from "+str(web.ctx.ip)+" with (raw) parameters: "+str(self.input_data_raw)+". error: "+str(type(e))+" - "+str(e)+". Error code: "+str(e.code))
+            err_str =  f'Error in request of {web.ctx.path} from {web.ctx.ip} with (raw) parameters: {self.input_data_raw}. error: {type(e)} - {e}. Error code: {e.code}'
+            self.logger.warning(err_str)
             if e.code != 0:
                 try:
                     web.ctx.status = http_status_map[e.code]
                 except:
-                    self.logger.warning("Invalid error status: "+str(e.code))
+                    self.logger.warning(f'Invalid error status: {e.code}')
             else:
                 web.ctx.status = http_status_map[400]
             sendback = str(e)
@@ -145,10 +146,11 @@ class WebResponse:
         except:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             # this currently breaks if the exception message contains non ascii characters, TODO find a way to fix this
-            self.logger.error("Unhandled Exception: "+str(exc_value)+ "\n"+"".join(traceback.format_tb(exc_traceback)))
+            err_str = f'Unhandled Exception: {exc_value}\n {"".join(traceback.format_tb(exc_traceback))}'
+            self.logger.error()
             web.ctx.status = http_status_map[500]
             sendback = str(exc_value)
-            sendback = "Unhandled exception: "+sendback
+            sendback = f'Unhandled exception: {sendback}'
             result = self.postHook(sendback)
         self.timings.append(time.perf_counter())
         #result["debug"].append({"time": int(1000*(self.timings[1]-self.timings[0]))})
@@ -176,7 +178,7 @@ class APIResponse(WebResponse):
         super(APIResponse, self).__init__(config, session, properties, accepted_input, min_access_level)
     def postHook(self, result):
         web.header('Content-Type', 'application/json')
-        return json.dumps(super(APIResponse, self).postHook(result))
+        return json.dumps(super(APIResponse, self).postHook(result), default = lambda obj: vars(obj))
 
 
    

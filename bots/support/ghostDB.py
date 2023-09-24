@@ -158,7 +158,8 @@ insert into CharacterTrait
             return True
         else:
             raise DBException('string_error_database_unexpected_update_rowcount', (u,))
-    def getActiveChar(self, ctx: commands.Context): # dato un canale e un utente, trova il pg interpretato
+    def getActiveChar(self, ctx: commands.Context):
+        """ DISCORD SPECIFIC! given a channel, find the character that is being played by the user """
         playercharacters = self.db.query("""
     SELECT pc.*
     FROM GameSession gs

@@ -2169,19 +2169,58 @@ function do_use_macro()
 	});
 }
 
+class RollItemFormatter
+{
+	format(rollitem)
+	{
+		var s = 'Work in progress. '
+		return s.concat(rollitem.tag, ' diff ', rollitem.difficulty, ': ', rollitem.results, ' successes: ', rollitem.count_successes);
+	}
+}
+
+class RollDataFormatter
+{
+	output(rolldata){
+		var formatterCls = this.getItemFormatter(rolldata);
+		var formatter = new formatterCls();
+
+		var element = document.createElement('div');
+
+		for (var i = 0; i<rolldata.data.length; ++i){
+			var itemElement =  document.createElement('p');
+			var dataitem = rolldata.data[i];
+			itemElement.innerHTML = formatter.format(dataitem);
+			element.appendChild(itemElement);
+		}
+
+		return element;
+	}
+	getItemFormatter(rolldata){
+		return RollItemFormatter
+	}
+}
+
+function createRollDataElement(rolldata)
+{
+	var rf = new RollDataFormatter()
+
+	return rf.output(rolldata);
+}
+
 function fillMacroResults(node, data)
 {
-	for (i = 0; i<data.length; ++i){
+	for (var i = 0; i<data.length; ++i){
 		dataitem = data[i]
 		var childItem;
-		if (typeof dataitem === 'string' )
-		{
+		if (dataitem.type === 'TEXT'){
 			childItem = document.createElement('p');
-			childItem.innerHTML = dataitem;
+			childItem.innerHTML = dataitem.data;
 		}
-		else
-		{
-			childItem = createTraitElement(dataitem)
+		else if (dataitem.type === 'TRAIT') {
+			childItem = createTraitElement(dataitem.data)
+		}
+		else if (dataitem.type === 'ROLL') {
+			childItem = createRollDataElement(dataitem.data)
 		}
 		node.appendChild(childItem);
 	}

@@ -4,6 +4,7 @@ import urllib
 from greedy_components import greedyBase as gb
 from greedy_components import greedyConverters as gc
 from greedy_components import greedySecurity as gs
+from greedy_components  import greedyRoll as gr
 
 import lang.lang as lng
 import support.utils as utils
@@ -129,12 +130,16 @@ class PCActionResultOutputter():
     def __init__(self, ctx: sec.SecurityContext) -> None:
         self.ctx = ctx
     def getTraitFormatterClass(self, trait) -> type[TraitFormatter]:
-        raise NotImplementedError()
+        NotImplementedError(f'Abstract {self.__class__.__name__}')
+    def getRollDataFormatterClass(self) -> type[gr.RollOutputter]:
+        return gr.RollOutputter_GENERAL
     def outputItem(self, item: gms.PCActionResult):
         if isinstance(item, gms.PCActionResultTrait):
             return self.getTraitFormatterClass(item.trait)(self.ctx.getLID(), self.ctx.getLanguageProvider()).format(item.trait)
         elif isinstance(item, gms.PCActionResultText):
             return item.text
+        elif isinstance(item, gms.PCActionResultRollData):
+            return self.getRollDataFormatterClass()().output(item.data, self.ctx)
         raise 
     def outputList(self, item_list: list[gms.PCActionResult]) -> str:
         formatted = []
@@ -163,6 +168,16 @@ class PCActionResultOutputter_STS(PCActionResultOutputter):
             return PointAccumulatorTraitFormatter
         else:
             return DefaultTraitFormatter
+    def getRollDataFormatterClass(self) -> type[gr.RollOutputter]:
+        return gr.RollOutputter_STS
+
+class PCActionResultOutputter_V20HB(PCActionResultOutputter_STS):
+    def getRollDataFormatterClass(self) -> type[gr.RollOutputter]:
+        return gr.RollOutputter_V20HB
+    
+class PCActionResultOutputter_V20VANILLA(PCActionResultOutputter_STS):
+    def getRollDataFormatterClass(self) -> type[gr.RollOutputter]:
+        return gr.RollOutPutter_V20VANILLA
 
 class PCAction_CharacterLink(gms.PCAction):
     def handle(self, *args: tuple[str]) -> list[gms.PCActionResult]:
@@ -174,8 +189,8 @@ class PCAction_CharacterLink(gms.PCAction):
 ActionResultOutputterMappings: dict[int, type[PCActionResultOutputter]] = {
     #gms.GameSystems.GENERAL: PCActionHandler_STS,
     gms.GameSystems.STORYTELLER_SYSTEM: PCActionResultOutputter_STS,
-    gms.GameSystems.V20_VTM_HOMEBREW_00: PCActionResultOutputter_STS,
-    gms.GameSystems.V20_VTM_VANILLA: PCActionResultOutputter_STS
+    gms.GameSystems.V20_VTM_HOMEBREW_00: PCActionResultOutputter_V20HB,
+    gms.GameSystems.V20_VTM_VANILLA: PCActionResultOutputter_V20VANILLA
     #gms.GameSystems.DND_5E: RollParser_DND5E,
 }
 
@@ -192,8 +207,7 @@ class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog):
     async def pc_interact(self, ctx: gb.GreedyContext, pc: object, can_edit: bool, *args_tuple) -> str:
         gamesystemid = self.bot.getGameSystemByChannel(ctx.channel.id)
         gamesystem = gms.getGamesystem(gamesystemid)
-        handlerClass = gms.getHandler(gamesystem)
-        handler = handlerClass(ctx, pc, can_edit)
+        handler = gms.buildHandler(ctx, gamesystem, pc, can_edit)
         handler.nullAction = PCAction_CharacterLink
         result = handler.handle(args_tuple)
         return getOutputter(gamesystem, ctx).outputList(result)

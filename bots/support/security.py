@@ -36,6 +36,8 @@ class SecurityContext:
         raise NotImplementedError()
     def getMessageContents(self) -> str:
         raise NotImplementedError()
+    def getActiveCharacter(self):
+        raise NotImplementedError()
 
     def _loadUserInfo(self):
         self.registeredUser, self.userData = self.getDBManager().validators.getValidateBotUser(self.getUserId()).validate()
