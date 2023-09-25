@@ -510,7 +510,7 @@ class RollArgumentParser:
     def _parse_internal(self, ctx: SecurityContext, refSetup: RollSetup):
         raise NotImplementedError()
     def _save_setup(self, currentSetup: RollSetup):
-        if (not RollArg.CHARACTER in currentSetup.rollArguments) and (not self.character is None):
+        if (not RollArg.CHARACTER in currentSetup.rollArguments) and (not self.character is None): # every time we successfully parse something, if we got a character from DB, we save the character into the setup for future use
             currentSetup.rollArguments[RollArg.CHARACTER] = self.character
     def parse(self, ctx: SecurityContext, arguments: list[str], i: int, currentSetup: RollSetup, keyword = True) -> int:        
         # set the cursor to the current position
@@ -556,6 +556,7 @@ class RollArgumentParser:
             currentSetup.rollArguments[RollArg.DICE] = pool
             currentSetup.rollArguments[RollArg.PERMANENT_DICE] = pool_permanent
     def loadCharacter(self, ctx: SecurityContext, refSetup: RollSetup):
+        """ utility method for parsers, get the relevant character either from the roll setup (if already present) or get it from context """
         if self.character is None:
             self.character = refSetup.rollArguments[RollArg.CHARACTER] if RollArg.CHARACTER in refSetup.rollArguments else ctx.getActiveCharacter()
     # parameter parsers
@@ -873,9 +874,10 @@ class RollArgumentParser_V20HB_SPLIT(RollArgumentParser):
         self.split = {}
 
 class RollParser:
-    def __init__(self):
+    def __init__(self, character = None):
         self.rollRollArgumentParsers: dict[tuple[str, ...], RollArgumentParser] = {} #list[RollArgumentParser] = []
         self.nullParser: RollArgumentParser = None
+        self.character = character
     def generateSetup(self, ctx: SecurityContext) -> RollSetup:
         setup = self.getSetup(ctx)
         for parser in self.rollRollArgumentParsers.values():
@@ -910,6 +912,9 @@ class RollParser:
         return i, args
     def parseRoll(self, ctx: SecurityContext, args: list[str]) -> RollSetup:
         setup = self.generateSetup(ctx)
+        # fill character if it was passed from outside
+        if self.character:
+            setup.rollArguments[RollArg.CHARACTER] = self.character
 
         # detaching + or - from the end of an expression needs to be done immediately
         i = 0
@@ -948,8 +953,8 @@ class RollParser:
         return setup
 
 class RollParser_General(RollParser):
-    def  __init__(self):
-        super().__init__()
+    def __init__(self, character=None):
+        super().__init__(character)
         self.rollRollArgumentParsers[DIFF_CMD] = RollArgumentParser_GENERAL_DIFF()
         self.rollRollArgumentParsers[SOMMA_CMD] = RollArgumentParser_KeywordActivateOnly(RollSetupValidator, RollArg.ROLLTYPE, rollTypeVal = RollType.SUM)
         self.rollRollArgumentParsers[(ADD_CMD,)] = RollArgumentParser_DiceExpression(RollSetupValidator_DICE, has_parameters=True, detachEnd=True)
@@ -959,8 +964,8 @@ class RollParser_General(RollParser):
         return RollSetup_General(ctx)
 
 class RollParser_STS(RollParser_General):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, character=None):
+        super().__init__(character)
         self.rollRollArgumentParsers[DIFF_CMD] = RollArgumentParser_STS_DIFF()
         self.rollRollArgumentParsers[MULTI_CMD] = RollArgumentParser_STS_MULTI()
         self.rollRollArgumentParsers[DANNI_CMD] = RollArgumentParser_KeywordActivateOnly(RollSetupValidator, RollArg.ROLLTYPE, rollTypeVal = RollType.DAMAGE)
@@ -978,8 +983,8 @@ class RollParser_STS(RollParser_General):
         return RollSetup_STS(ctx)
 
 class RollParser_V20HB(RollParser_STS):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, character=None):
+        super().__init__(character)
         self.rollRollArgumentParsers[SPLIT_CMD] = RollArgumentParser_V20HB_SPLIT()
         self.rollRollArgumentParsers[MULTI_CMD] = RollArgumentParser_STS_MULTI(RollSetupValidator_V20HB_MULTI)
         self.rollRollArgumentParsers[RIFLESSI_CMD] = RollArgumentParser_V20HB_Reflexes()
@@ -988,14 +993,14 @@ class RollParser_V20HB(RollParser_STS):
         return RollSetup_V20HB(ctx)
 
 class RollParser_V20VANILLA(RollParser_STS):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, character=None):
+        super().__init__(character)
     def getSetup(self, ctx: SecurityContext):
         return RollSetup_V20VANILLA(ctx)
 
 class RollParser_DND5E(RollParser_General):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, character=None):
+        super().__init__(character)
     #def getSetup(self, ctx: SecurityContext):
     #    return RollSetup_STS(ctx)
 
@@ -1384,7 +1389,7 @@ class PCActionHandler:
                     if base_cmd == "me":
                         result = self.handle(cmd_split[1:], True)
                     elif base_cmd == "roll": # TODO
-                        parser = self.getRollParserCls()()
+                        parser = self.getRollParserCls()(self.character)
                         setup = parser.parseRoll(self.ctx, cmd_split[1:])
                         setup.validate()
                         rd = setup.roll()
