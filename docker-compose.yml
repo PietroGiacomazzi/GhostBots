@@ -28,7 +28,6 @@ services:
     volumes:
       - ./environments/${PROJECT_ENVNAME}/config.ini:/bots/config.ini
     secrets:
-      - bot-token
       - mysql-root
     build:
       context: ./
@@ -39,8 +38,8 @@ services:
 
   website:
     image: gg-web:${PROJECT_TARGET_SOFTWAREVERSION}
-    ports:
-      - 8080:80
+    #ports:
+    #  - 8080:80
     environment:
       DATABASE_DIALECT: mysql
       DATABASE_HOST: database
