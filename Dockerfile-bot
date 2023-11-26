@@ -1,0 +1,9 @@
+FROM python:3.11.0 as gg-bot
+COPY ./requirements_bot.txt ./
+RUN pip install --no-cache-dir -r requirements_bot.txt
+WORKDIR /bots
+COPY bots .
+COPY support support
+COPY lang lang
+EXPOSE 5678
+CMD ["python3", "greedyghost.py", "config.ini"]

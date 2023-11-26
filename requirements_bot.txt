@@ -1,0 +1,25 @@
+# ./requirements.txt
+
+# main libs
+#discord.py==1.7.3
+#web.py==0.62
+#mysqlclient
+#debugpy
+
+# pip freeze:
+
+aiohttp==3.7.4.post0
+async-timeout==3.0.1
+attrs==23.1.0
+chardet==4.0.0
+cheroot==10.0.0
+debugpy==1.8.0
+discord.py==1.7.3
+idna==3.6
+jaraco.functools==4.0.0
+more-itertools==10.1.0
+multidict==6.0.4
+mysqlclient==2.2.0
+typing_extensions==4.8.0
+web.py==0.62
+yarl==1.9.3

@@ -1,0 +1,73 @@
+services:
+
+  database:
+    image: mariadb:latest
+    restart: always
+    environment:
+      MARIADB_DATABASE: greedyghost
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mysql-root
+    volumes:
+      - greedyghost-mysql-data:/var/lib/mysql
+      - ./environments/${PROJECT_ENVNAME}/db-backup:/db-backup
+    secrets:
+      - mysql-root
+    healthcheck:
+      test: out=$$(mariadb-admin ping -h localhost -P 3306 -u root --password=$$(cat $${MARIADB_ROOT_PASSWORD_FILE}) 2>&1); echo $$out | grep 'mysqld is alive' || { echo $$out; exit 1; }
+      interval: 5s
+      timeout: 10s
+      start_period: 5s
+
+  bot:
+    image: gg-bot:${PROJECT_TARGET_SOFTWAREVERSION}
+    environment:
+      DATABASE_DIALECT: mysql
+      DATABASE_HOST: database
+      DATABASE_DBNAME: greedyghost
+      DATABASE_USER: root
+      DATABASE_PW_FILE: /run/secrets/mysql-root
+    volumes:
+      - ./environments/${PROJECT_ENVNAME}/config.ini:/bots/config.ini
+    secrets:
+      - bot-token
+      - mysql-root
+    build:
+      context: ./
+      dockerfile: ./Dockerfile-bot
+    depends_on:
+      database:
+        condition: service_healthy
+
+  website:
+    image: gg-web:${PROJECT_TARGET_SOFTWAREVERSION}
+    ports:
+      - 8080:80
+    environment:
+      DATABASE_DIALECT: mysql
+      DATABASE_HOST: database
+      DATABASE_DBNAME: greedyghost
+      DATABASE_USER: root
+      DATABASE_PW_FILE: /run/secrets/mysql-root
+    volumes:
+      - ./environments/${PROJECT_ENVNAME}/config.ini:/website/config.ini
+    secrets:
+      - mysql-root
+    build:
+      context: ./
+      dockerfile: ./Dockerfile-website
+    depends_on:
+      database:
+        condition: service_healthy
+
+networks:
+  proxynet: # internet access tbd
+    name: proxy-net 
+    external: true
+
+secrets:
+  bot-token:
+    file: environments/${PROJECT_ENVNAME}/secrets/bot-token
+  mysql-root:
+    file: environments/${PROJECT_ENVNAME}/secrets/mysql-root
+
+volumes:
+  greedyghost-mysql-data:

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+ #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 from configparser import ConfigParser
@@ -8,7 +8,7 @@ import sys, os
 abspath = os.path.dirname(__file__)+"/"
 sys.path.append(abspath)
 
-import web, configparser
+import web, configparser, logging
 import subprocess, json, time, datetime
 from requests_oauthlib import OAuth2Session
 
@@ -19,7 +19,7 @@ import support.security as sec
 import support.gamesystems as gms
 
 config = configparser.ConfigParser()
-config.read("/var/www/greedy_ghost_web.ini")
+config.read("/website/config.ini")
 
 # --- CONFIG ---
 
@@ -282,8 +282,8 @@ class Log(WsgiLog): # this shit needs the config to be loaded so it can't be off
             )
 
 class WebPageResponseLang(WebPageResponse):
-    def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
-        super(WebPageResponseLang, self).__init__(config, session, properties, accepted_input, min_access_level)
+    def __init__(self, config, session, accepted_input = {}, min_access_level = 0):
+        super(WebPageResponseLang, self).__init__(config, session, accepted_input, min_access_level)
     def getLangId(self) -> str:
         try:
             return self.session.language
@@ -295,8 +295,8 @@ class WebPageResponseLang(WebPageResponse):
         return lp.languages[self.getLangId()]
 
 class APIResponseLang(APIResponse):
-    def __init__(self, config, session, properties = {}, accepted_input = {}, min_access_level = 0):
-        super(APIResponseLang, self).__init__(config, session, properties, accepted_input, min_access_level)
+    def __init__(self, config, session, accepted_input = {}, min_access_level = 0):
+        super(APIResponseLang, self).__init__(config, session, accepted_input, min_access_level)
     def getLangId(self) -> str:
         try:
             return self.session.language

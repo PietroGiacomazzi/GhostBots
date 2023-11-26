@@ -1,2 +1,6 @@
 *.pyc
 .vscode/
+
+/environments/*
+!/environments/readme.md
+!/environments/sample_docker-compose.overrides.yml

@@ -9,7 +9,6 @@ MUST_NOT = 0
 MAY = 1
 MUST = 2
 
-DEFAULT_PROPERTIES = {'allow_unsafe': 0}
 DEFAULT_INPUT_ACCEPT = {None: (MUST_NOT, str)}
 # None: (MUST_NOT, anytype) denies everything not covered by the other directives
 # None: (MAY, str) accepts everything not covered by the other directives
@@ -66,12 +65,10 @@ def validator_positive_integer(value: str) -> int:
         return retval
 
 class WebResponse:
-    def __init__(self, config: ConfigParser, session: web.session.Session, properties: dict = {}, accepted_input: dict = {}, min_access_level: int= 0):
+    def __init__(self, config: ConfigParser, session: web.session.Session, accepted_input: dict = {}, min_access_level: int= 0):
         self.config = config
         self.accepted_params = DEFAULT_INPUT_ACCEPT.copy()
         self.accepted_params.update(accepted_input)
-        self.props = DEFAULT_PROPERTIES.copy()
-        self.props.update(properties)
         self.session = session
         self.min_access_level = min_access_level
         self.timings = []
@@ -119,7 +116,7 @@ class WebResponse:
         web.header('Content-Type', 'text/plain')
         self.input_data_raw = web.input()
         try:
-            if web.ctx.protocol != 'https' and not self.props['allow_unsafe']:
+            if web.ctx.protocol != 'https' and not (int(self.config['WebApp']['allow_unsafe'])):
                 raise WebException("Use https!")
             if self.min_access_level > self.session.access_level:
                 raise WebException("Access Denied!", 401)
@@ -147,7 +144,7 @@ class WebResponse:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             # this currently breaks if the exception message contains non ascii characters, TODO find a way to fix this
             err_str = f'Unhandled Exception: {exc_value}\n {"".join(traceback.format_tb(exc_traceback))}'
-            self.logger.error()
+            self.logger.error(err_str)
             web.ctx.status = http_status_map[500]
             sendback = str(exc_value)
             sendback = f'Unhandled exception: {sendback}'
@@ -167,15 +164,15 @@ class WebResponse:
         raise WebException('HTTP METHOD NOT AVAILABLE', 405)
 
 class WebPageResponse(WebResponse):
-    def __init__(self, config: ConfigParser, session: web.session.Session, properties = {}, accepted_input = {}, min_access_level = 0):
-        super(WebPageResponse, self).__init__(config, session, properties, accepted_input, min_access_level)
+    def __init__(self, config: ConfigParser, session: web.session.Session, accepted_input = {}, min_access_level = 0):
+        super(WebPageResponse, self).__init__(config, session, accepted_input, min_access_level)
     def postHook(self, result):
         web.header('Content-Type', 'text/html')
         return super(WebPageResponse, self).postHook(result)
 
 class APIResponse(WebResponse):
-    def __init__(self, config: ConfigParser, session: web.session.Session, properties = {}, accepted_input = {}, min_access_level = 0):
-        super(APIResponse, self).__init__(config, session, properties, accepted_input, min_access_level)
+    def __init__(self, config: ConfigParser, session: web.session.Session, accepted_input = {}, min_access_level = 0):
+        super(APIResponse, self).__init__(config, session, accepted_input, min_access_level)
     def postHook(self, result):
         web.header('Content-Type', 'application/json')
         return json.dumps(super(APIResponse, self).postHook(result), default = lambda obj: vars(obj))

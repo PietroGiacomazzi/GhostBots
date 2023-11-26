@@ -1,0 +1,42 @@
+FROM python:3.11.0 as gg-web
+
+# apache2
+
+RUN apt-get clean \
+    && apt-get -y update
+RUN apt-get -y install apache2 
+RUN apt-get -y install apache2-dev
+RUN apt-get -y install apache2-utils 
+
+# pip reqs
+
+RUN pip install --upgrade pip
+RUN pip install --upgrade setuptools
+COPY ./requirements_web.txt ./
+RUN pip install --no-cache-dir -r requirements_web.txt
+
+# application  
+
+RUN mod_wsgi-express module-config >> /etc/apache2/apache2.conf
+
+COPY website/config/000-default.conf /etc/apache2/sites-available/000-default.conf
+
+WORKDIR /website
+COPY website/ghost.py .
+COPY website/pyresources ./pyresources
+COPY website/templates ./templates
+COPY support support
+COPY lang lang
+
+WORKDIR /var/www
+COPY website/css ./html/css
+COPY website/html_res ./html/html_res
+COPY website/img_res ./html/img_res
+COPY website/script.js ./html
+
+RUN mkdir /var/www/gg_sessions
+RUN chown www-data:www-data /var/www/gg_sessions
+RUN mkdir /var/log/greedyghostweb/
+RUN chown www-data:www-data /var/log/greedyghostweb/
+
+CMD ["apache2ctl", "-D", "FOREGROUND"]

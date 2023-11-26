@@ -1,5 +1,0 @@
-# ./requirements.txt
-discord.py==1.7.3
-web.py==0.62
-mysqlclient
-#==2.0.3

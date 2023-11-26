@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
-import os
-import sys, configparser, discord
+import os, sys, configparser, discord, logging
+
+# init debugging
+import debugpy
+debugpy.listen(("0.0.0.0", 5678))
 
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
