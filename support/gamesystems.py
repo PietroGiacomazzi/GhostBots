@@ -1150,9 +1150,6 @@ class PCTraitAction_STS(PCTraitAction):
         return False 
 
 class PCTraitAction_STS_ModifyCurValue(PCTraitAction_STS):
-    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
-        super().__init__(handler, ctx, character, trait)
-        self.expectedParameterNumbers = (0, 1)
     def newValue(self, args: list[str]):
         raise NotImplementedError()
     def checkBounds(self, args: list[str]):
@@ -1181,18 +1178,30 @@ class PCTraitAction_STS_ModifyCurValue(PCTraitAction_STS):
         return [PCActionResultTrait(self.trait)]
 
 class PCTraitAction_STS_RESET(PCTraitAction_STS_ModifyCurValue):
+    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
+        super().__init__(handler, ctx, character, trait)
+        self.expectedParameterNumbers = (0,)
     def newValue(self, args: list[str]):
         return self.trait['max_value'] if (int(self.trait['trackertype']) != TrackerType.UNCAPPED) else 0
 
 class PCTraitAction_STS_EQ(PCTraitAction_STS_ModifyCurValue):
+    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
+        super().__init__(handler, ctx, character, trait)
+        self.expectedParameterNumbers = (1,)
     def newValue(self, args: list[str]):
         return InputValidator(self.ctx).validateInteger(args[0])
 
 class PCTraitAction_STS_ADD(PCTraitAction_STS_ModifyCurValue):
+    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
+        super().__init__(handler, ctx, character, trait)
+        self.expectedParameterNumbers = (1,)
     def newValue(self, args: list[str]):
         return self.trait['cur_value'] + InputValidator(self.ctx).validateInteger(args[0])
 
 class PCTraitAction_STS_SUB(PCTraitAction_STS_ModifyCurValue):
+    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
+        super().__init__(handler, ctx, character, trait)
+        self.expectedParameterNumbers = (1,)
     def newValue(self, args: list[str]):
         return self.trait['cur_value'] - InputValidator(self.ctx).validateInteger(args[0])
 
@@ -1201,6 +1210,10 @@ class PCActionDamage_STS(PCAction):
         super().__init__(handler, ctx, character)
         self.trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], 'salute', self.ctx.getLID())
         self.expectedParameterNumbers = (0, 1, 2)
+    def checkParameterNumber(self, args: list[tuple]):
+        super().checkParameterNumber(args)
+        if len(args) == 1 and not args[0] in OPCODES_RESET:
+            raise GreedyTraitOperationError("string_invalid_number_of_parameters")
     def doImmediatelyConvertBashingToLethal(self) -> bool:
         return False
     def canUnpackLethalToBashing(self) -> bool:
