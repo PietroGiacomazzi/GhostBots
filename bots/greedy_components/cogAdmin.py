@@ -1,6 +1,6 @@
 from typing import AnyStr, Callable
 from discord.ext import commands
-import MySQLdb
+import MySQLdb, logging
 
 from greedy_components import greedyBase as gb
 from greedy_components import greedySecurity as gs
@@ -9,6 +9,8 @@ import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 import support.security as sec
+
+_log = logging.getLogger(__name__)
 
 class GreedyGhostCog_Admin(gb.GreedyGhostCog):
 

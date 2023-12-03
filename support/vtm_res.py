@@ -1,4 +1,6 @@
-import random
+import random, logging
+
+_log = logging.getLogger(__name__)
 
 """
 # soak roll: 1s cancel, but no critfail (pg 306)

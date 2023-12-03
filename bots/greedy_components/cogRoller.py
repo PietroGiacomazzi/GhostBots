@@ -1,4 +1,4 @@
-import random
+import random, logging
 from dataclasses import dataclass
 from discord.ext import commands
 
@@ -11,6 +11,7 @@ import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 
+_log = logging.getLogger(__name__)
 
 #IMPORTANT: 
 # longer versions first. DO NOT put a variant before one that contains it -> it will break the emergency splitting

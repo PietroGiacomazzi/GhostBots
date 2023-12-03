@@ -1,10 +1,12 @@
-
 from typing import Any
 from greedy_components import greedyBase as gb
 from discord.ext.commands import Converter, Context, UserConverter, UserNotFound
+import logging
 
 from support.utils import GAMESYSTEMS_LIST
 from support.utils import validate_id
+
+_log = logging.getLogger(__name__)
 
 class CharacterConverter(Converter):
     """Convert the given character id into a character object."""

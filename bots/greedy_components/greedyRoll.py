@@ -1,7 +1,4 @@
-import random
-from math import inf
-from copy import deepcopy
-from typing import Any
+import random, logging
 
 from greedy_components import greedyBase as gb
 
@@ -10,6 +7,8 @@ import support.utils as utils
 import support.ghostDB as ghostDB
 import support.security as sec
 import support.gamesystems as gms
+
+_log = logging.getLogger(__name__)
 
 die_emoji = {
     2: ":two:",

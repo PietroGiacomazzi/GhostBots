@@ -1,9 +1,10 @@
 from discord.ext import commands
-import os
-import web
+import os, web, logging
 
 from lang.lang import LangSupportException
 from .utils import *
+
+_log = logging.getLogger(__name__)
 
 LogType = enum("CUR_VALUE", "MAX_VALUE", "TEXT_VALUE", "PIMP_MAX", "ADD", "DELETE")
 

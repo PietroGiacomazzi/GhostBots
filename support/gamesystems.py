@@ -1,13 +1,15 @@
 from math import inf
 from copy import deepcopy
 from typing import Any
-import random
+import random, logging
 from typing import Any
 import lang as lng
 
 from .utils import *
 from .security import *
 from .vtm_res import *
+
+_log = logging.getLogger(__name__)
 
 RollType = enum("NORMAL", "DIFFICULTY", "SUM", "DAMAGE", "PROGRESS", "INITIATIVE", "REFLEXES", "SOAK")
 RollArg = enum("DIFF", "MULTI", "SPLIT", "ROLLTYPE", "PENALTY", "DICE", "PERMANENT_DICE", "PERMANENT", "STATS", "CHARACTER", "MINSUCC") # argomenti del tiro

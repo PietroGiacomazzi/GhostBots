@@ -1,6 +1,5 @@
-
 from discord.ext import commands, tasks
-import discord
+import logging, discord
 
 from greedy_components import greedyBase as gb
 
@@ -8,6 +7,7 @@ import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 
+_log = logging.getLogger(__name__)
 
 class GreedyGhostCog_Tasks(gb.GreedyGhostCog): 
     def __init__(self, *args, **kwargs):

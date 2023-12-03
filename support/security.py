@@ -1,6 +1,9 @@
+import logging
 from configparser import ConfigParser
 from support import ghostDB
 import lang.lang as lng
+
+_log = logging.getLogger(__name__)
 
 class SecurityCheckException(lng.LangSupportException):
     pass

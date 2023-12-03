@@ -1,10 +1,7 @@
-
-from dataclasses import asdict
-from typing import AnyStr, Callable
 from discord.ext import commands
-import discord
-import MySQLdb
+import discord, MySQLdb, logging
 from discord.ext.commands import UserConverter
+from discord.ext import commands
 
 from greedy_components import greedyBase as gb
 from greedy_components import cogPCmgmt
@@ -15,6 +12,8 @@ import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 import support.security as sec
+
+_log = logging.getLogger(__name__)
 
 class GreedyGhostCog_Basic(gb.GreedyGhostCog):
     """ Does basic functionality for the bot:
@@ -39,12 +38,15 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: gb.GreedyContext, error: Exception):
+        place  =  f'guild {ctx.channel.guild.name} ({ctx.channel.guild.id}), channel {ctx.channel.name} ({ctx.channel.id})' if isinstance(ctx.channel, discord.abc.GuildChannel) else 'a private channel'
+        _log.info(f'Error in command "{ctx.message.content}" from user {ctx.message.author.name} ({ctx.message.author.id}) in {place}: {error}')
         lid = ctx.getLID()
         error = getattr(error, 'original', error)
         #ignored = (commands.CommandNotFound, )
         #if isinstance(error, ignored):
         #    print(error)
         if isinstance(error, commands.CommandNotFound):
+            _log.info(f'command not found ({error})')
             try:
                 msgsplit = ctx.message.content.split(" ")
                 msgsplit[0] = msgsplit[0][1:] # toglie prefisso
@@ -79,6 +81,8 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
         elif isinstance(error, lng.LangException):
             await self.bot.atSend(ctx, f'{error}')
         else:
+            _log.error(f"Unhandled exception from command '{ctx.message.content}'. Error type is {type(error)}, error:\n{error}")
+
             if isinstance(error, MySQLdb.OperationalError):
                 if error.args[0] == 2006:
                     await self.bot.atSendLang(ctx, "string_error_database_noanswer")

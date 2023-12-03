@@ -1,4 +1,4 @@
-import configparser, os
+import configparser, os, logging
 from discord.ext import commands
 import discord
 
@@ -6,6 +6,8 @@ import support.ghostDB as ghostDB
 import lang.lang as lng
 import support.utils as utils
 import support.security as sec
+
+_log = logging.getLogger(__name__)
 
 class BotException(Exception): # this is not translated, should be discontinued in favor of GreedyCommandError
     def __init__(self, msg):

@@ -1,5 +1,5 @@
 from discord.ext import commands
-import urllib
+import urllib, logging
 
 from greedy_components import greedyBase as gb
 from greedy_components import greedyConverters as gc
@@ -11,6 +11,8 @@ import support.utils as utils
 import support.ghostDB as ghostDB
 import support.security as sec
 import support.gamesystems as gms
+
+_log = logging.getLogger(__name__)
 
 healthToEmoji = {
     'c': '<:hl_bashing:815338465368604682>',

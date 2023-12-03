@@ -1,6 +1,5 @@
-
-from typing import AnyStr, Callable
 from discord.ext import commands
+import logging
 
 from greedy_components import greedyBase as gb
 from greedy_components import greedySecurity as gs
@@ -11,6 +10,8 @@ import support.utils as utils
 import support.ghostDB as ghostDB
 import support.security as sec
 import support.gamesystems as gms
+
+_log = logging.getLogger(__name__)
 
 create_description = "Argomenti: nome breve (senza spazi), @menzione al proprietario (oppure Discord ID), nome completo del personaggio (spazi ammessi)"
 link_description = "Argomenti: nome breve del pg, nome breve della cronaca"

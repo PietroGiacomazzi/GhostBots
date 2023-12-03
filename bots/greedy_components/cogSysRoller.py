@@ -1,4 +1,5 @@
 from discord.ext import commands
+import logging
 
 from greedy_components import greedyBase as gb
 from greedy_components import greedySecurity as gs
@@ -6,8 +7,9 @@ from greedy_components import greedyRoll as gr
 from greedy_components import greedyConverters as gc
 from support import gamesystems as gms
 
-
 from greedy_components.cogRoller import roll_longdescription
+
+_log = logging.getLogger(__name__)
 
 class GreedyGhostCog_SysRoller(gb.GreedyGhostCog):
 

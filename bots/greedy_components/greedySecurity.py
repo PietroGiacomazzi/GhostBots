@@ -1,9 +1,11 @@
-from typing import Any, Callable
+import logging
 
 from greedy_components import greedyBase as gb
 from discord.ext import commands
 from support import security as sec
 from lang import lang as lng
+
+_log = logging.getLogger(__name__)
 
 class BotSecurityCheckException(lng.LangSupportException, commands.CommandError):
     pass

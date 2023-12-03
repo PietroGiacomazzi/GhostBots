@@ -1,9 +1,11 @@
-import random
+import random, logging
 from discord.ext import commands
 
 from greedy_components import greedyBase as gb
 from greedy_components import greedySecurity as gs
 import support.security as sec
+
+_log = logging.getLogger(__name__)
 
 class GreedyGhostCog_Misc(gb.GreedyGhostCog):
 

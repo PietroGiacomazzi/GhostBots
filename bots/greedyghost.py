@@ -30,6 +30,8 @@ import greedy_components.cogSysRoller as cogSysRoller
 
 
 if __name__ == "__main__":
+    _log = utils.setup_logging(root = True)
+
     # load bot configuration
     if len(sys.argv) == 1:
         print("Specify a configuration file!")
@@ -73,6 +75,5 @@ if __name__ == "__main__":
     bot.add_cog(cogPCmod.GreedyGhostCog_PCMod(bot))
     bot.add_cog(cogTasks.GreedyGhostCog_Tasks(bot))
     
-
     # run the bot (duh)
     bot.run(TOKEN)
