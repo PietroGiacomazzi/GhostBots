@@ -34,13 +34,13 @@ if __name__ == "__main__":
 
     # load bot configuration
     if len(sys.argv) == 1:
-        print("Specify a configuration file!")
-        sys.exit()
+        _log.error("Specify a configuration file!")
+        sys.exit(1)
 
     print(f"Working directory: {dname}")
     if not os.path.exists(sys.argv[1]):
-        print(f"The configuration file {sys.argv[1]} does not exist!")
-        sys.exit()
+        _log.error(f"The configuration file {sys.argv[1]} does not exist!")
+        sys.exit(1)
 
     config = configparser.ConfigParser()
     config.read(sys.argv[1])

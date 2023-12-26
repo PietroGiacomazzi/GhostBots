@@ -36,6 +36,14 @@ services:
       database:
         condition: service_healthy
 
+  possum:
+    image: possum-bot:${PROJECT_TARGET_SOFTWAREVERSION}
+    volumes:
+      - ./environments/${PROJECT_ENVNAME}/possumconfig.ini:/bots/possumconfig.ini
+    build:
+      context: ./
+      dockerfile: ./Dockerfile-possum
+
   website:
     image: gg-web:${PROJECT_TARGET_SOFTWAREVERSION}
     #ports:

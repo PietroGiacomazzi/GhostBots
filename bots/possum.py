@@ -7,21 +7,30 @@ os.chdir(dname)
 
 import discord
 from discord.ext import commands
-import random, sys, configparser
-import support.vtm_res
+import random, sys, configparser, logging
+import support.utils as utils
 
+_log = utils.setup_logging(root = True)
+
+# load bot configuration
 if len(sys.argv) == 1:
-    print("Specifica un file di configurazione!")
-    sys.exit()
+    _log.error("Specify a configuration file!")
+    sys.exit(1)
+
+print(f"Working directory: {dname}")
+if not os.path.exists(sys.argv[1]):
+    _log.error(f"The configuration file {sys.argv[1]} does not exist!")
+    sys.exit(1)
 
 config = configparser.ConfigParser()
 config.read(sys.argv[1])
 
 TOKEN = config['Discord']['token']
-
+if TOKEN == '':
+    _log.error("TOKEN VUOTO!")
+    sys.exit(1)
 
 bot = commands.Bot(['.'], help_command=None)
-
 
 attivita = [
     (discord.ActivityType.watching, "il polpaccio di Rossellini"),
@@ -32,20 +41,28 @@ attivita = [
     (discord.ActivityType.watching, "Rossellini con aria affamata")
     ]
 
+
+async def logToDebugUser(msg: str):
+    """ Sends msg to the debug user """
+    debug_user = await bot.fetch_user(int(config['Discord']['debuguser']))
+    if debug_user != "":
+        await debug_user.send(msg)
+    else:
+        print(msg)
+
 #executed once on bot boot
 @bot.event
 async def on_ready():
+    await logToDebugUser("Possum online!")
     for guild in bot.guilds:
-        print(
-            f'{bot.user} is connected to the following guild:\n'
-            f'{guild.name} (id: {guild.id})'
+        _log.info(f'{bot.user} is connected to the following guild: {guild.name} (id: {guild.id})'
         )
     acttype, actstring = random.choice(attivita)
     await bot.change_presence(activity=discord.Activity(type=acttype, name=actstring))
 
 @bot.event
 async def on_error(event, *args, **kwargs):
-    print(f"On_error: {args[0]}")
+    _log.error(f"On_error: {args[0]}")
     #await bot.get_channel(int(config['DISCORD_DEBUG_CHANNEL'])).send(f'Unhandled message: {args[0]}')
     raise
 

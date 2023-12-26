@@ -101,7 +101,7 @@ class GreedyBot(commands.Bot):
         if debug_user != "":
             await debug_user.send(msg)
         else:
-            print(msg)
+            _log.info(msg)
     def formatException(self, ctx: GreedyContext, exc: Exception) -> str:
         lid = ctx.getLID()
         formatted_error = self.languageProvider.formatException(lid, exc)
