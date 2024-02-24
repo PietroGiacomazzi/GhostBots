@@ -46,7 +46,6 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
         #if isinstance(error, ignored):
         #    print(error)
         if isinstance(error, commands.CommandNotFound):
-            _log.info(f'command not found ({error})')
             try:
                 msgsplit = ctx.message.content.split(" ")
                 msgsplit[0] = msgsplit[0][1:] # toglie prefisso
@@ -81,8 +80,6 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
         elif isinstance(error, lng.LangException):
             await self.bot.atSend(ctx, f'{error}')
         else:
-            _log.error(f"Unhandled exception from command '{ctx.message.content}'. Error type is {type(error)}, error:\n{error}")
-
             if isinstance(error, MySQLdb.OperationalError):
                 if error.args[0] == 2006:
                     await self.bot.atSendLang(ctx, "string_error_database_noanswer")
@@ -93,18 +90,8 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
                 await self.bot.atSendLang(ctx, "string_error_database_dataviolation")
             else:
                 await self.bot.atSendLang(ctx, "string_error_unhandled_exception")
-            #print("debug user:", int(config['Discord']['debuguser']))
-            debug_userid = self.bot.config['Discord']['debuguser'] # TODO use Logtodebuguser and make it more robust
-            debug_user = ''
-            lid = self.bot.getLID(debug_userid) # this does not raise, and does not need that the user exists
-            error_details = self.bot.languageProvider.get(lid, "string_error_details", ctx.message.content, type(error), error)
-            # figure out where to send the error
-            if debug_userid and debug_userid != '':
-                debug_user = await self.bot.fetch_user(int(debug_userid))            
-            if debug_user != '':
-                await debug_user.send(error_details)
-            else:
-                print(error_details) # TODO logs
+            
+            self.bot.logToDebugUser(f"Unhandled exception from command '{ctx.message.content}'. Error type is {type(error)}, error:\n{error}")
     
     # member monitoring
 

@@ -142,6 +142,7 @@
 	"string_error_macro_not_found": "Macro {} not found",
 	"string_error_gamesystem_missing_mapping": "Game system {} is not supported",
 	"string_word_total": "Total",
+	"string_error_message_too_long_bot": "Bot is trying to send a message that is too long. The rest was truncated.",
 
 	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
 	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",

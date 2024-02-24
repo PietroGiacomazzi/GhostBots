@@ -90,18 +90,29 @@ class GreedyBot(commands.Bot):
     def getStringForUser(self, ctx: GreedyContext, string: str, *args) -> str:
         lid = ctx.getLID()
         return self.languageProvider.get(lid, string, *args)
-    def atSend(self, ctx: commands.Context, msg: str):
-        return ctx.send(f'{ctx.message.author.mention} {msg}')
-    def atSendLang(self, ctx: commands.Context, msg: str, *args):
+    async def atSend(self, ctx: commands.Context, msg: str):
+        fullmsg = f'{ctx.message.author.mention} {msg}'
+        messages = []
+        if len(fullmsg) > int(self.config['Discord']['max_message_length_bot']):
+            errormsg = f" (...)\n{self.getStringForUser(ctx, 'string_error_message_too_long_bot')}"
+            fullmsg = f"{fullmsg[:int(self.config['Discord']['max_message_length_bot'])-len(errormsg)]}{errormsg}"
+        if len(fullmsg) > int(self.config['Discord']['max_message_length_discord']):
+            messages = utils.string_chunks(fullmsg, int(self.config['Discord']['max_message_length_discord']))
+        else:
+            messages = [fullmsg]
+        for m in messages:
+            await ctx.send(m)
+        return
+    async def atSendLang(self, ctx: commands.Context, msg: str, *args):
         translated = self.getStringForUser(ctx, msg, *args)
-        return self.atSend(ctx, translated)
+        await self.atSend(ctx, translated)
+        return 
     async def logToDebugUser(self, msg: str):
-        """ Sends msg to the debug user """
+        """ logs a message and sends it to the debug user if configured """
+        _log.info(msg)
         debug_user = await self.fetch_user(int(self.config['Discord']['debuguser']))
         if debug_user != "":
             await debug_user.send(msg)
-        else:
-            _log.info(msg)
     def formatException(self, ctx: GreedyContext, exc: Exception) -> str:
         lid = ctx.getLID()
         formatted_error = self.languageProvider.formatException(lid, exc)

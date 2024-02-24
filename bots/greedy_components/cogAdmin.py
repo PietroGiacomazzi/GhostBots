@@ -49,8 +49,14 @@ class GreedyGhostCog_Admin(gb.GreedyGhostCog):
                     out += " "+data+" "*(col_widths[i]-len(data))+" |"
                 out += "\n"
             out += table_delim
-            await self.bot.atSend(ctx, "```\n"+out+"```")        
+
+            if len(out) > int(self.bot.config['Discord']['max_message_length_bot']):
+                raise gb.GreedyCommandError(f'Result too long! ({len(out)})')
+            
+            for chunk in utils.string_chunks(out, int(self.bot.config['Discord']['max_message_length_discord'])-100):
+                await ctx.send(utils.discord_text_format_mono(chunk))
+       
         except MySQLdb.OperationalError as e:
-            await self.bot.atSend(ctx, f"```Errore {e.args[0]}\n{e.args[1]}```")
+            await self.bot.atSend(ctx, f"```Error {e.args[0]}\n{e.args[1]}```")
         except MySQLdb.ProgrammingError as e:
-            await self.bot.atSend(ctx, f"```Errore {e.args[0]}\n{e.args[1]}```")
+            await self.bot.atSend(ctx, f"```Error {e.args[0]}\n{e.args[1]}```")

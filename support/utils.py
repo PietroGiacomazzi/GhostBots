@@ -99,6 +99,26 @@ def validate_id(string: str) -> bool:
 def prettyHighlightError(args: list, i: int, width : int = 3) -> str:
     return " ".join(list(args[max(0, i-width):i]) + ['**'+args[i]+'**'] + list(args[min(len(args), i+1):min(len(args), i+width)]))
 
+def string_chunks(string: str, max_chunk_size: int) -> list[str]:
+    # split into lines, if a line is larger than max_chunk_size, slice it
+    lines = string.split('\n')
+    processed_lines = []
+    for line in lines:
+        if len(line) > max_chunk_size:
+            processed_lines.extend([line[i:i+max_chunk_size] for i in range(0, len(line), max_chunk_size)])
+        else:
+            processed_lines.append(line)
+
+    chunks = [processed_lines[0]]
+    for line in processed_lines[1:]:
+        temp = chunks[-1]+"\n"+line
+        if len(temp) > max_chunk_size:
+            chunks.append(line)
+        else:
+            chunks[-1] = temp
+
+    return chunks
+
 #discord text formatting functions
 def discord_text_format_mono(string: str, language = "") -> str:
     """ language can be empty, Markdown, Python... """

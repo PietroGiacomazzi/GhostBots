@@ -43,7 +43,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     config = configparser.ConfigParser()
-    config.read(sys.argv[1])
+    config.read(['default_config.ini', sys.argv[1]])
 
     # setup db
     database_manager = ghostDB.DBManager(config['Database'])
