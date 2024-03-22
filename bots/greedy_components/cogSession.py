@@ -41,7 +41,8 @@ class GreedyGhostCog_Session(gb.GreedyGhostCog):
             response = f"Sessione iniziata per la cronaca {chronicle['name']}"
             # TODO lista dei pg?
             # TODO notifica i giocatori di pimp attivi
-
+        
+        await self.bot.update_presence_status()
         await self.bot.atSend(ctx, response)
 
     @session.command(name = 'list', brief = 'Elenca le sessioni aperte', description = 'Elenca le sessioni aperte. richiede di essere admin o storyteller')
@@ -79,4 +80,5 @@ class GreedyGhostCog_Session(gb.GreedyGhostCog):
         else: # non dovrebbe mai accadere
             response = f'Non c\'è una sessione aperta in questo canale'
     
+        await self.bot.update_presence_status()
         await self.bot.atSend(ctx, response)

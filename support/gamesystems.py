@@ -943,8 +943,8 @@ class RollParser:
                     parser = self.nullParser
                     i = parser.parse(ctx, args, i, setup, False)
                     parsed = True
-            except (GreedyParseValidationError, lng.LangSupportErrorGroup)as e: # if at any point a parse fails, we try to see if the user has not separated an argument from its parameter (diff6, multi3...)
-                parse_errors = [GreedyParseError("string_arg_X_in_Y_notclear", (args[i], prettyHighlightError(args, parser.cursor-1))), e]
+            except (GreedyParseValidationError, lng.LangSupportErrorGroup) as e: # if at any point a parse fails, we try to see if the user has not separated an argument from its parameter (diff6, multi3...)
+                parse_errors = [GreedyParseError("string_arg_X_in_Y_notclear", (args[parser.cursor-1], prettyHighlightError(args, parser.cursor-1))), e]
                 i, args = self.splitAndParse(ctx, setup, args, i, parse_errors)
                 parsed = True
 

@@ -34,7 +34,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
             self.bot.dbm.registerUser(self.bot.user.id, self.bot.user.name, self.bot.config['BotOptions']['default_language'])
         # notify debug user that bot is online
         await self.bot.logToDebugUser("Bot is Online!")
-    
+        await self.bot.update_presence_status()
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: gb.GreedyContext, error: Exception):

@@ -379,6 +379,11 @@ where cc.playerchar = $charid
     def unnameStoryTeller(self, userid):
         """ Remove storyteller status """
         return self.db.delete('Storyteller', where='userid=$userid', vars=dict(userid=userid)) #foreign key is set to cascade. this will also unlink from all chronicles
+    def getLiveChroniclesString(self):
+        """ Get a concatention of all currently running chronicles in sessions """
+        query = "select group_concat(DISTINCT c.name SEPARATOR ', ') as activity_string from GameSession gs join Chronicle c on (gs.chronicle = c.id)"
+        result = self.db.query(query)
+        return result[0]['activity_string']
            
     ## Validators without an underlying Getter go here
     def isChronicleStoryteller(self, userid, chronicle):

@@ -180,6 +180,13 @@ class GreedyGhost(GreedyBot):
             await self.logToDebugUser(f"joined guild '{guild.name}', id: {guild.id}")
             return True
         return False
+    
+    async def update_presence_status(self):
+        activity_string = self.dbm.getLiveChroniclesString()
+        activity = None
+        if not (activity_string is None):
+            activity = discord.Activity(type=discord.ActivityType.playing, name=activity_string)
+        await self.change_presence(activity=activity)
 
 class GreedyGhostCog(commands.Cog): 
     def __init__(self, bot: GreedyGhost):

@@ -25,6 +25,7 @@ WORKDIR /website
 COPY website/ghost.py .
 COPY website/pyresources ./pyresources
 COPY website/templates ./templates
+COPY config .
 COPY support support
 COPY lang lang
 

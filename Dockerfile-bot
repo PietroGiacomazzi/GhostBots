@@ -3,6 +3,7 @@ COPY ./requirements_bot.txt ./
 RUN pip install --no-cache-dir -r requirements_bot.txt
 WORKDIR /bots
 COPY bots .
+COPY config .
 COPY support support
 COPY lang lang
 EXPOSE 5678

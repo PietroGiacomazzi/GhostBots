@@ -19,7 +19,7 @@ import support.security as sec
 import support.gamesystems as gms
 
 config = configparser.ConfigParser()
-config.read("/website/config.ini")
+config.read(["/website/default_config.ini", "/website/config.ini"])
 
 # --- CONFIG ---
 
