@@ -69,12 +69,7 @@ query_addTraitToPCs = """
             pc.id as playerchar, 
             0 as cur_value, 
             0 as max_value, 
-            "" as text_value,
-            case 
-            WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
-            else 0
-            end
-            as pimp_max
+            "" as text_value
             from Trait t, PlayerCharacter pc
             where t.standard = true
             and t.id = $traitid;
@@ -86,12 +81,7 @@ query_addTraitToPCs_safe = """
         pc.id as playerchar, 
         0 as cur_value, 
         0 as max_value, 
-        "" as text_value,
-        case 
-        WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
-        else 0
-        end
-        as pimp_max
+        "" as text_value
         from Trait t, PlayerCharacter pc
         where t.standard = true
         and t.id = $traitid
@@ -337,7 +327,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             channel_rs = None
             if is_channel:
                 channel_rs = channel[ghostDB.FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID]
-            priority_rs = self.bot.getGameSystemByChannel(channelid)
+            priority_rs = self.bot.getGameSystemIdByChannel(channelid)
             response = ''
             if not channel_rs is None:
                 response += f'Il sistema di gioco salvato per questo canale è {channel_rs}'
@@ -365,7 +355,7 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
                 response += f'Il sistema di gioco salvato per {chronicleid} è {chronicle_rs}'
             else:
                 channelid = ctx.channel.id
-                priority_rs = self.bot.getGameSystemByChannel(channelid)
+                priority_rs = self.bot.getGameSystemIdByChannel(channelid)
                 response += f'{chronicleid} non ha un sistema di gioco impostato, verrà utilizzato {priority_rs}'
 
             await self.bot.atSendLang(ctx, response)

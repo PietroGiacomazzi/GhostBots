@@ -60,7 +60,7 @@ class TraitFormatter:
 
 class DefaultTraitFormatter(TraitFormatter):
     def format(self, trait) -> str:
-        return f"Oh no! devo usare il formatter di default!\n{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}/{trait['pimp_max']}, text: {trait['text_value']}"
+        return f"Oh no! devo usare il formatter di default!\n{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}, text: {trait['text_value']}"
 
 class DotTraitFormatter(TraitFormatter):
     def format(self, trait) -> str:
@@ -70,7 +70,7 @@ class DotTraitFormatter(TraitFormatter):
             pretty += ":orange_circle:"*(trait['max_value']-trait['cur_value'])
         if trait['cur_value']>trait['max_value']:
             pretty += ":green_circle:"*(trait['cur_value']-trait['max_value'])
-        max_dots = max(trait['pimp_max'], 5)
+        max_dots = trait['dotvisualmax']
         if trait['cur_value'] < max_dots:
             pretty += ":white_circle:"*(max_dots-max(trait['max_value'], trait['cur_value']))
         return pretty
@@ -207,7 +207,7 @@ def getOutputter(gamesystem: int, ctx: gb.GreedyContext):
 class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog): 
 
     async def pc_interact(self, ctx: gb.GreedyContext, pc: object, can_edit: bool, *args_tuple) -> str:
-        gamesystemid = self.bot.getGameSystemByChannel(ctx.channel.id)
+        gamesystemid = self.bot.getGameSystemIdByChannel(ctx.channel.id)
         gamesystem = gms.getGamesystem(gamesystemid)
         handler = gms.buildHandler(ctx, gamesystem, pc, can_edit)
         handler.nullAction = PCAction_CharacterLink

@@ -128,7 +128,7 @@ class GreedyGhost(GreedyBot):
         super().__init__(configuration, db_manager, *args, **options)
         self.dbm.updateGameSystems()
 
-    def getGameSystemByChannel(self, channelid: str) -> str:
+    def getGameSystemIdByChannel(self, channelid: str) -> str:
         is_session, session = self.dbm.validators.getValidateRunningSession(channelid).validate()
         if is_session:
             chronicleid = session["chronicle"]

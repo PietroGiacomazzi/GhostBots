@@ -6,7 +6,7 @@ from .utils import *
 
 _log = logging.getLogger(__name__)
 
-LogType = enum("CUR_VALUE", "MAX_VALUE", "TEXT_VALUE", "PIMP_MAX", "ADD", "DELETE")
+LogType = enum("CUR_VALUE", "MAX_VALUE", "TEXT_VALUE", "PIMP_MAX_UNUSED", "ADD", "DELETE")
 
 # ENVIRONMENT VARIABLE NAMES
 
@@ -134,7 +134,7 @@ class DBManager:
         if is_channel:
             return channel[FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID]
         return None
-    def getGameSystemByCharacter(self, character, fallback) -> str:
+    def getGameSystemIdByCharacter(self, character, fallback) -> str:
         """ Get a game system from a character. Checks all chronicles the character is in, prioritizing ones with running sessions """
         r = self.db.query(QUERY_CHARACTER_GAMESYSTEMS, vars=dict(charid = character[FIELDNAME_PLAYERCHARACTER_CHARACTERID]))
         if len(r):
@@ -152,13 +152,7 @@ insert into CharacterTrait
     pc.id as playerchar, 
     0 as cur_value, 
     0 as max_value, 
-    "" as text_value,
-    case 
-    WHEN t.trackertype = 0 and (t.traittype ='fisico' or t.traittype = 'sociale' or t.traittype='mentale') THEN 6
-    WHEN t.id = 'salute' THEN 100
-    else 0
-    end
-    as pimp_max
+    "" as text_value
     from Trait t, PlayerCharacter pc
     where t.standard = true
     and pc.id = $pcid;
@@ -197,6 +191,7 @@ insert into CharacterTrait
         ct.*,
         t.*,
         tt.textbased as textbased,
+        tt.dotvisualmax as dotvisualmax,
         t.name as traitName
     FROM CharacterTrait ct
     join Trait t on (t.id = ct.trait)
@@ -214,6 +209,7 @@ insert into CharacterTrait
         ct.*,
         t.*,
         tt.textbased as textbased,
+        tt.dotvisualmax as dotvisualmax,
         lt.traitName as traitName
     FROM CharacterTrait ct
     join Trait t on (t.id = ct.trait)
@@ -235,6 +231,7 @@ insert into CharacterTrait
         ct.*,
         t.*,
         tt.textbased as textbased,
+        tt.dotvisualmax as dotvisualmax,
         lt.traitName as traitName
     FROM CharacterTrait ct
     join Trait t on (t.id = ct.trait)

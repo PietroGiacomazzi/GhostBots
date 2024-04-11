@@ -898,7 +898,7 @@ function createTraitElement(traitdata){
 				dots_array = dots_array.concat(Array(traitdata.max_value-traitdata.cur_value).fill(window.dot_data.red_dot));
 			if (traitdata.cur_value>traitdata.max_value)
 				dots_array = dots_array.concat(Array(traitdata.cur_value-traitdata.max_value).fill(window.dot_data.blue_dot));
-			max_dots = Math.max(traitdata.pimp_max, 5)
+			max_dots = traitdata.dotvisualmax;
 			if (traitdata.cur_value < max_dots)
 				dots_array = dots_array.concat(Array(max_dots-Math.max(traitdata.max_value, traitdata.cur_value)).fill(window.dot_data.emptydot));
 
@@ -1040,7 +1040,7 @@ function getGeneration(traitdata)
 
 	if (traitdata.trait === 'generazione')
 	{
-		generation = 13-traitdata.max_value;
+		generation = 13-traitdata.cur_value;
 	}
 	if (traitdata.trait === '14gen')
 	{

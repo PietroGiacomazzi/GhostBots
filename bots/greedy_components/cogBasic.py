@@ -91,7 +91,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
             else:
                 await self.bot.atSendLang(ctx, "string_error_unhandled_exception")
             
-            self.bot.logToDebugUser(f"Unhandled exception from command '{ctx.message.content}'. Error type is {type(error)}, error:\n{error}")
+            await self.bot.logToDebugUser(f"Unhandled exception from command '{ctx.message.content}'. Error type is {type(error)}, error:\n{error}")
     
     # member monitoring
 

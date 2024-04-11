@@ -467,6 +467,7 @@ SELECT
     ct.*,
     tr.*, 
     tt.textbased,
+    tt.dotvisualmax,
     lt.traitName as traitName
 From CharacterTrait ct
 join Trait tr on (ct.trait = tr.id)
@@ -600,10 +601,7 @@ class editCharacterTraitNumberCurrent(APIResponse): # no textbased
 
         trait = dbm.getTrait(charId, trait_id)
 
-        if trait['pimp_max']==0 and trait['trackertype']==0:
-            raise WebException(f"Current value cannot be modified")
-
-        if new_val > trait['max_value'] and trait['trackertype'] != 3:
+        if new_val > trait['max_value'] and trait['trackertype'] != 3: # not too sure about this
             raise WebException("Value too large", 400)
         
         dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val)
@@ -696,12 +694,11 @@ class editCharacterTraitAdd(APIResponse):
         
         if trait['textbased']:
             textval = ""
-            dbm.db.insert("CharacterTrait", trait=trait_id, playerchar=charId, cur_value = 0, max_value = 0, text_value = textval, pimp_max = 0)
+            dbm.db.insert("CharacterTrait", trait=trait_id, playerchar=charId, cur_value = 0, max_value = 0, text_value = textval)
             dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.TEXT_VALUE, textval, '', "web edit")
         else:
             numval = 0
-            pimp = 6 if trait['traittype'] in ['fisico', 'sociale', 'mentale'] else 0
-            dbm.db.insert("CharacterTrait", trait=trait_id, playerchar=charId, cur_value = numval, max_value = numval, text_value = "", pimp_max = pimp)
+            dbm.db.insert("CharacterTrait", trait=trait_id, playerchar=charId, cur_value = numval, max_value = numval, text_value = "")
             dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.MAX_VALUE, numval, '',  "web edit")
 
         return dbm.getTrait_LangSafe(charId, trait_id, lid)
@@ -1032,7 +1029,7 @@ class useMacro(APIResponse):
     def mPOST(self):
         character = self.input_data['charId']
 
-        gamesystemid = dbm.getGameSystemByCharacter(character, config['Game']['default_gamesystem'])
+        gamesystemid = dbm.getGameSystemIdByCharacter(character, config['Game']['default_gamesystem'])
         gamesystem = gms.getGamesystem(gamesystemid)
         can_edit = check_web_security(self, canEditCharacterPerm('charId'))
 

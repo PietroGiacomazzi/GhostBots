@@ -733,7 +733,7 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
 
         return 
     def decodeDiceExpression_Dice(self, what: str, ctx: SecurityContext) -> tuple[int, int]:
-        split = what.split("d")
+        split = what.lower().split("d")
         if len(split) > 2:
             raise GreedyParseValidationError('string_error_toomany_d')
         if len(split) == 1:
@@ -1120,8 +1120,6 @@ class PCTraitAction(PCAction):
     def doHandle(self, *args: list[str]) -> list[PCActionResult]:
         ttype = int(self.trait['trackertype'])
         if ttype == TrackerType.NORMAL:
-            if self.trait['pimp_max'] == 0:
-                raise GreedyTraitOperationError("string_error_cannot_modify_trait_curvalue", (self.trait['traitName'],))
             return self._handleOperation_NORMAL(*args)
         elif ttype == TrackerType.CAPPED:
             return self._handleOperation_CAPPED(*args)
@@ -1154,26 +1152,32 @@ class PCTraitAction_STS(PCTraitAction):
 class PCTraitAction_STS_ModifyCurValue(PCTraitAction_STS):
     def newValue(self, args: list[str]):
         raise NotImplementedError()
-    def checkBounds(self, args: list[str]):
+    def checkLowerBound(self, args: list[str]):
         new_val = self.newValue(args)
-        max_val = max(self.trait['max_value'], self.trait['pimp_max']) 
-        if new_val > max_val:
-            raise GreedyTraitOperationError("string_error_exceeded_trait_maxvalue", (new_val, self.trait['traitName'].lower(), max_val))
         if new_val < 0:
             raise GreedyTraitOperationError("string_error_not_enough_X", (self.trait['traitName'].lower(),))
+    def checkUpperBound(self, args: list[str]):
+        new_val = self.newValue(args)
+        max_val = self.trait['max_value']
+        if new_val > max_val:
+            raise GreedyTraitOperationError("string_error_exceeded_trait_maxvalue", (new_val, self.trait['traitName'].lower(), max_val))
     def _handleOperation_CAPPED(self, *args: list[str]) -> list[PCActionResult]:
-        self.checkBounds(args)
+        self.checkLowerBound(args)
+        self.checkUpperBound(args)
         return super()._handleOperation_CAPPED(*args)
     def _handleOperation_NORMAL(self, *args: list[str]) -> list[PCActionResult]:
-        self.checkBounds(args)
+        self.checkLowerBound(args)
         return super()._handleOperation_NORMAL(*args)
     def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
-        self.checkBounds(args)
+        self.checkLowerBound(args)
         new_val = self.newValue(args)
         new_health = validateHealthSTS(self.trait['text_value'], new_val, self.doImmediatelyConvertBashingToLethal())
         self.trait = self.db_setCurvalue(new_val, self.trait)
         self.trait = self.db_setTextValue(new_health, self.trait)
         return [PCActionResultTrait(self.trait)] 
+    def _handleOperation_UNCAPPED(self, *args: list[str]) -> list[PCActionResult]:
+        self.checkLowerBound(args)
+        return super()._handleOperation_UNCAPPED(*args)   
     def _handleOperation_Base(self, *args: list[str]) -> list[PCActionResult]:
         new_val = self.newValue(args)
         self.trait = self.db_setCurvalue(new_val, self.trait)

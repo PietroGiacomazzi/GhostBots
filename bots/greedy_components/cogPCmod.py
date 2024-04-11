@@ -84,12 +84,11 @@ class GreedyGhostCog_PCMod(gb.GreedyGhostCog):
         val = None
         if ttype['textbased']:
             val = " ".join([value]+list(args))
-            self.bot.dbm.db.insert("CharacterTrait", trait=trait['id'], playerchar=character['id'], cur_value = 0, max_value = 0, text_value = val, pimp_max = 0)
+            self.bot.dbm.db.insert("CharacterTrait", trait=trait['id'], playerchar=character['id'], cur_value = 0, max_value = 0, text_value = val)
             self.bot.dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.TEXT_VALUE, val, '', ctx.message.content)
         else:
             val = int(value)
-            pimp = 6 if trait['traittype'] in ['fisico', 'sociale', 'mentale'] else 0
-            self.bot.dbm.db.insert("CharacterTrait", trait=trait['id'], playerchar=character['id'], cur_value = val, max_value = val, text_value = "", pimp_max = pimp)
+            self.bot.dbm.db.insert("CharacterTrait", trait=trait['id'], playerchar=character['id'], cur_value = val, max_value = val, text_value = "")
             self.bot.dbm.log(issuer, character['id'], trait['id'], ghostDB.LogType.MAX_VALUE, val, '', ctx.message.content)
         
         await self.bot.atSend(ctx, f"{character['fullname']} ora ha {trait['name']} {val}")
