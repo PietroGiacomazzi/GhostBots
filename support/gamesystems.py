@@ -8,6 +8,7 @@ import lang as lng
 from .utils import *
 from .security import *
 from .vtm_res import *
+from .config import *
 
 _log = logging.getLogger(__name__)
 
@@ -431,7 +432,7 @@ class RollSetupValidator_DICE(RollSetupValidator):
 
         max_dice = int(setup.ctx.getAppConfig()['BotOptions']['max_dice'])
         if pool > max_dice:
-            raise GreedyRollValidationError("string_error_toomany_dice", (max_dice,))
+            raise GreedyRollValidationError("string_error_toomany_dice", (pool,))
         if pool <= 0:
             raise GreedyRollValidationError("string_error_toofew_dice", (pool,))
 
@@ -1065,11 +1066,10 @@ class PCActionResultRollData(PCActionResult):
         self.data = data
 
 class PCAction:
-    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character) -> None:
+    def __init__(self, ctx: SecurityContext, character) -> None:
         self.character = character
         self.ctx = ctx
         self.expectedParameterNumbers: tuple[int] = () # remember, for  TraitActions this means parameters beyond the OPERATION, while for actions it is anything beyond the action code
-        self.handler = handler
     def doHandle(self, *args):
         return [PCActionResultText(self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_error_notimplemented"))]
     def handle(self, *args: tuple[str]) -> list[PCActionResult]:
@@ -1114,8 +1114,8 @@ class PCAction:
         return dbm.getTrait_LangSafe(self.character['id'], trait['id'], self.ctx.getLID())
 
 class PCTraitAction(PCAction):
-    def  __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
-        super().__init__(handler, ctx, character)
+    def  __init__(self, ctx: SecurityContext, character, trait) -> None:
+        super().__init__(ctx, character)
         self.trait = trait
     def doHandle(self, *args: list[str]) -> list[PCActionResult]:
         ttype = int(self.trait['trackertype'])
@@ -1152,31 +1152,34 @@ class PCTraitAction_STS(PCTraitAction):
 class PCTraitAction_STS_ModifyCurValue(PCTraitAction_STS):
     def newValue(self, args: list[str]):
         raise NotImplementedError()
-    def checkLowerBound(self, args: list[str]):
+    def checkSystemBounds(self, args: list[str]):
         new_val = self.newValue(args)
+        max_val = int(self.ctx.getAppConfig()[SECTION_GAME][SETTING_MAX_TRAITVALUE])
         if new_val < 0:
             raise GreedyTraitOperationError("string_error_not_enough_X", (self.trait['traitName'].lower(),))
+        if new_val > max_val:
+            raise GreedyTraitOperationError("string_error_exceeded_trait_maxvalue", (new_val, self.trait['traitName'].lower(), max_val))
     def checkUpperBound(self, args: list[str]):
         new_val = self.newValue(args)
         max_val = self.trait['max_value']
         if new_val > max_val:
             raise GreedyTraitOperationError("string_error_exceeded_trait_maxvalue", (new_val, self.trait['traitName'].lower(), max_val))
     def _handleOperation_CAPPED(self, *args: list[str]) -> list[PCActionResult]:
-        self.checkLowerBound(args)
+        self.checkSystemBounds(args)
         self.checkUpperBound(args)
         return super()._handleOperation_CAPPED(*args)
     def _handleOperation_NORMAL(self, *args: list[str]) -> list[PCActionResult]:
-        self.checkLowerBound(args)
+        self.checkSystemBounds(args)
         return super()._handleOperation_NORMAL(*args)
     def _handleOperation_HEALTH(self, *args: list[str]) -> list[PCActionResult]:
-        self.checkLowerBound(args)
+        self.checkSystemBounds(args)
         new_val = self.newValue(args)
         new_health = validateHealthSTS(self.trait['text_value'], new_val, self.doImmediatelyConvertBashingToLethal())
         self.trait = self.db_setCurvalue(new_val, self.trait)
         self.trait = self.db_setTextValue(new_health, self.trait)
         return [PCActionResultTrait(self.trait)] 
     def _handleOperation_UNCAPPED(self, *args: list[str]) -> list[PCActionResult]:
-        self.checkLowerBound(args)
+        self.checkSystemBounds(args)
         return super()._handleOperation_UNCAPPED(*args)   
     def _handleOperation_Base(self, *args: list[str]) -> list[PCActionResult]:
         new_val = self.newValue(args)
@@ -1184,36 +1187,36 @@ class PCTraitAction_STS_ModifyCurValue(PCTraitAction_STS):
         return [PCActionResultTrait(self.trait)]
 
 class PCTraitAction_STS_RESET(PCTraitAction_STS_ModifyCurValue):
-    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
-        super().__init__(handler, ctx, character, trait)
+    def __init__(self, ctx: SecurityContext, character, trait) -> None:
+        super().__init__(ctx, character, trait)
         self.expectedParameterNumbers = (0,)
     def newValue(self, args: list[str]):
         return self.trait['max_value'] if (int(self.trait['trackertype']) != TrackerType.UNCAPPED) else 0
 
 class PCTraitAction_STS_EQ(PCTraitAction_STS_ModifyCurValue):
-    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
-        super().__init__(handler, ctx, character, trait)
+    def __init__(self, ctx: SecurityContext, character, trait) -> None:
+        super().__init__(ctx, character, trait)
         self.expectedParameterNumbers = (1,)
     def newValue(self, args: list[str]):
         return InputValidator(self.ctx).validateInteger(args[0])
 
 class PCTraitAction_STS_ADD(PCTraitAction_STS_ModifyCurValue):
-    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
-        super().__init__(handler, ctx, character, trait)
+    def __init__(self, ctx: SecurityContext, character, trait) -> None:
+        super().__init__(ctx, character, trait)
         self.expectedParameterNumbers = (1,)
     def newValue(self, args: list[str]):
         return self.trait['cur_value'] + InputValidator(self.ctx).validateInteger(args[0])
 
 class PCTraitAction_STS_SUB(PCTraitAction_STS_ModifyCurValue):
-    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character, trait) -> None:
-        super().__init__(handler, ctx, character, trait)
+    def __init__(self, ctx: SecurityContext, character, trait) -> None:
+        super().__init__(ctx, character, trait)
         self.expectedParameterNumbers = (1,)
     def newValue(self, args: list[str]):
         return self.trait['cur_value'] - InputValidator(self.ctx).validateInteger(args[0])
 
 class PCActionDamage_STS(PCAction):
-    def __init__(self, handler: 'PCActionHandler', ctx: SecurityContext, character) -> None:
-        super().__init__(handler, ctx, character)
+    def __init__(self, ctx: SecurityContext, character) -> None:
+        super().__init__(ctx, character)
         self.trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], 'salute', self.ctx.getLID())
         self.expectedParameterNumbers = (0, 1, 2)
     def checkParameterNumber(self, args: list[tuple]):
@@ -1226,7 +1229,7 @@ class PCActionDamage_STS(PCAction):
         return False
     def doHandle(self, *args: tuple[str]) -> list[PCActionResult]:
         if len(args) == 0: # we're nice and show the health trait if no argument is passed
-            return self.handler.viewTraitAction(self.handler, self.ctx, self.character, self.trait).handle()
+            return PCTraitAction_ViewTrait(self.ctx, self.character, self.trait).handle()
 
         op = args[0]
         dmgstr = ""
@@ -1272,6 +1275,7 @@ class PCActionDamage_STS(PCAction):
                 convert_to_agg = False
                 if dmgtype == DMG_AGGRAVATED:
                     rip = True
+                    break
                 
                 # attempt to convert bashing+bashing to lethal, otherwise just convert the last non aggravated level to aggravated
                 if dmgtype == DMG_BASHING:
@@ -1289,6 +1293,7 @@ class PCActionDamage_STS(PCAction):
                         new_health = new_health[:la] + DMG_AGGRAVATED + new_health[la+1:]
                     else: # tracker is filled with aggravated
                         rip = True
+                        break
 
         if new_health.count(DMG_AGGRAVATED) >= self.trait['cur_value']:
             rip = True
@@ -1354,7 +1359,7 @@ class PCActionHandler:
         return getParser(self.getGameSystem())
     def handle(self, args, macro = False) -> list[PCActionResult]:
         if len(args) == 0:
-            action = self.nullAction(self, self.ctx, self.character)
+            action = self.nullAction(self.ctx, self.character)
             return action.handle()
         
         args = detach_args(args)
@@ -1364,7 +1369,7 @@ class PCActionHandler:
 
         for k, v in self.actions.items():
             if whatstr in k:
-                action = v(self, self.ctx, self.character)
+                action = v(self.ctx, self.character)
                 return action.handle(*args[1:])
         
         # MACROS
@@ -1380,7 +1385,7 @@ class PCActionHandler:
         trait = self.ctx.getDBManager().getTrait_LangSafe(self.character['id'], whatstr, self.ctx.getLID())
 
         if len(args) == 1: # only trait name
-            return self.viewTraitAction(self, self.ctx, self.character, trait).handle()
+            return self.viewTraitAction(self.ctx, self.character, trait).handle()
 
         if not self.canEditCharacter:
             raise GreedyOperationError("string_error_cannot_edit_character")
@@ -1389,7 +1394,7 @@ class PCActionHandler:
 
         for k, v in self.traitOps.items():
             if traitOpstr in k:
-                action = v(self, self.ctx, self.character, trait)
+                action = v(self.ctx, self.character, trait)
                 return action.handle(*args[2:])
         raise GreedyOperationError("string_error_unsupported_operation", (traitOpstr,))
     def handle_macro(self, macro_text: str, args: list[str]) -> list[PCActionResult]:

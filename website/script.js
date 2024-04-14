@@ -796,7 +796,7 @@ function createTraitElement(traitdata){
 			dots_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.emptydot));
 		
 		var trait_dots = document.createElement('p');
-		trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata);
+		trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata, false, 10);
 		c.appendChild(trait_dots);
 
 		// current
@@ -806,7 +806,7 @@ function createTraitElement(traitdata){
 			sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
 		
 		var trait_sqrs = document.createElement('p');
-		trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true);
+		trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true, 10);
 		c.appendChild(trait_sqrs);
 	}
 	else if (traitdata.trait == 'salute')
@@ -841,7 +841,7 @@ function createTraitElement(traitdata){
 				dots_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.emptydot));
 			
 			var trait_dots = document.createElement('p');
-			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata);
+			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata, false, 10);
 			c.appendChild(trait_dots);
 		}
 		else if (traitdata.trackertype == 1) // punti con massimo (sangue, yin...)
@@ -906,7 +906,7 @@ function createTraitElement(traitdata){
 			trait_dots.className = "nopadding dotseq";
 			trait_dots.style = "float:right";
 
-			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata);
+			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata, false, 10);
 			
 			c.appendChild(trait_dots);
 		}
@@ -921,7 +921,7 @@ function createTraitElement(traitdata){
 			var trait_sqrs = document.createElement('td');
 			trait_sqrs.className = "nopadding";
 			trait_sqrs.style = "float:right";
-			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true);
+			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true, 10);
 			c.appendChild(trait_sqrs);
 			
 			c.appendChild(createMaxModElement(traitdata));

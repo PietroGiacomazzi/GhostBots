@@ -592,8 +592,6 @@ class editCharacterTraitNumberCurrent(APIResponse): # no textbased
         })
     @web_security(sec.canEditCharacter_WEB(target_character='charId'))
     def mGET(self):
-        lid = getLanguage(self.session, dbm)      
-        issuer = self.session.discord_userid
         character = self.input_data['charId']  
         trait_id = self.input_data['traitId']
         new_val = self.input_data['newValue']
@@ -601,14 +599,9 @@ class editCharacterTraitNumberCurrent(APIResponse): # no textbased
 
         trait = dbm.getTrait(charId, trait_id)
 
-        if new_val > trait['max_value'] and trait['trackertype'] != 3: # not too sure about this
-            raise WebException("Value too large", 400)
-        
-        dbm.db.update("CharacterTrait", where='trait = $trait and playerchar = $pc', vars=dict(trait=trait_id, pc=character['id']), cur_value = new_val)
-        dbm.log(issuer, character['id'], trait_id, ghostDB.LogType.CUR_VALUE, new_val, trait['cur_value'], "web edit")
-        return dbm.getTrait_LangSafe(charId, trait_id, lid)
-
-
+        #todo gamesystem?
+        result: list[gms.PCActionResultTrait] = gms.PCTraitAction_STS_EQ(WebContext(self), character, trait).handle(new_val)
+        return result[0].trait
 
 class editCharacterTraitText(APIResponse): #textbased
     def __init__(self):

@@ -1,3 +1,4 @@
+from configparser import ConfigParser
 from discord.ext import commands
 import urllib, logging
 
@@ -11,6 +12,7 @@ import support.utils as utils
 import support.ghostDB as ghostDB
 import support.security as sec
 import support.gamesystems as gms
+import support.config as cfg
 
 _log = logging.getLogger(__name__)
 
@@ -52,11 +54,12 @@ pgmanage_description = """.pgmanage <nomepg> <NomeTratto> [<Operazione>]
 # TRAIT FORMATTERS
 
 class TraitFormatter:
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider):
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser):
         self.lid = lid
         self.lp = lp
+        self.config = cfg
     def format(self, trait) -> str:
-        raise NotImplementedError("u lil shit")
+        raise NotImplementedError(f'Abstract {self.__class__.__name__}')
 
 class DefaultTraitFormatter(TraitFormatter):
     def format(self, trait) -> str:
@@ -65,6 +68,8 @@ class DefaultTraitFormatter(TraitFormatter):
 class DotTraitFormatter(TraitFormatter):
     def format(self, trait) -> str:
         pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
+        if max(trait['cur_value'], trait['max_value'], trait['dotvisualmax']) > int(self.config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE]):
+            return pretty
         pretty += ":red_circle:"*min(trait['cur_value'], trait['max_value'])
         if trait['cur_value']<trait['max_value']:
             pretty += ":orange_circle:"*(trait['max_value']-trait['cur_value'])
@@ -76,42 +81,48 @@ class DotTraitFormatter(TraitFormatter):
         return pretty
 
 class HealthTraitFormatter(TraitFormatter):
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider, levels_list: list):
-        super().__init__(lid, lp)
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser, levels_list: list):
+        super().__init__(lid, lp, cfg)
         self.levelList = levels_list
     def format(self, trait) -> str:
         penalty, parsed = utils.parseHealth(trait, self.levelList)
         prettytext = f'{trait["traitName"]}:'
-        try:
-            for line in parsed:
-                prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], line)))
-        except KeyError:
-            raise gb.GreedyCommandError("string_error_invalid_health_expr", (trait['text_value'],))
+        if trait['cur_value'] > int(self.config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE]):
+            prettytext += str(trait['cur_value']) + '\n'
+            prettytext += ', '.join(list( map(lambda x: f'{trait["text_value"].count(x[0])} {self.lp.get(self.lid, x[1])}', zip(gms.DAMAGE_TYPES, ["string_aggravated_dmg_plural", "string_lethal_dmg_plural", "string_bashing_dmg_plural"]))))
+        else:
+            try:
+                for line in parsed:
+                    prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], line)))
+            except KeyError:
+                raise gb.GreedyCommandError("string_error_invalid_health_expr", (trait['text_value'],))
         return self.lp.get(self.lid, penalty[1]) +"\n"+ prettytext
 
 class VampireHealthFormatter(HealthTraitFormatter):
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider):
-        super().__init__(lid, lp, utils.hurt_levels_vampire)
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser):
+        super().__init__(lid, lp, cfg, utils.hurt_levels_vampire)
 
 class MaxPointTraitFormatter(TraitFormatter):
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider,  emojis = [":black_circle:", ":white_circle:"], separator = ""):
-        super().__init__(lid, lp)
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser,  emojis = [":black_circle:", ":white_circle:"], separator = ""):
+        super().__init__(lid, lp, cfg)
         self.separator = separator
         self.emojis = emojis
     def format(self, trait) -> str:
         pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
+        if max(trait['cur_value'], trait['max_value'], trait['dotvisualmax']) > int(self.config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE]):
+            return pretty
         pretty += self.separator.join([self.emojis[0]]*trait['cur_value'])
         pretty += self.separator
         pretty += self.separator.join([self.emojis[1]]*(trait['max_value']-trait['cur_value']))
         return pretty
 
 class BloodpointTraitFormatter(MaxPointTraitFormatter):
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider):
-        super().__init__(lid, lp, blood_emojis, "")
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser):
+        super().__init__(lid, lp, cfg, blood_emojis, "")
 
 class WillpowerTraitFormatter(MaxPointTraitFormatter):
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider):
-        super().__init__(lid, lp, will_emojis, " ")
+    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser):
+        super().__init__(lid, lp, cfg, will_emojis, " ")
 
 class PointAccumulatorTraitFormatter(TraitFormatter):
     def format(self, trait) -> str:
@@ -123,7 +134,7 @@ class TextTraitFormatter(TraitFormatter):
 
 class GenerationTraitFormatter(TraitFormatter):
     def format(self, trait) -> str:
-        dtf = DotTraitFormatter(self.lid, self.lp)
+        dtf = DotTraitFormatter(self.lid, self.lp, self.config)
         return f"{13 - trait['cur_value']}a generazione\n{dtf.format(trait)}"
 
 # HANDLERS
@@ -137,7 +148,7 @@ class PCActionResultOutputter():
         return gr.RollOutputter_GENERAL
     def outputItem(self, item: gms.PCActionResult):
         if isinstance(item, gms.PCActionResultTrait):
-            return self.getTraitFormatterClass(item.trait)(self.ctx.getLID(), self.ctx.getLanguageProvider()).format(item.trait)
+            return self.getTraitFormatterClass(item.trait)(self.ctx.getLID(), self.ctx.getLanguageProvider(), self.ctx.getAppConfig()).format(item.trait)
         elif isinstance(item, gms.PCActionResultText):
             return item.text
         elif isinstance(item, gms.PCActionResultRollData):
@@ -207,7 +218,7 @@ def getOutputter(gamesystem: int, ctx: gb.GreedyContext):
 class GreedyGhostCog_PCmgmt(gb.GreedyGhostCog): 
 
     async def pc_interact(self, ctx: gb.GreedyContext, pc: object, can_edit: bool, *args_tuple) -> str:
-        gamesystemid = self.bot.getGameSystemIdByChannel(ctx.channel.id)
+        gamesystemid = self.bot.dbm.getGameSystemIdByCharacter(pc, self.bot.getGameSystemIdByChannel(ctx.channel.id)) 
         gamesystem = gms.getGamesystem(gamesystemid)
         handler = gms.buildHandler(ctx, gamesystem, pc, can_edit)
         handler.nullAction = PCAction_CharacterLink
