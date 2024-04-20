@@ -135,7 +135,9 @@ class TextTraitFormatter(TraitFormatter):
 class GenerationTraitFormatter(TraitFormatter):
     def format(self, trait) -> str:
         dtf = DotTraitFormatter(self.lid, self.lp, self.config)
-        return f"{13 - trait['cur_value']}a generazione\n{dtf.format(trait)}"
+        gen_formatted = dtf.format(trait)
+        gen_number = 13 - trait['cur_value']
+        return (self.lp.get(self.lid, 'web_string_calc_generation', gen_number) + "\n" if gen_number > 0 else "") + gen_formatted            
 
 # HANDLERS
 

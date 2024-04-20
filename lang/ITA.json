@@ -151,7 +151,7 @@
 
 	"db_failed_inserting_character": "Inserimento di {} fallito",
 
-	"web_already_logged_as": "Hai già eseguito il login come {}#{}",
+	"web_already_logged_as": "Hai già eseguito il login come {} ({})",
 	"web_index_page_title": "Indice",
 	"web_index_page_container_title": "Pagine disponibili:",
 	"web_label_message": "Messaggio",

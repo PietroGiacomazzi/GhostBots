@@ -17,6 +17,7 @@ import lang.lang as lng
 import support.ghostDB as ghostDB
 import support.security as sec
 import support.gamesystems as gms
+import support.config as cfg
 
 config = configparser.ConfigParser()
 config.read(["/website/default_config.ini", "/website/config.ini"])
@@ -69,9 +70,9 @@ urls = (
     '/newCharacterMacro', 'newCharacterMacro',
     '/saveMacro', 'saveMacro',
     '/deleteMacro', 'deleteMacro',
-    '/useMacro', 'useMacro'
+    '/useMacro', 'useMacro',
+    '/webAppSettings', 'webAppSettings'
     )
-
 
 web.config.session_parameters['samesite'] = 'Lax'
 web.config.session_parameters['secure'] = True
@@ -318,7 +319,7 @@ class doLogin(WebPageResponseLang):
     def mPOST(self):
         try:
             return render.simplemessage( self.getLanguageDict(),
-                                         self.getString("web_already_logged_as", self.session.discord_username, self.session.discord_userdiscriminator)
+                                         self.getString("web_already_logged_as", self.session.discord_global_name, self.session.discord_username)
                                         )
         except AttributeError as e:
             discord = make_session(scope=['identify'])
@@ -360,7 +361,8 @@ class discordCallback(APIResponse):
             user = discord.get(API_BASE_URL + '/users/@me').json()
             self.session.discord_userid = user['id']
             self.session.discord_username = user['username']
-            self.session.discord_userdiscriminator = user['discriminator']
+            self.session.discord_global_name = user['global_name']
+            self.session.discord_avatar = user['avatar']
 
             iu, _ = dbm.validators.getValidateBotUser(self.session.discord_userid).validate()
             #if not iu:
@@ -415,9 +417,9 @@ class dashboard(WebPageResponseLang):
                                                                            })
     def mGET(self):
         try:
-            return render.dashboard(global_template_params, self.getLanguageDict(), f'{self.session.discord_username}#{self.session.discord_userdiscriminator}', self.getString("web_label_logout"), "doLogout", self.getString("web_default_dashboard_msg_loggedin"))
+            return render.dashboard(global_template_params, self.getLanguageDict(), f'{self.session.discord_global_name} ({self.session.discord_username})', f'https://cdn.discordapp.com/avatars/{self.session.discord_userid}/{self.session.discord_avatar}.png', self.getString("web_label_logout"), "doLogout", self.getString("web_default_dashboard_msg_loggedin"))
         except AttributeError:
-            return render.dashboard(global_template_params, self.getLanguageDict(), '', self.getString("web_label_login"), "doLogin",  self.getString("web_default_dashboard_msg_notlogged"))
+            return render.dashboard(global_template_params, self.getLanguageDict(), '', '', self.getString("web_label_login"), "doLogin",  self.getString("web_default_dashboard_msg_notlogged"))
             
 my_chars_query_admin = """
 select pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername, cr.gamesystemid
@@ -535,7 +537,7 @@ class editTranslations(WebPageResponseLang):
         order by tt.standard desc, tt.traittype asc, tt.ordering asc
         """
         traitData = dbm.db.query(query, vars=dict(langId=self.getLangId()))
-        return render.translationEdit(global_template_params, self.getLanguageDict(), f'{self.session.discord_username}#{self.session.discord_userdiscriminator}', self.getString("web_label_logout"), "doLogout", traitData)
+        return render.translationEdit(global_template_params, self.getLanguageDict(), f'{self.session.discord_global_name} ({self.session.discord_username})', self.getString("web_label_logout"), "doLogout", traitData)
 
 class editTranslation(APIResponse):
     def __init__(self):
@@ -726,6 +728,16 @@ class webFunctionVisibility(APIResponse):
             "translate_traits": ba or st, # storytellers or admins
             "macro_new_general":  ba or st # storytellers or admins
         }
+
+class webAppSettings(APIResponse):
+    def __init__(self):
+        super().__init__(config, session)
+    def mGET(self):
+        return {
+            # from config file:
+            cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE: int(config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE])
+            # other settings:
+        }         
 
 class getModal(WebPageResponseLang):
     def __init__(self):

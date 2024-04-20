@@ -151,7 +151,7 @@
 
 	"db_failed_inserting_character": "Failed inserting the character {}",
 
-	"web_already_logged_as": "Already logged in as {}#{}",
+	"web_already_logged_as": "Already logged in as {} ({})",
 	"web_index_page_title": "Index Page",
 	"web_index_page_container_title": "Available pages:",
 	"web_message": "Message",

@@ -67,6 +67,10 @@
   filter: sepia();
 }
 
+.user-avatar-navbar{
+  height: 2.5em;
+}
+
 /* autocomplete stuff */
 
 /*

@@ -181,6 +181,8 @@ class AppState {
 		this.selected_noteid = null;
 		this.language_dictionary = null;
 		this.selected_macro = null;
+
+		this.webAppSettings = null;
 	}
 	runTabAvailability(new_tab_id)
 	{
@@ -763,6 +765,27 @@ function createMaxModElement(traitdata){
 	return trait_maxmod;
 }
 
+function traitElementValue_Failsafe(parent_node, traitdata)
+{
+	var trait_cur = document.createElement('span');
+	trait_cur.innerHTML = traitdata.cur_value;
+	trait_cur.dataset.traitid = traitdata.trait;
+	trait_cur.dataset.editable = "1"
+	trait_cur.dataset.current_val = "1"
+	parent_node.appendChild(trait_cur);	
+
+	var trait_sep = document.createElement('span');
+	trait_sep.innerHTML = "/";
+	parent_node.appendChild(trait_sep);	
+
+	var trait_cont = document.createElement('span');
+	trait_cont.id = traitdata.trait+'-content';
+	trait_cont.innerHTML = traitdata.max_value;
+	trait_cont.dataset.traitid = traitdata.trait;
+	trait_cont.dataset.editable = "1"
+	parent_node.appendChild(trait_cont);	
+}
+
 function createTraitElement(traitdata){
 	state = getState();
 	var c = document.createElement('tr'); 
@@ -782,6 +805,8 @@ function createTraitElement(traitdata){
 	}
 	c.appendChild(deletecontrol);
 
+	var toomanydots = !traitdata.textbased && Math.max(traitdata.cur_value, traitdata.max_value)>state.webAppSettings.max_trait_output_size;
+
 	// tratti con visualizzazioni specifiche
 	if (traitdata.trait == 'volonta')
 	{
@@ -789,25 +814,31 @@ function createTraitElement(traitdata){
 		trait_title.innerHTML = out_sanitize(traitdata.traitName);
 		c.appendChild(trait_title);
 
-		// permanent
-		var dots_array = Array(traitdata.max_value).fill(window.dot_data.dot);
-		var n_empty_dots = Math.max(0, 10-traitdata.max_value);
-		if (n_empty_dots > 0)
-			dots_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.emptydot));
-		
-		var trait_dots = document.createElement('p');
-		trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata, false, 10);
-		c.appendChild(trait_dots);
+		if (toomanydots){
+			traitElementValue_Failsafe(c, traitdata);
+		}
+		else {
+			// permanent
+			var dots_array = Array(traitdata.max_value).fill(window.dot_data.dot);
+			var n_empty_dots = Math.max(0, 10-traitdata.max_value);
+			if (n_empty_dots > 0)
+				dots_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.emptydot));
+			
+			var trait_dots = document.createElement('p');
+			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata, false, 10);
+			c.appendChild(trait_dots);
 
-		// current
-		var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
-		var n_empty_dots = Math.max(0, 10-traitdata.cur_value);
-		if (n_empty_dots > 0)
-			sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
-		
-		var trait_sqrs = document.createElement('p');
-		trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true, 10);
-		c.appendChild(trait_sqrs);
+			// current
+			var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
+			var n_empty_dots = Math.max(0, Math.max(traitdata.max_value, 10)-traitdata.cur_value);
+			if (n_empty_dots > 0)
+				sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
+			
+			var trait_sqrs = document.createElement('p');
+			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true, 10);
+			c.appendChild(trait_sqrs);
+		}
+
 	}
 	else if (traitdata.trait == 'salute')
 	{
@@ -833,49 +864,48 @@ function createTraitElement(traitdata){
 		trait_title.innerHTML = out_sanitize(traitdata.traitName)
 		c.appendChild(trait_title);
 
-		if (traitdata.trackertype == 0) // normale (umanità/vie)
-		{
-			var dots_array = Array(traitdata.max_value).fill(window.dot_data.dot);
-			var n_empty_dots = Math.max(0, 10-traitdata.max_value);
-			if (n_empty_dots > 0)
-				dots_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.emptydot));
-			
-			var trait_dots = document.createElement('p');
-			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata, false, 10);
-			c.appendChild(trait_dots);
+		var trait_body = document.createElement('p');
+
+		if (toomanydots){
+			traitElementValue_Failsafe(trait_body, traitdata);
 		}
-		else if (traitdata.trackertype == 1) // punti con massimo (sangue, yin...)
-		{
-			c.appendChild(createMaxModElement(traitdata));
-			
-			// current
-			var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
-			var n_empty_dots = Math.max(0, traitdata.max_value-traitdata.cur_value);
-			if (n_empty_dots > 0)
-				sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
-			
-			var trait_sqrs = document.createElement('p');
-			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true, 10);
-			c.appendChild(trait_sqrs);
+		else {
+			if (traitdata.trackertype == 0) // normale (umanità/vie)
+			{
+				var dots_array = Array(traitdata.max_value).fill(window.dot_data.dot);
+				var n_empty_dots = Math.max(0, 10-traitdata.max_value);
+				if (n_empty_dots > 0)
+					dots_array = dots_array.concat(Array(n_empty_dots).fill(window.dot_data.emptydot));
+				
+				trait_body = populateDotArrayElement(trait_body, dots_array, traitdata, false, 10);
+			}
+			else if (traitdata.trackertype == 1) // punti con massimo (sangue, yin...)
+			{
+				c.appendChild(createMaxModElement(traitdata));
+				
+				// current
+				var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
+				var n_empty_dots = Math.max(0, traitdata.max_value-traitdata.cur_value);
+				if (n_empty_dots > 0)
+					sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
+				
+				trait_dots = populateDotArrayElement(trait_body, sqr_array, traitdata, true, 10);
+			}
+			else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
+			{
+				trait_body.innerHTML = out_sanitize(traitdata.text_value)+' (visualizzazione non implementata)'; //TODO
+			}
+			else if (traitdata.trackertype == 3) // punti senza massimo (nessun uso al momento)
+			{
+				trait_body.innerHTML = traitdata.cur_value;
+			}
+			else //fallback
+			{
+				trait_body.innerHTML = traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value)
+			}
 		}
-		else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
-		{
-			var trait_body = document.createElement('p');
-			trait_body.innerHTML = out_sanitize(traitdata.text_value)+' (visualizzazione non implementata)'; //TODO
-			c.appendChild(trait_body);
-		}
-		else if (traitdata.trackertype == 3) // punti senza massimo (nessun uso al momento)
-		{
-			var trait_body = document.createElement('p');
-			trait_body.innerHTML = traitdata.cur_value;
-			c.appendChild(trait_body);
-		}
-		else //fallback
-		{
-			var trait_body = document.createElement('p');
-			trait_body.innerHTML = traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value)
-			c.appendChild(trait_body);
-		}
+		
+		c.appendChild(trait_body);
 	}
 	// tratti std
 	else if (!traitdata.textbased)
@@ -891,65 +921,56 @@ function createTraitElement(traitdata){
 		trait_title.innerHTML = tname;
 		c.appendChild(trait_title);
 		
-		if (traitdata.trackertype == 0) // normale
-		{
-			var dots_array = Array(Math.min(traitdata.cur_value,traitdata.max_value)).fill(window.dot_data.dot);
-			if (traitdata.cur_value < traitdata.max_value)
-				dots_array = dots_array.concat(Array(traitdata.max_value-traitdata.cur_value).fill(window.dot_data.red_dot));
-			if (traitdata.cur_value>traitdata.max_value)
-				dots_array = dots_array.concat(Array(traitdata.cur_value-traitdata.max_value).fill(window.dot_data.blue_dot));
-			max_dots = traitdata.dotvisualmax;
-			if (traitdata.cur_value < max_dots)
-				dots_array = dots_array.concat(Array(max_dots-Math.max(traitdata.max_value, traitdata.cur_value)).fill(window.dot_data.emptydot));
 
-			var trait_dots = document.createElement('td');
-			trait_dots.className = "nopadding dotseq";
-			trait_dots.style = "float:right";
+		var trait_body = document.createElement('td');
+		trait_body.className = "nopadding dotseq";
+		trait_body.style = "float:right";
 
-			trait_dots = populateDotArrayElement(trait_dots, dots_array, traitdata, false, 10);
-			
-			c.appendChild(trait_dots);
+		if (toomanydots) {
+			traitElementValue_Failsafe(trait_body, traitdata)
 		}
-		else if (traitdata.trackertype == 1) // punti con massimo (nessun uso al momento)
+		else
 		{
-			// current
-			var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
-			var n_empty_dots = Math.max(0, traitdata.max_value-traitdata.cur_value);
-			if (n_empty_dots > 0)
-				sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
-			
-			var trait_sqrs = document.createElement('td');
-			trait_sqrs.className = "nopadding";
-			trait_sqrs.style = "float:right";
-			trait_dots = populateDotArrayElement(trait_sqrs, sqr_array, traitdata, true, 10);
-			c.appendChild(trait_sqrs);
-			
-			c.appendChild(createMaxModElement(traitdata));
+			if (traitdata.trackertype == 0) // normale
+			{
+				var dots_array = Array(Math.min(traitdata.cur_value,traitdata.max_value)).fill(window.dot_data.dot);
+				if (traitdata.cur_value < traitdata.max_value)
+					dots_array = dots_array.concat(Array(traitdata.max_value-traitdata.cur_value).fill(window.dot_data.red_dot));
+				if (traitdata.cur_value>traitdata.max_value)
+					dots_array = dots_array.concat(Array(traitdata.cur_value-traitdata.max_value).fill(window.dot_data.blue_dot));
+				max_dots = traitdata.dotvisualmax;
+				if (traitdata.cur_value < max_dots)
+					dots_array = dots_array.concat(Array(max_dots-Math.max(traitdata.max_value, traitdata.cur_value)).fill(window.dot_data.emptydot));
+
+				trait_body = populateDotArrayElement(trait_body, dots_array, traitdata, false, 10);
+			}
+			else if (traitdata.trackertype == 1) // punti con massimo (nessun uso al momento)
+			{
+				// current
+				var sqr_array = Array(traitdata.cur_value).fill(window.dot_data.square_full);
+				var n_empty_dots = Math.max(0, traitdata.max_value-traitdata.cur_value);
+				if (n_empty_dots > 0)
+					sqr_array = sqr_array.concat(Array(n_empty_dots).fill(window.dot_data.square_empty));
+				
+				trait_body = populateDotArrayElement(trait_body, sqr_array, traitdata, true, 10);
+				
+				c.appendChild(createMaxModElement(traitdata));
+			}
+			else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
+			{
+				trait_body.innerHTML = out_sanitize(traitdata.text_value)+' (visualizzazione non implementata)'; //TODO
+			}
+			else if (traitdata.trackertype == 3) // punti senza massimo (nessun uso al momento)
+			{
+				trait_body.innerHTML = traitdata.cur_value;
+			}
+			else //fallback
+			{
+				trait_body.innerHTML = traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value)
+			}
 		}
-		else if (traitdata.trackertype == 2) // danni (nessun uso al momento)
-		{
-			var trait_body = document.createElement('td');
-			trait_body.innerHTML = out_sanitize(traitdata.text_value)+' (visualizzazione non implementata)'; //TODO
-			trait_body.className = "nopadding";
-			trait_body.style = "float:right";
-			c.appendChild(trait_body);
-		}
-		else if (traitdata.trackertype == 3) // punti senza massimo (nessun uso al momento)
-		{
-			var trait_body = document.createElement('p');
-			trait_body.innerHTML = traitdata.cur_value;
-			trait_body.className = "nopadding";
-			trait_body.style = "float:right";
-			c.appendChild(trait_body);
-		}
-		else //fallback
-		{
-			var trait_body = document.createElement('p');
-			trait_body.innerHTML = traitdata.cur_value + "/" + traitdata.max_value + " " +out_sanitize(traitdata.text_value)
-			trait_body.className = "nopadding";
-			trait_body.style = "float:right";
-			c.appendChild(trait_body);
-		}
+				
+		c.appendChild(trait_body);
 	}
 	else // text based
 	{
@@ -1191,7 +1212,7 @@ function populateSheet(characterTraits, character){
 		}
 	}
 	// generazione 
-	if (generation >= 0)
+	if (generation > 0)
 	{
 		renderCalcGeneration(generation);
 	}
@@ -1407,6 +1428,11 @@ function populate_page(){
 	var modlog = document.getElementById('modregister');
 	modlog.addEventListener('click', load_modlog);
     //var side_menu = document.getElementById('side_menu');
+
+	get_remote_resource('./webAppSettings', 'json', function(data){
+		getState().webAppSettings = data;
+	})
+
 	get_remote_resource('./webFunctionVisibility', 'json', function(data){
 		if (data.side_menu){
 			document.getElementById("side_menu").style.display = 'block';

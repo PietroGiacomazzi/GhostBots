@@ -1,4 +1,4 @@
-$def with (global_params, language_strings, username, btntext, action, msg)
+$def with (global_params, language_strings, username, user_avatar_url, btntext, action, msg)
 <!doctype html>
 <html>
 <head>
@@ -33,6 +33,7 @@ $def with (global_params, language_strings, username, btntext, action, msg)
 		<div id='user-info'>
         	<button id="loginlogout" form="loginlogoutform" class="w3-bar-item w3-btn w3-indigo w3-right">$btntext</button>
         	<span class="w3-bar-item w3-right">$username</span>
+			<img src="$user_avatar_url" class="w3-bar-item w3-right w3-circle user-avatar-navbar">
 		</div>
 	</div> 
 	
