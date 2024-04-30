@@ -143,6 +143,13 @@
 	"string_error_gamesystem_missing_mapping": "Il sistema di gioco {} non è supportato",
 	"string_word_total": "Totale",
 	"string_error_message_too_long_bot": "Il bot sta cercando di inviare un messaggio troppo lungo. Il resto è stato troncato.",
+	"string_gamestate_0": "Quiete",
+	"string_gamestate_1": "Stress",
+	"string_gamestate_changed": "Stato del gioco impostato su {}",
+	"string_gamestate_nochange": "Lo stato del gioco è già {}",
+	"string_error_no_session_for_character": "Non c'è una sessione aperta per {}",
+	"string_autopenalty_trait": "penalità di {}d{} dall'uso di {} (non cumulativa)",
+	"string_rollpermanent_trait": "{} permanente",
 
 	"help_gmadm_stlink": "Argomenti: <id cronaca>,  [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
 	"help_gmadm_stunlink": "Argomenti: <id cronaca>, [<@menzione storyteller/Discord ID>] (se diverso da se stessi)",
@@ -158,10 +165,10 @@
 	"web_sessioninfo_page_title": "Informazioni di sessione",
 	"web_sessionInfo_page_container_title": "Parametri di sessione:",
 	"web_default_dashboard_msg_loggedin": "Seleziona una cronaca e un personaggio",
-	"web_default_dashboard_msg_notlogged": "Esegui il login",
-	"web_label_login": "Accedi",
+	"web_default_dashboard_msg_notlogged": "Fai login",
+	"web_label_login": "Login",
 	"web_label_logout": "Esci",
-	"web_label_dashboard": "Dashboard",
+	"web_label_dashboard": "Greedy Ghost",
 	"web_label_mod_register": "Registro Modifiche",
 	"web_label_attributes": "Attributi",
 	"web_label_attributes_physical": "Fisici",
@@ -257,6 +264,9 @@
 	"web_label_cancel": "Annulla",
 	"web_error_invalid_tab": "Id tab '{0}' non valido",
 	"web_msg_macro_saved":  "Macro {0} salvata",
+	"web_msg_charload_toolong": "Il caricamento della scheda ci sta mettendo molto...",
+	"web_msg_charload_stillloading": "C'è già una scheda in caricamento!",
+	"web_label_swversion": "versione {}",
 
 	"web_text_macro_docs": ""
 }

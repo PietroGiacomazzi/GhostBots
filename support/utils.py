@@ -6,6 +6,12 @@ _log = logging.getLogger(__name__)
 
 GAMESYSTEMS_LIST = ("GENERAL", "STORYTELLER_SYSTEM", "V20_VTM_HOMEBREW_00", "V20_VTM_VANILLA") #, "DND_5E")
 
+GAMESTATES_LIST = ("QUIET", "STRESS")
+gamestate_label_prefix = 'string_gamestate_'
+def gamestate_label(gamestateid: int):
+    """ returns the lanuage string label for a given gamestateid """
+    return gamestate_label_prefix+str(gamestateid)
+
 # TYPES
 ValidatedString = tuple #[bool, str]
 ValidatedIntSeq = tuple #[int, int]

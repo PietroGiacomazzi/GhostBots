@@ -1,4 +1,5 @@
 from discord.ext import commands
+from dataclasses import dataclass
 import os, web, logging
 
 from lang.lang import LangSupportException
@@ -27,6 +28,8 @@ TABLENAME_CHARACTERMACRO = 'CharacterMacro'
 TABLENAME_PLAYERCHARACTER = 'PlayerCharacter'
 TABLENAME_CHRONICLECHARACTERREL = 'ChronicleCharacterRel'
 TABLENAME_GAMESESSION = 'GameSession'
+TABLENAME_TRAITSETTINGS = 'TraitSettings'
+TABLENAME_TRAIT = 'Trait'
 
 #Fieldnames
 
@@ -34,6 +37,8 @@ GAMESYSTEMID = "gamesystemid"
 GENERICID =  'id'
 CHRONICLE = 'chronicle'
 CHANNEL = 'channel'
+TRAITID = 'traitid'
+GAMESTATEID = 'gamestateid'
 
 FIELDNAME_GAMESYSTEM_GAMESYSTEMID = GAMESYSTEMID
 
@@ -54,6 +59,16 @@ FIELDNAME_CHRONICLECHARACTERREL_CHRONICLE = CHRONICLE
 
 FIELDNAME_GAMESESSION_CHRONICLE = CHRONICLE
 FIELDNAME_GAMESESSION_CHANNEL = CHANNEL
+FIELDNAME_GAMESESSION_GAMESTATEID = GAMESTATEID
+
+FIELDNAME_TRAITSETTINGS_TRAITID = TRAITID
+FIELDNAME_TRAITSETTINGS_GAMESTATEID = GAMESTATEID
+FIELDNAME_TRAITSETTINGS_ROLLPERMANENT = 'rollpermanent'
+FIELDNAME_TRAITSETTINGS_AUTOPENALTY = 'autopenalty'
+
+FIELDNAME_TRAIT_TRAITID = GENERICID
+FIELDNAME_TRAIT_MAX_VALUE = 'max_value'
+FIELDNAME_TRAIT_CUR_VALUE = 'cur_value'
 
 # Queries
 
@@ -94,6 +109,13 @@ order by gs.{FIELDNAME_GAMESESSION_CHANNEL} desc
 class DBException(LangSupportException):
     pass
 
+@dataclass
+class TraitSettings():
+    traitid: str
+    gamestateid: int
+    rollpermanent: bool
+    autopenalty: bool
+
 class DBManager:
     def __init__(self, config):
         self.cfg = config
@@ -114,6 +136,15 @@ class DBManager:
         # fallback
         self.db.query("SET SESSION interactive_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])))
         self.db.query("SET SESSION wait_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])))
+    def buildTraitSettings(self, traitid: str, gamestateid: int):
+        settings_db = self.validators.getValidateTraitSettings(traitid, gamestateid).get()
+        return TraitSettings(traitid
+                             , gamestateid
+                             , settings_db[FIELDNAME_TRAITSETTINGS_ROLLPERMANENT] if settings_db[FIELDNAME_TRAITSETTINGS_ROLLPERMANENT] is not None else False
+                             , settings_db[FIELDNAME_TRAITSETTINGS_AUTOPENALTY] if settings_db[FIELDNAME_TRAITSETTINGS_AUTOPENALTY] is not None else False
+                            )
+    def setGameState(self, channelid: str, gamestateid: int):
+        return self.db.update(TABLENAME_GAMESESSION, where= f'{FIELDNAME_GAMESESSION_CHANNEL} = $channelid', vars=dict(channelid=channelid), gamestateid = gamestateid)
     def updateGameSystems(self):
         db_list = list(map(lambda x: x[FIELDNAME_GAMESYSTEM_GAMESYSTEMID], self.db.select(TABLENAME_GAMESYSTEM, what= FIELDNAME_GAMESYSTEM_GAMESYSTEMID).list()))
         bot_list = GAMESYSTEMS_LIST
@@ -361,15 +392,6 @@ join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
 where gs.channel = $channel and cc.playerchar = $charid
 """, vars=dict(channel=channelid, charid=charid))
         return bool(len(result)), result[0] if len(result) else None
-    def isAnySessionActiveForCharacter(self, charid): #
-        """Is there a session anywhere that includes this character?"""
-        result = self.db.query("""
-SELECT cc.playerchar
-FROM GameSession gs
-join ChronicleCharacterRel cc on (gs.chronicle = cc.chronicle)
-where cc.playerchar = $charid
-""", vars=dict(charid=charid))
-        return bool(len(result)), result[0] if len(result) else None
     
     def log(self, userid, charid, traitid, modtype, new_val, old_val = "", command = ""):
         self.db.insert("CharacterModLog", userid = userid, charid = charid, traitid = traitid, val_type = modtype, old_val = old_val, new_val = new_val, command = command)
@@ -443,8 +465,16 @@ class ValidatorGenerator:
         """ Handles validation of Trait Types """
         return GetValidateRecord(self.db, "select * from TraitType where id=$id", dict(id=traittypeid), "Il tipo di tratto '{}' non esiste!")
     def getValidateRunningSession(self, channelid: str) -> GetValidateRecord:
-        """ Handles validation of game sessions running on Discord text channels """
-        return GetValidateRecordNoFormat(self.db, "select * from GameSession where channel=$channel", dict(channel=channelid), "Nessuna sessione attiva in questo canale!")
+        """ Handles validation of game sessions running on Discord text channels, retrieves chronicle data too. """
+        return GetValidateRecordNoFormat(self.db, f"SELECT * from {TABLENAME_GAMESESSION} gs JOIN {TABLENAME_CHRONICLE} c ON (c.{FIELDNAME_CHRONICLE_CHRONICLEID} = gs.{FIELDNAME_GAMESESSION_CHRONICLE}) where channel=$channel", dict(channel=channelid), "Nessuna sessione attiva in questo canale!")
+    def getValidateAnyRunningSessionForCharacter(self, charid: str):
+        """ Handles validation of any running session for a given character """
+        query = f"""
+        SELECT gs.* 
+        FROM {TABLENAME_GAMESESSION} gs 
+        join {TABLENAME_CHRONICLECHARACTERREL} cc on (gs.{FIELDNAME_GAMESESSION_CHRONICLE} = cc.{FIELDNAME_CHRONICLECHARACTERREL_CHRONICLE}) 
+        where cc.playerchar = $charid"""
+        return GetValidateRecord(self.db, query, dict(charid=charid), "string_error_no_session_for_character")
     def getValidateCharacter(self, charid: str) -> GetValidateRecord:
         """ Handles validation of player characters by character id """
         return GetValidateRecord(self.db, "select * from PlayerCharacter where id=$id", dict(id=charid), "Il personaggio '{}' non esiste!")
@@ -475,3 +505,6 @@ class ValidatorGenerator:
     def getValidateMacro(self, macroid: str):
         """ Handles validation of macros """
         return GetValidateRecord(self.db, f'SELECT t.* FROM {TABLENAME_CHARACTERMACRO} t where t.{FIELDNAME_CHARACTERMACRO_MACROID} = $macroid', dict(macroid=macroid), "string_error_macro_not_found")
+    def getValidateTraitSettings(self, traitid: str, gamestateid: int):
+        """ Handles validation of trait settings. will fail only if the trait does not exist """
+        return GetValidateRecord(self.db, f"SELECT t.id, ts.* FROM {TABLENAME_TRAIT} t LEFT JOIN {TABLENAME_TRAITSETTINGS} ts ON (ts.{FIELDNAME_TRAITSETTINGS_TRAITID} = t.{FIELDNAME_TRAIT_TRAITID} AND ts.{FIELDNAME_TRAITSETTINGS_GAMESTATEID} = $gamestateid) WHERE t.{FIELDNAME_TRAIT_TRAITID} = $traitid ", dict(traitid = traitid, gamestateid = gamestateid), "string_TRAIT_does_not_exist")

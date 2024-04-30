@@ -117,7 +117,7 @@ class GreedyGhostCog_Roller(gb.GreedyGhostCog):
             response += f"\n {trait['traitShort']} ({trait['traitId']}): {trait['traitName']}"
         await self.bot.atSend(ctx, response)
 
-    @commands.command(name = 'call', brief = "Richiama l'attenzione dello storyteller", description = "Richiama l'attenzione dello storyteller della cronaca attiva nel canale in cui viene invocato")
+    @commands.command(name = 'call', brief = "Richiama l'attenzione dello storyteller", description = "Richiama l'attenzione degli storyteller della cronaca attiva nel canale in cui viene invocato")
     @commands.before_invoke(gs.command_security(gs.basicRegisteredUser))
     async def call(self, ctx: commands.Context):
         character = self.bot.dbm.getActiveChar(ctx)

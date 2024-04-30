@@ -6,6 +6,7 @@ import support.ghostDB as ghostDB
 import lang.lang as lng
 import support.utils as utils
 import support.security as sec
+import support.config as cfg
 
 _log = logging.getLogger(__name__)
 
@@ -117,6 +118,8 @@ class GreedyBot(commands.Bot):
         lid = ctx.getLID()
         formatted_error = self.languageProvider.formatException(lid, exc)
         return formatted_error
+    def getSoftwareVersion(self):
+        return os.environ.get(cfg.GG_SOFTWAREVERSION)
     # overrides
     async def get_context(self, message, *, cls=...):
         """ overrides context creation to calculate some extra info """
@@ -131,10 +134,9 @@ class GreedyGhost(GreedyBot):
     def getGameSystemIdByChannel(self, channelid: str) -> str:
         is_session, session = self.dbm.validators.getValidateRunningSession(channelid).validate()
         if is_session:
-            chronicleid = session["chronicle"]
-            chronicle = self.dbm.validators.getValidateChronicle(chronicleid).get()
-            if not chronicle[ghostDB.FIELDNAME_CHRONICLE_GAMESYSTEMID] is None:
-                return chronicle[ghostDB.FIELDNAME_CHRONICLE_GAMESYSTEMID]
+            gamesystemid = session[ghostDB.FIELDNAME_CHRONICLE_GAMESYSTEMID]
+            if not gamesystemid is None:
+                return gamesystemid
         is_channel, channel = self.dbm.validators.getValidateChannelGameSystem(channelid).validate()
         if is_channel:
             return channel[ghostDB.FIELDNAME_CHANNELGAMESYSTEM_GAMESYSTEMID]

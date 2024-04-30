@@ -25,6 +25,7 @@ services:
       DATABASE_DBNAME: greedyghost
       DATABASE_USER: root
       DATABASE_PW_FILE: /run/secrets/mysql-root
+      GG_VERSION: ${PROJECT_TARGET_SOFTWAREVERSION}
     volumes:
       - ./environments/${PROJECT_ENVNAME}/config.ini:/bots/config.ini
     secrets:
@@ -38,6 +39,8 @@ services:
 
   possum:
     image: possum-bot:${PROJECT_TARGET_SOFTWAREVERSION}
+    environment:
+      GG_VERSION: ${PROJECT_TARGET_SOFTWAREVERSION}
     volumes:
       - ./environments/${PROJECT_ENVNAME}/possumconfig.ini:/bots/possumconfig.ini
     build:
@@ -54,6 +57,7 @@ services:
       DATABASE_DBNAME: greedyghost
       DATABASE_USER: root
       DATABASE_PW_FILE: /run/secrets/mysql-root
+      GG_VERSION: ${PROJECT_TARGET_SOFTWAREVERSION}
     volumes:
       - ./environments/${PROJECT_ENVNAME}/config.ini:/website/config.ini
     secrets:

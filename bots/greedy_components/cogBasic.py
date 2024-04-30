@@ -33,8 +33,13 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
         if not iu:
             self.bot.dbm.registerUser(self.bot.user.id, self.bot.user.name, self.bot.config['BotOptions']['default_language'])
         # notify debug user that bot is online
-        await self.bot.logToDebugUser("Bot is Online!")
+        await self.bot.logToDebugUser(f"Bot is Online! version: {self.bot.getSoftwareVersion()}")
         await self.bot.update_presence_status()
+    
+    @commands.command(name = 'version', brief = 'get bot version')
+    @commands.before_invoke(gs.command_security(sec.IsAdmin))
+    async def version(self, ctx: gb.GreedyContext):
+        await self.bot.atSend(ctx, self.bot.getSoftwareVersion())
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: gb.GreedyContext, error: Exception):

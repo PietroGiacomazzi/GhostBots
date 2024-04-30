@@ -66,6 +66,14 @@ class SecurityContext:
             return self.userData
         else:
             raise self.userData
+    
+    def getRunningSession(self):
+        channelid = self.getChannelId()
+        if channelid != 0:
+            return self.getDBManager().validators.getValidateRunningSession(self.getChannelId()).get()
+        else: 
+            return self.getDBManager().validators.getValidateAnyRunningSessionForCharacter(self.getActiveCharacter()[ghostDB.FIELDNAME_PLAYERCHARACTER_CHARACTERID]).get()
+
 
 class InputValidator:
     def __init__(self, ctx: SecurityContext):
@@ -242,11 +250,7 @@ def genIsAnySessionRunningForCharacter(target_character):
         def checkSecurity(self, *command_args, **command_kwargs) -> tuple: #[bool, Any]:
             character = self.getParameter(target_character, command_args, command_kwargs)
             charid = character['id']
-
-            sa, _ = self.ctx.getDBManager().isAnySessionActiveForCharacter(charid)
-            
-            comment = None if sa else SecurityCheckException("Il personaggio deve avere una sessione aperta") 
-            return sa, comment
+            return self.ctx.getDBManager().validators.getValidateAnyRunningSessionForCharacter(charid).validate()
     return IsSessionRunningforCharacter
 
 def genIsSessionRunningForCharacterHere(target_character):

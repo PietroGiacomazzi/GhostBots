@@ -1,6 +1,7 @@
 window.WepAppState = null;
 
 var _note_autosavetimer = 0;
+var _chrload_loadtimeout = 0;
 
 window.dot_data = {
 	dot: "&#9899;", //"⚫"; //9899
@@ -164,6 +165,8 @@ class AppState {
 		this.tabs["character_notes"] = new TabCharNotes("character_notes", "charnotes");
 		this.tabs[TAB_MACROS] = new TabMacros(TAB_MACROS, "mi_macros");
 		this.current_tab = "central_msg";
+
+		this.loading_state = false;
 
 		this.charEditMode = false;
 		this.editElements = Array();
@@ -1098,6 +1101,7 @@ function renderCalcGeneration(generation)
 }
 
 function populateSheet(characterTraits, character){
+	window.clearTimeout(_chrload_loadtimeout);
 	state = getState();
 	state.editElements = Array();
 	disableCharEditMode(); // doing this here makes it faster because we don't have many items to disable
@@ -1252,9 +1256,22 @@ function populateSheet(characterTraits, character){
 	var central_msg = document.getElementById('central_msg');
 	central_msg.style.display = "none";
 	charsheet.style.display = "inline";
+	state.loading_state = false;
 }
 
 function load_charSheet(character){
+	state = getState();
+	if (state.loading_state)
+	{
+		post_error(getLangString("web_msg_charload_stillloading"));
+		return
+	}
+	state.loading_state = true;
+	_chrload_loadtimeout = window.setTimeout(function() {
+		getState().loading_state = false
+		post_message(getLangString("web_msg_charload_toolong"));
+	}, 10000);
+
 	var charsheet = document.getElementById('charsheet');
 	if (charsheet)
 	{
@@ -1281,7 +1298,7 @@ function populate_charmenu(menuItem, chars){
 	var i;
     for (i = 0; i<chars.length; ++i){
 		character = chars[i];
-		container_id = 'chronicle_container_'+character.chronichleid;
+		container_id = 'chronicle_container_'+character.chronicleid;
 		var chronicle_container =  document.getElementById(container_id);
 		if (chronicle_container == null)
 		{

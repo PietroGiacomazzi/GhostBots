@@ -44,7 +44,7 @@ class RollFormatter:
         self.langProvider = langProvider
         self.langId = lid
     def formatRollSummary(self, rolldata: gms.RollData) -> str:
-        return ''
+        return ("\n" + "\n".join(rolldata.comments)) if len(rolldata.comments) else ''
     def format(self, item: gms.RollItem) -> str:
         return f'{self.formatHeader(item)}{self.formatRoll(item)}{self.formatTail(item)}'
     def formatHeader(self, item: gms.RollItem):
@@ -69,7 +69,7 @@ class RollFormatter_GENERAL_Difficulty(RollFormatter):
     def formatRollSummary(self, rolldata: gms.RollData) -> str:
         count_successes = sum(map(lambda x: x.count_successes, rolldata.data))
         success_str = self.lstr('roll_status_generic_1succ') if count_successes == 1 else self.lstr('roll_status_generic_nsucc', count_successes)
-        return f'\n**{self.lstr("string_word_total")}:** {success_str}'
+        return f'\n**{self.lstr("string_word_total")}:** {success_str} {super().formatRollSummary(rolldata)}'
 
 class RollFormatter_STS(RollFormatter):
     def formatHead(self, item: gms.RollItem_STS):
@@ -273,8 +273,8 @@ RollHandlerMappings: dict[int, type[RollHandler]] = {
     gms.GameSystems.GENERAL: RollHandler_General,
     gms.GameSystems.STORYTELLER_SYSTEM: RollHandler_STS,
     gms.GameSystems.V20_VTM_HOMEBREW_00: RollHandler_V20HB,
-    gms.GameSystems.V20_VTM_VANILLA: RollHandler_V20HB
-    #gms.GameSystems.DND_5E: RollParser_DND5E,
+    gms.GameSystems.V20_VTM_VANILLA: RollHandler_V20VANILLA
+    #gms.GameSystems.DND_5E: ...,
 }
 
 def getHandler(gamesystem: int):

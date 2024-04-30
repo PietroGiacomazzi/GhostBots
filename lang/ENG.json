@@ -143,6 +143,13 @@
 	"string_error_gamesystem_missing_mapping": "Game system {} is not supported",
 	"string_word_total": "Total",
 	"string_error_message_too_long_bot": "Bot is trying to send a message that is too long. The rest was truncated.",
+	"string_gamestate_0": "Quiet",
+	"string_gamestate_1": "Stress",
+	"string_gamestate_changed": "Game state changed to {}",
+	"string_gamestate_nochange": "Game state is already {}",
+	"string_error_no_session_for_character": "There is no game session oper for {}",
+	"string_autopenalty_trait": "penalty of {}d{} from use of {} (non cumulative)",
+	"string_rollpermanent_trait": "permanent {}",
 
 	"help_gmadm_stlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
 	"help_gmadm_stunlink": "Arguments: <chronicle id>, [<@mention storyteller/Discord ID>] (if different than self)",
@@ -161,7 +168,7 @@
 	"web_default_dashboard_msg_notlogged": "pls login",
 	"web_label_login": "Login",
 	"web_label_logout": "Logout",
-	"web_label_dashboard": "Dashboard",
+	"web_label_dashboard": "Greedy Ghost",
 	"web_label_mod_register": "Modification log",
 	"web_label_attributes": "Attributes",
 	"web_label_attributes_physical": "Physical",
@@ -256,7 +263,10 @@
 	"web_label_ok": "OK",
 	"web_label_cancel": "Cancel",
 	"web_error_invalid_tab": "Tab id '{0}' is not valid",
-	"web_msg_macro_saved":  "Macro {0} saved",
+	"web_msg_macro_saved": "Macro {0} saved",
+	"web_msg_charload_toolong": "Character sheet loading is taking a long time...",
+	"web_msg_charload_stillloading": "Already loding a character sheet!",
+	"web_label_swversion": "version {}",
 
 	"web_text_macro_docs": ""
 }

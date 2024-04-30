@@ -4,6 +4,7 @@ from typing import Any
 import random, logging
 from typing import Any
 import lang as lng
+from support import ghostDB
 
 from .utils import *
 from .security import *
@@ -13,7 +14,7 @@ from .config import *
 _log = logging.getLogger(__name__)
 
 RollType = enum("NORMAL", "DIFFICULTY", "SUM", "DAMAGE", "PROGRESS", "INITIATIVE", "REFLEXES", "SOAK")
-RollArg = enum("DIFF", "MULTI", "SPLIT", "ROLLTYPE", "PENALTY", "DICE", "PERMANENT_DICE", "PERMANENT", "STATS", "CHARACTER", "MINSUCC") # argomenti del tiro
+RollArg = enum("DIFF", "MULTI", "SPLIT", "ROLLTYPE", "PENALTY", "DICE", "PERMANENT", "STATS", "CHARACTER", "MINSUCC", "SESSION") # argomenti del tiro
 
 #IMPORTANT: 
 # longer versions first. DO NOT put a variant before one that contains it -> it will break the fallback splitting
@@ -30,6 +31,7 @@ DADI_CMD = ("dadi", "dice")
 ADD_CMD = "+"
 SUB_CMD = "-"
 PERMANENTE_CMD = ("permanente", "permanent", "perm")
+#TEMPORARY_CMD = ("temporanea", "temporaneo", "temporary", "temp")
 STATISTICS_CMD = ("statistica", "stats", "stat")
 MINSUCC_CMD = ('minsucc', 'mins', 'ms')
 
@@ -48,6 +50,7 @@ BASHING_idx = DAMAGE_TYPES.index(DMG_BASHING)
 LETHAL_idx = DAMAGE_TYPES.index(DMG_LETHAL)
 
 GameSystems = enum(*GAMESYSTEMS_LIST)
+GameStates = enum(*GAMESTATES_LIST)
 
 OPCODES_ADD = ('+',)
 OPCODES_SUB = ('-',)
@@ -128,10 +131,11 @@ class RollItem_STS(RollItem):
         self.extra_succ: int = None
 
 class RollData:
-    def __init__(self, rolltype: int, statistics = False) -> None:
+    def __init__(self, rolltype: int, comments: list[str], statistics = False) -> None:
         self.rolltype = rolltype
         self.statistics = statistics
         self.data: list[RollItem] = []
+        self.comments = comments
 
 class RollSetup:
     def __init__(self, ctx: SecurityContext) -> None:
@@ -140,10 +144,12 @@ class RollSetup:
         self.ctx = ctx
         self.actionHandlers: dict[int, type[RollAction]] = {}
         self.traits = set()
+        self.comments: list[str] = []
     def roll(self) -> RollData:
+        self.buildComments()
         action = self.getRollType()
         if action in self.actionHandlers:
-            handlerClass= self.actionHandlers[action]
+            handlerClass = self.actionHandlers[action]
             handler = handlerClass(self)
             return handler.execute(action)
         raise GreedyRollExecutionError("string_error_roll_invalid_param_combination")
@@ -156,16 +162,36 @@ class RollSetup:
             validator = cls()
             validator.validate(self)
     def shouldUseBasePool(self):
-        return False
+        return RollArg.PERMANENT in self.rollArguments
     def getPool(self) -> int:
-        arg = RollArg.DICE
-        if self.shouldUseBasePool():
-            arg = RollArg.PERMANENT_DICE
-        pool = 0
-        if not arg in self.rollArguments:
+        """ Get total number of rolled dice """
+        if RollArg.DICE not in self.rollArguments:
             raise GreedyRollValidationError("string_error_no_dice_specified")
-        pool = sum([v for k, v in self.rollArguments[arg].items() if k != 0])
+        pool = 0
+        for k, v in self.rollArguments[RollArg.DICE].items():
+            if k != 0:
+                pool += self.getPoolFaces(k)
         return pool
+    def getPoolFaces(self, faces: int, fallback: int = None) -> int:
+        """ Get number of rolled dice for a given die size. If a fallback value is specified, it will be returned in case the die size is unused """
+        if fallback is not None and faces not in self.rollArguments[RollArg.DICE]:
+            return fallback
+        components: list[RollPoolComponent] = self.rollArguments[RollArg.DICE][faces]
+        return sum(map(lambda c: c.getDice(self), components))
+    def getSession(self):
+        if not RollArg.SESSION in self.rollArguments:
+            self.rollArguments[RollArg.SESSION] = self.ctx.getRunningSession()
+        return self.rollArguments[RollArg.SESSION]
+    def getCharacter(self):
+        if not RollArg.CHARACTER in self.rollArguments:
+            self.rollArguments[RollArg.CHARACTER] = self.ctx.getActiveCharacter()
+        return self.rollArguments[RollArg.CHARACTER]
+    def addComment(self, commentstr: str):
+        self.comments.append(commentstr)
+    def addCommentLang(self, commentlabel, *args):
+        self.addComment(self.ctx.getLanguageProvider().get(self.ctx.getLID(), commentlabel, *args))
+    def buildComments(self):
+        pass
 
 class RollSetup_General(RollSetup):
     def __init__(self, ctx: SecurityContext) -> None:
@@ -186,14 +212,22 @@ class RollSetup_STS(RollSetup_General):
         self.actionHandlers[RollType.SOAK] = RollAction_STS_RegularRoll
     def getDefaultRollType(self) -> int:
         return RollType.DIFFICULTY
-    def shouldUseBasePool(self):
-        return RollArg.PERMANENT in self.rollArguments
     def getPool(self) -> int:
         pool = super().getPool()
-        if RollArg.PENALTY in self.rollArguments:
-            character = self.rollArguments[RollArg.CHARACTER] if RollArg.CHARACTER in self.rollArguments else self.ctx.getActiveCharacter()
-            health = self.ctx.getDBManager().getTrait_LangSafe(character['id'], 'salute', self.ctx.getLID())
-            penalty, _ = parseHealth(health)
+        seen_penalty = False
+        for k, v in self.rollArguments[RollArg.DICE].items():
+            if k != 0:
+                components: list[RollPoolComponent] = v
+                seen_penalty = seen_penalty or sum(map(lambda x: x.getSettings(self).autopenalty if isinstance(x, RollPoolComponent_Trait) else False, components))
+        if (RollArg.PENALTY in self.rollArguments) or seen_penalty:
+            if RollArg.PENALTY not in self.rollArguments:
+                self.rollArguments[RollArg.PENALTY] = True
+            penalty = self.rollArguments[RollArg.PENALTY]
+            if penalty == True: # this works because penalty is "True" by default, so we hijack it's meaning to hold the penalty value, which is negative!
+                character = self.getCharacter()
+                health = self.ctx.getDBManager().getTrait_LangSafe(character['id'], 'salute', self.ctx.getLID())
+                penalty, _ = parseHealth(health)
+                self.rollArguments[RollArg.PENALTY] = penalty # save penalty value for future use. for example, a validator might ask for getPool, and we want to avoid making extra queries if we can
             pool += penalty[0]
         return pool
     def _rollPoolStatistics(self, ndice: int, diff: int, extra_succ: int = 0, canceling: bool = True, spec: bool = False, minsucc: int = 1) -> RollItem_STS:
@@ -243,6 +277,17 @@ class RollSetup_STS(RollSetup_General):
         if not RollArg.DIFF in self.rollArguments:
             self.rollArguments[RollArg.DIFF] = 6
         return super().roll()
+    def buildComments(self):
+        super().buildComments()
+        for k, v in self.rollArguments[RollArg.DICE].items():
+            if k != 0:
+                components: list[RollPoolComponent] = v
+                for component in components:
+                    if isinstance(component, RollPoolComponent_Trait):
+                        if component.getSettings(self).autopenalty:
+                            self.addCommentLang("string_autopenalty_trait", self.rollArguments[RollArg.PENALTY][0], 10, component.trait['traitName'])
+                        if component.getSettings(self).rollpermanent:
+                            self.addCommentLang("string_rollpermanent_trait", component.trait['traitName'])
 
 class RollSetup_V20HB(RollSetup_STS):        
     def __init__(self, ctx: SecurityContext) -> None:
@@ -257,11 +302,35 @@ class RollSetup_V20VANILLA(RollSetup_STS):
     def __init__(self, ctx: SecurityContext) -> None:
         super().__init__(ctx)
 
+
+class RollPoolComponent:
+    def __init__(self, n_dice: int) -> None:
+        self.n_dice = n_dice
+    def getDice(self, rollSetup: RollSetup) -> int:
+        return self.n_dice
+    
+class RollPoolComponent_Trait(RollPoolComponent):
+    def __init__(self, trait, sign = 1) -> None:
+        super().__init__(0)
+        self.trait = trait
+        self.sign = sign
+        self.settings: ghostDB.TraitSettings = None
+    def getSettings(self, rollSetup: RollSetup):
+        if self.settings is None:
+            self.settings = rollSetup.ctx.getDBManager().buildTraitSettings(self.trait[ghostDB.FIELDNAME_TRAIT_TRAITID], rollSetup.getSession()[ghostDB.FIELDNAME_GAMESESSION_GAMESTATEID])
+        return self.settings          
+    def getDice(self, rollSetup: RollSetup) -> int:
+        if self.getSettings(rollSetup).rollpermanent or rollSetup.shouldUseBasePool():
+            return self.sign * self.trait[ghostDB.FIELDNAME_TRAIT_MAX_VALUE]
+        return self.sign * self.trait[ghostDB.FIELDNAME_TRAIT_CUR_VALUE]
+    def getPenalty(self, rollSetup: RollSetup) -> bool:
+        return self.getSettings(rollSetup).autopenalty
+
 class RollAction:
     def __init__(self, setup: RollSetup) -> None:
         self.setup = setup
     def initRollData(self, rolltype: int) -> RollData:
-        return RollData(rolltype, RollArg.STATS in self.setup.rollArguments)
+        return RollData(rolltype, self.setup.comments, RollArg.STATS in self.setup.rollArguments)
     def execute(self, rolltype: int) -> RollData:
         return self.initRollData(rolltype)
 
@@ -270,7 +339,8 @@ class RollAction_GeneralRoll(RollAction):
         rdata = self.initRollData(rolltype)
         if RollArg.DICE in self.setup.rollArguments: 
             diff = self.setup.rollArguments[RollArg.DIFF] if RollArg.DIFF in self.setup.rollArguments else 0
-            for faces, number in self.setup.rollArguments[RollArg.DICE].items():
+            for faces, pcs in self.setup.rollArguments[RollArg.DICE].items():
+                number = self.setup.getPoolFaces(faces)
                 item = RollItem()
                 item.faces = faces
                 item.difficulty = diff
@@ -301,15 +371,15 @@ class RollAction_STS_Initiative(RollAction_STS):
         lid = self.setup.ctx.getLID()
         rd = self.initRollData(rolltype)
 
-        add = self.setup.rollArguments[RollArg.DICE][0] if 0 in self.setup.rollArguments[RollArg.DICE] else 0
+        add = self.setup.getPoolFaces(0, 0)
         raw_roll = random.randint(1, 10)
         bonuses_log = []
         bonus = add
         if add:
             bonuses_log.append(self.setup.ctx.getLanguageProvider().get(lid, "string_bonus_X", add))
 
-        character = self.setup.rollArguments[RollArg.CHARACTER] if RollArg.CHARACTER in self.setup.rollArguments else self.setup.ctx.getActiveCharacter()
-        for traitid in ['prontezza', 'destrezza', 'velocità']: # TODO dehardcode?
+        character = self.setup.getCharacter()
+        for traitid in ['prontezza', 'destrezza', 'velocità']: # TODO dehardcode into settings? remember that we need both quiet and stress configs!
             try:
                 val = self.setup.ctx.getDBManager().getTrait_LangSafe(character['id'], traitid, lid)
                 bonus += val["cur_value"]
@@ -332,7 +402,8 @@ class RollAction_STS_Damage(RollAction_STS):
         lid = self.setup.ctx.getLID()
         diff = self.setup.rollArguments[RollArg.DIFF]
         ndice = self.setup.getPool()
-        extra_successes = self.setup.rollArguments[RollArg.DICE][0] if 0 in self.setup.rollArguments[RollArg.DICE] else 0
+
+        extra_successes = self.setup.getPoolFaces(0, 0)
         
         rd = self.initRollData(rolltype)
 
@@ -347,7 +418,7 @@ class RollAction_STS_RegularRoll(RollAction_STS):
         lid = self.setup.ctx.getLID()
         diff = self.setup.rollArguments[RollArg.DIFF] #if RollArg.DIFF in self.rollArguments else 6
         ndice = self.setup.getPool()
-        extra_successes = self.setup.rollArguments[RollArg.DICE][0] if 0 in self.setup.rollArguments[RollArg.DICE] else 0
+        extra_successes = self.setup.getPoolFaces(0, 0)
         min_succ = self.setup.rollArguments[RollArg.MINSUCC] if RollArg.MINSUCC in self.setup.rollArguments else 1
 
         rd = self.initRollData(rolltype)
@@ -376,7 +447,7 @@ class RollAction_V20HB_RegularRoll(RollAction_STS):
         lid = self.setup.ctx.getLID()
         diff = self.setup.rollArguments[RollArg.DIFF] #if RollArg.DIFF in self.rollArguments else 6
         ndice = self.setup.getPool()
-        extra_successes = self.setup.rollArguments[RollArg.DICE][0] if 0 in self.setup.rollArguments[RollArg.DICE] else 0
+        extra_successes = self.setup.getPoolFaces(0, 0)
         min_succ = self.setup.rollArguments[RollArg.MINSUCC] if RollArg.MINSUCC in self.setup.rollArguments else 1
 
         split = None
@@ -505,6 +576,7 @@ class RollArgumentParser:
         self.detach_end = False
         self.validatorClass = validator
         self.character = None
+        self.session = None
         
         # these are used by the parsing methods to keep track of where we are in the argument list
         self.current_keyword = ''
@@ -513,8 +585,11 @@ class RollArgumentParser:
     def _parse_internal(self, ctx: SecurityContext, refSetup: RollSetup):
         raise NotImplementedError()
     def _save_setup(self, currentSetup: RollSetup):
-        if (not RollArg.CHARACTER in currentSetup.rollArguments) and (not self.character is None): # every time we successfully parse something, if we got a character from DB, we save the character into the setup for future use
+        if (not RollArg.CHARACTER in currentSetup.rollArguments) and (self.character is not None): # every time we successfully parse something, if we got a character from DB, we save the character into the setup for future use
             currentSetup.rollArguments[RollArg.CHARACTER] = self.character
+        # we currently (2024-04-30) have no need to retrieve the active session during parsing, but once we do, this will support saving it to the final rollSetup
+        if (not RollArg.SESSION in currentSetup.rollArguments) and (self.session is not None):
+            currentSetup.rollArguments[RollArg.SESSION] = self.session
     def parse(self, ctx: SecurityContext, arguments: list[str], i: int, currentSetup: RollSetup, keyword = True) -> int:        
         # set the cursor to the current position
         self.current_keyword = arguments[i]
@@ -551,17 +626,22 @@ class RollArgumentParser:
                 return arguments[:i] + [arguments[i][:-1], kw] + arguments[i+1:]
     def getValidatorClass(self):
         return self.validatorClass
-    def mergeDice(self, pool: dict[int, int], pool_permanent: dict[int, int], currentSetup: RollSetup, mergefunc = lambda x, y: x+y):
+    def mergeDice(self, pool: dict[int, list[RollPoolComponent]], currentSetup: RollSetup, mergefunc = lambda x, y: x+y):
         if RollArg.DICE in currentSetup.rollArguments:
-            currentSetup.rollArguments[RollArg.DICE] = merge(currentSetup.rollArguments[RollArg.DICE], pool, lambda  x, y: x+y)
-            currentSetup.rollArguments[RollArg.PERMANENT_DICE] = merge(currentSetup.rollArguments[RollArg.PERMANENT_DICE], pool_permanent, mergefunc)
+            currentSetup.rollArguments[RollArg.DICE] = merge(currentSetup.rollArguments[RollArg.DICE], pool, mergefunc)
         else:
             currentSetup.rollArguments[RollArg.DICE] = pool
-            currentSetup.rollArguments[RollArg.PERMANENT_DICE] = pool_permanent
-    def loadCharacter(self, ctx: SecurityContext, refSetup: RollSetup):
-        """ utility method for parsers, get the relevant character either from the roll setup (if already present) or get it from context """
+    def loadSessionCtx(self, ctx: SecurityContext, refSetup: RollSetup):
+        """ utility method for parsers, get the relevant character and session either from the roll setup (if already present) or get it from context """
+        if RollArg.CHARACTER in refSetup.rollArguments:
+            self.character = refSetup.rollArguments[RollArg.CHARACTER]
+        if RollArg.SESSION in refSetup.rollArguments:
+            self.session = refSetup.rollArguments[RollArg.SESSION]
+        # refsetup has no ctx!
         if self.character is None:
-            self.character = refSetup.rollArguments[RollArg.CHARACTER] if RollArg.CHARACTER in refSetup.rollArguments else ctx.getActiveCharacter()
+            self.character = ctx.getActiveCharacter()
+        if self.session is None:
+            self.session = ctx.getRunningSession()
     # parameter parsers
     def parseItem(self) -> str:
         if self.cursor < len(self.arguments):
@@ -610,8 +690,8 @@ class RollArgumentParser_STS_Initiative(RollArgumentParser_KeywordActivateOnly):
         super().__init__(RollSetupValidator, RollArg.ROLLTYPE, rollTypeVal=RollType.INITIATIVE)
     def _save_setup(self, currentSetup: RollSetup):
         super()._save_setup(currentSetup)
-        pool = {10:1}
-        self.mergeDice(pool, pool, currentSetup)
+        pool = {10:[RollPoolComponent(1)]}
+        self.mergeDice(pool, currentSetup)
 
 class RollArgumentParser_STS_Reflexes(RollArgumentParser_KeywordActivateOnly):
     def __init__(self) -> None:
@@ -620,13 +700,12 @@ class RollArgumentParser_STS_Reflexes(RollArgumentParser_KeywordActivateOnly):
     def _parse_internal(self, ctx: SecurityContext, refSetup: RollSetup):
         super()._parse_internal(ctx, refSetup)
         lid = ctx.getLID()
-        self.loadCharacter(ctx, refSetup)
+        self.loadSessionCtx(ctx, refSetup)
         self.volonta = ctx.getDBManager().getTrait_LangSafe(self.character['id'], "volontà", lid)  
     def _save_setup(self, currentSetup: RollSetup):
         super()._save_setup(currentSetup)
-        pool = {10: self.volonta['cur_value']}
-        pool_permanent = {10: self.volonta['max_value']}
-        self.mergeDice(pool, pool_permanent, currentSetup)
+        pool = {10: [RollPoolComponent_Trait(self.volonta)]}
+        self.mergeDice(pool, currentSetup)
 
 class RollArgumentParser_V20HB_Reflexes(RollArgumentParser_STS_Reflexes):
     def __init__(self) -> None:
@@ -649,7 +728,7 @@ class RollArgumentParser_STS_Soak(RollArgumentParser_KeywordActivateOnly):
     def _parse_internal(self, ctx: SecurityContext, refSetup: RollSetup):
         super()._parse_internal(ctx, refSetup)
         lid = ctx.getLID()
-        self.loadCharacter(ctx, refSetup)
+        self.loadSessionCtx(ctx, refSetup)
         self.costituzione = ctx.getDBManager().getTrait_LangSafe(self.character['id'], "costituzione", lid) 
         try:
             self.robustezza = ctx.getDBManager().getTrait_LangSafe(self.character['id'], "robustezza", lid)  
@@ -657,9 +736,11 @@ class RollArgumentParser_STS_Soak(RollArgumentParser_KeywordActivateOnly):
             pass
     def _save_setup(self, currentSetup: RollSetup):
         super()._save_setup(currentSetup)
-        pool = {10: self.costituzione['cur_value'] + (0 if self.robustezza is None else self.robustezza['cur_value'])}
-        pool_permanent = {10: self.costituzione['max_value'] + (0 if self.robustezza is None else self.robustezza['max_value'])}
-        self.mergeDice(pool, pool_permanent, currentSetup)
+        pool_comp = [RollPoolComponent_Trait(self.costituzione)]
+        if self.robustezza is not None:
+            pool_comp.append(RollPoolComponent_Trait(self.robustezza))
+        pool = {10: pool_comp}
+        self.mergeDice(pool, currentSetup)
         currentSetup.rollArguments[RollArg.DIFF] = currentSetup.rollArguments[RollArg.DIFF] if RollArg.DIFF in currentSetup.rollArguments else 6
 
 class RollArgumentParser_DiceExpression(RollArgumentParser):
@@ -668,7 +749,6 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
         self.detach_end = detachEnd
         self.character = None
         self.dice = None
-        self.dice_base = None
         self.traits_seen = None
         self.firstNegative = firstNegative
     def getTraitDefaultFaces(self) -> int:
@@ -680,17 +760,13 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
         self.decodeDiceExpression_Mixed(ctx, refSetup, expr, self.firstNegative)
     def _save_setup(self, currentSetup: RollSetup):
         super()._save_setup(currentSetup)
-        self.mergeDice(self.dice, self.dice_base, currentSetup)
+        self.mergeDice(self.dice, currentSetup)
         currentSetup.traits.update(self.traits_seen)
         self.character = None
-    def decodeTrait(self, ctx: SecurityContext, refSetup: RollSetup, traitdata) -> tuple[dict[int, int], dict[int, int]]:
-        raise GreedyParseValidationError('I tratti non sono supportati dal roller generico')
+    # def decodeTrait(self, ctx: SecurityContext, refSetup: RollSetup, traitdata) -> tuple[dict[int, int], dict[int, int]]:
+    #     raise GreedyParseValidationError('I tratti non sono supportati dal roller generico')
     def decodeDiceExpression_Mixed(self, ctx: SecurityContext, refSetup: RollSetup, what: str, firstNegative: bool = False):
-        if RollArg.CHARACTER in refSetup.rollArguments:
-            self.character = refSetup.rollArguments[RollArg.CHARACTER]
-
-        self.dice = {} # faces -> dice  (0 means fixed bonus)
-        self.dice_base = {}  # faces -> dice. if traits are  present in the expression, this one will contain base values for traits instead of buffed/debuffed traits
+        self.dice = {} # faces -> roll components  (0 means fixed bonus)
         self.traits_seen = set()
 
         split_add_list = what.split(ADD_CMD) # split on "+", so each of the results STARTS with something to add
@@ -700,34 +776,28 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
 
             for j in range(0, len(split_sub_list)):
                 term = split_sub_list[j]
+                sign = -1 if (j > 0 or (i == 0 and firstNegative)) else 1
 
                 dice_merge = {}
-                dice_merge_base = {}
                 try: # either a xdy expr
                     n_term, faces_term = self.decodeDiceExpression_Dice(term, ctx) 
-                    dice_merge = {faces_term: n_term}
-                    dice_merge_base = {faces_term: n_term} 
+                    dice_merge = {faces_term: [RollPoolComponent(n_term * sign)]}
                 except GreedyParseValidationError as e: # or a trait
                     try:
                         lid = ctx.getLID()
-                        self.loadCharacter(ctx, refSetup)
+                        self.loadSessionCtx(ctx, refSetup)
                         traitdata = ctx.getDBManager().getTrait_LangSafe(self.character['id'], term, lid)
-                        dice_merge, dice_merge_base = self.decodeTrait(ctx, refSetup, traitdata)
+                        #dice_merge, dice_merge_base = self.decodeTrait(ctx, refSetup, traitdata)
+                        dice_merge = {self.getTraitDefaultFaces(): [RollPoolComponent_Trait(traitdata, sign)]}
                         self.traits_seen.add(term)
                     except ghostDB.DBException as edb:
                         try:
                             n_term = self.validateInteger(term, ctx)
-                            dice_merge = {0: n_term}
-                            dice_merge_base = {0: n_term} 
+                            dice_merge = {0: [RollPoolComponent(n_term * sign)]}
                         except GreedyParseValidationError as ve:
                             raise lng.LangSupportErrorGroup("MultiError", [GreedyParseValidationError("string_error_notsure_whatroll"), e, edb, ve])
 
-                if j > 0 or (i == 0 and firstNegative):
-                    dice_merge = {k: -v for k, v in dice_merge.items()}
-                    dice_merge_base = {k: -v for k, v in dice_merge_base.items()}
-
                 self.dice = merge(self.dice, dice_merge, lambda x, y: x+y)
-                self.dice_base = merge(self.dice_base, dice_merge_base, lambda x, y: x+y)
 
         # is it good that if the espression is just flat numbers we can parse it?
         # for example ".roll 3d10 7" will parse the same as ".roll 3d10 +7"
@@ -763,28 +833,28 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
 class RollArgumentParser_STS_DiceExpression(RollArgumentParser_DiceExpression):
     def getTraitDefaultFaces(self):
         return 10
-    def decodeTrait(self, ctx: SecurityContext, refSetup: RollSetup, traitdata) -> tuple[dict[int, int], dict[int, int]]:
-        n_term = self.transformTrait(traitdata['cur_value'])
-        n_term_perm = self.transformTrait(traitdata['max_value'])
-        faces_term = self.getTraitDefaultFaces()
-        return {faces_term: n_term}, {faces_term: n_term_perm}
+    #def decodeTrait(self, ctx: SecurityContext, refSetup: RollSetup, traitdata) -> tuple[dict[int, int], dict[int, int]]:
+    #    n_term = self.transformTrait(traitdata['cur_value'])
+    #    n_term_perm = self.transformTrait(traitdata['max_value'])
+    #    faces_term = self.getTraitDefaultFaces()
+    #    return {faces_term: n_term}, {faces_term: n_term_perm}
 
 class RollArgumentParser_DND5E_DiceExpression(RollArgumentParser_DiceExpression):
     def getTraitDefaultFaces(self):
         return 20
-    def decodeTrait(self, ctx: SecurityContext, refSetup: RollSetup, traitdata) -> tuple[dict[int, int], dict[int, int]]:
-        if len(self.traits_seen) or len(refSetup.traits):
-            raise GreedyParseValidationError("string_error_only_one_trait_allowed")
+    # def decodeTrait(self, ctx: SecurityContext, refSetup: RollSetup, traitdata) -> tuple[dict[int, int], dict[int, int]]:
+    #     if len(self.traits_seen) or len(refSetup.traits):
+    #         raise GreedyParseValidationError("string_error_only_one_trait_allowed")
 
-        raise GreedyParseValidationError("work in progress!")
-        # we have a bunch of cases:
-        #   proficiency just does 1d20 plus proficiency (or adds it to a clean roll)
-        #   an ability should roll the base modifier
-        #   a skill should do ability_mod + proficiency_bonus*skill_proficiency (saving throws will be 'skill' traits)
-        # i need a way to detect if a trait is an ability or a skill -> linked trait status might do the trick
+    #     raise GreedyParseValidationError("work in progress!")
+    #     # we have a bunch of cases:
+    #     #   proficiency just does 1d20 plus proficiency (or adds it to a clean roll)
+    #     #   an ability should roll the base modifier
+    #     #   a skill should do ability_mod + proficiency_bonus*skill_proficiency (saving throws will be 'skill' traits)
+    #     # i need a way to detect if a trait is an ability or a skill -> linked trait status might do the trick
 
-        proficiency_bonus = ctx.getDBManager().getTrait_LangSafe(self.character['id'], "competenza", ctx.getLID())  
-        return super().decodeTrait(ctx, refSetup, traitdata)
+    #     proficiency_bonus = ctx.getDBManager().getTrait_LangSafe(self.character['id'], "competenza", ctx.getLID())  
+    #     return super().decodeTrait(ctx, refSetup, traitdata)
 
 class RollArgumentParser_SimpleArgumentList(RollArgumentParser):
     def __init__(self, validator: type[RollSetupValidator], rollArgVar: int) -> None:
@@ -792,7 +862,6 @@ class RollArgumentParser_SimpleArgumentList(RollArgumentParser):
         self.rollArgVal: int = rollArgVar
         self.parametersList: list[Any] = []
     def allowMultiple(self, refSetup: RollSetup) -> bool:
-        #return RollArg.ROLLTYPE in refSetup.rollArguments and refSetup.rollArguments[RollArg.ROLLTYPE] != RollType.DIFFICULTY ????
         return False
     def _parse_internal(self, ctx: SecurityContext, refSetup: RollSetup):
         if self.rollArgVal in refSetup.rollArguments and not self.allowMultiple(refSetup):
@@ -837,6 +906,8 @@ class RollArgumentParser_GENERAL_DIFF(RollArgumentParser_DIFF):
 class RollArgumentParser_STS_DIFF(RollArgumentParser_DIFF):
     def __init__(self) -> None:
         super().__init__(RollSetupValidator_STS_DIFF, 2, 10)
+    def allowMultiple(self, refSetup: RollSetup) -> bool: # this allows players to do stuff like "roll reflexes diff 5", overriding diffs from stuff like reflexes or soak rolls
+        return True
 
 class RollArgumentParser_STS_MULTI(RollArgumentParser_SingleParameter):
     def __init__(self, validator: type[RollSetupValidator] = RollSetupValidator_STS_MULTI) -> None:
@@ -884,7 +955,9 @@ class RollParser:
     def generateSetup(self, ctx: SecurityContext) -> RollSetup:
         setup = self.getSetup(ctx)
         for parser in self.rollRollArgumentParsers.values():
-            setup.validatorClasses.append(parser.getValidatorClass())
+            vc = parser.getValidatorClass()
+            if vc not in setup.validatorClasses:
+                setup.validatorClasses.append(vc)
         return setup
     def getSetup(self, ctx: SecurityContext) -> RollSetup:
         raise NotImplementedError()
@@ -1431,7 +1504,7 @@ class PCActionHandler:
 
 class PCActionHandler_STS(PCActionHandler):
     def __init__(self, ctx: SecurityContext, game_system: int, character, can_edit: bool) -> None:
-        super().__init__(ctx, character, game_system, can_edit)
+        super().__init__(ctx, game_system, character, can_edit)
         self.traitOps[OPCODES_ADD] = PCTraitAction_STS_ADD
         self.traitOps[OPCODES_EQ] = PCTraitAction_STS_EQ
         self.traitOps[OPCODES_RESET] = PCTraitAction_STS_RESET
@@ -1442,7 +1515,7 @@ class PCActionHandler_STS(PCActionHandler):
 
 class PCActionHandler_V20HB(PCActionHandler_STS):
     def __init__(self, ctx: SecurityContext, game_system: int, character, can_edit: bool) -> None:
-        super().__init__(ctx, character, game_system, can_edit)
+        super().__init__(ctx, game_system, character, can_edit)
         self.actions[ACTIONS_DAMAGE] = PCActionDamage_V20HB
 
 ActionHandlerMappings: dict[int, type[PCActionHandler]] = {

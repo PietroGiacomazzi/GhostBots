@@ -417,19 +417,19 @@ class dashboard(WebPageResponseLang):
                                                                            })
     def mGET(self):
         try:
-            return render.dashboard(global_template_params, self.getLanguageDict(), f'{self.session.discord_global_name} ({self.session.discord_username})', f'https://cdn.discordapp.com/avatars/{self.session.discord_userid}/{self.session.discord_avatar}.png', self.getString("web_label_logout"), "doLogout", self.getString("web_default_dashboard_msg_loggedin"))
+            return render.dashboard(self.getString("web_label_swversion", os.environ.get(cfg.GG_SOFTWAREVERSION)), global_template_params, self.getLanguageDict(), f'{self.session.discord_global_name} ({self.session.discord_username})', f'https://cdn.discordapp.com/avatars/{self.session.discord_userid}/{self.session.discord_avatar}.png', self.getString("web_label_logout"), "doLogout", self.getString("web_default_dashboard_msg_loggedin"))
         except AttributeError:
-            return render.dashboard(global_template_params, self.getLanguageDict(), '', '', self.getString("web_label_login"), "doLogin",  self.getString("web_default_dashboard_msg_notlogged"))
+            return render.dashboard(self.getString("web_label_swversion", os.environ.get(cfg.GG_SOFTWAREVERSION)), global_template_params, self.getLanguageDict(), '', '', self.getString("web_label_login"), "doLogin",  self.getString("web_default_dashboard_msg_notlogged"))
             
 my_chars_query_admin = """
-select pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername, cr.gamesystemid
+select pc.*, cr.id as chronicleid, cr.name as chroniclename, po.name as ownername, cr.gamesystemid
 from PlayerCharacter pc
 join People po on (pc.owner = po.userid)
 left join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
 left join Chronicle cr on (ccr.chronicle = cr.id)"""
 
 my_chars_query_st = """
-select distinct pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername, cr.gamesystemid
+select distinct pc.*, cr.id as chronicleid, cr.name as chroniclename, po.name as ownername, cr.gamesystemid
 from PlayerCharacter pc
 join People po on (pc.owner = po.userid)
 left join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
@@ -439,7 +439,7 @@ where stcr.storyteller = $storyteller_id
 or pc.owner = $userid or pc.player = $userid"""
 
 my_chars_query_player = """
-select pc.*, cr.id as chronichleid, cr.name as chroniclename, po.name as ownername, cr.gamesystemid
+select pc.*, cr.id as chronicleid, cr.name as chroniclename, po.name as ownername, cr.gamesystemid
 from PlayerCharacter pc
 join People po on (pc.owner = po.userid)
 left join ChronicleCharacterRel ccr on (pc.id = ccr.playerchar)
@@ -735,8 +735,9 @@ class webAppSettings(APIResponse):
     def mGET(self):
         return {
             # from config file:
-            cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE: int(config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE])
+            cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE: int(config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE]),
             # other settings:
+            cfg.GG_SOFTWAREVERSION: os.environ.get(cfg.GG_SOFTWAREVERSION)
         }         
 
 class getModal(WebPageResponseLang):
