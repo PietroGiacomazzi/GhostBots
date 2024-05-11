@@ -206,6 +206,7 @@
 	"web_label_no_chronicle_pcs": "Chars without a chonicle",
 	"web_string_no_access_to_pc": "You don't have access to the character '{0}'!",
 	"web_string_calc_generation": "{0}th Generation",
+	"web_generational_blood_limit": "Blood points per turn: {0}",
 	"web_string_charplayer": "Player: {0}",
 	"web_string_charid": "Character id: {0}",
 	"web_label_willpower": "Willpower",

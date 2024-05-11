@@ -708,6 +708,7 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 
 	var zdot_span = document.createElement('span');
 	zdot_span.id = traitdata.trait+"-zerocontrol";
+	zdot_span.title = '0';
 	zdot_span.dataset.traitid = traitdata.trait;
 	zdot_span.dataset.dotbased = "1";
 	zdot_span.dataset.dot_id = 0;
@@ -731,6 +732,7 @@ function populateDotArrayElement(element, dots_array, traitdata, current_val = f
 			current_line = document.createElement('div');
 		}
 		var dot_span = document.createElement('span');
+		dot_span.title = j+1;
 		dot_span.dataset.traitid = traitdata.trait
 		dot_span.dataset.dotbased = "1";
 		dot_span.dataset.dot_id = j+1;
@@ -796,6 +798,7 @@ function createTraitElement(traitdata){
 
 	var deletecontrol = document.createElement("span");
 	deletecontrol.id = traitdata.trait+"-delet-control";
+	deletecontrol.title = 'delete trait';
 	deletecontrol.className = "material-icons md-18 delete_control";
 	deletecontrol.innerHTML = "delete_forever";
 	deletecontrol.dataset.traitid = traitdata.trait;
@@ -815,6 +818,7 @@ function createTraitElement(traitdata){
 	{
 		var trait_title = document.createElement('h4');
 		trait_title.innerHTML = out_sanitize(traitdata.traitName);
+		trait_title.title = traitdata.trait;
 		c.appendChild(trait_title);
 
 		if (toomanydots){
@@ -921,6 +925,7 @@ function createTraitElement(traitdata){
 		
 		var trait_title = document.createElement('td');
 		trait_title.className = "nopadding";
+		trait_title.title = traitdata.trait;
 		trait_title.innerHTML = tname;
 		c.appendChild(trait_title);
 		
@@ -1078,6 +1083,26 @@ function getGeneration(traitdata)
 	return generation
 }
 
+function getGenerationalLimit(generation_number){
+	if (generation_number >= 10) return '1';
+	switch (generation_number){
+		case 9:
+			return '2';
+		case 8:
+			return '3';
+		case 7:
+			return '4';
+		case 6:
+			return '6';
+		case 5:
+			return '8';
+		case 4:
+			return '10';
+		default:
+			return '???'
+	}
+}
+
 function renderCalcGeneration(generation)
 {
 	var sheetspot = document.getElementById("testata");
@@ -1085,7 +1110,7 @@ function renderCalcGeneration(generation)
 	{
 		var c = document.createElement('tr'); 
 		c.setAttribute("id", CALCULATED_GEN_CONTROL);
-		c.innerHTML = String.format(getLangString("web_string_calc_generation"), generation); 
+		c.innerHTML = String.format(getLangString("web_string_calc_generation"), generation) +', '+ String.format(getLangString("web_generational_blood_limit"), getGenerationalLimit(generation)).toLowerCase(); 
 		
 		var old_gen = document.getElementById(CALCULATED_GEN_CONTROL);
 
@@ -2257,7 +2282,7 @@ function fillMacroResults(node, data)
 		var childItem;
 		if (dataitem.type === 'TEXT'){
 			childItem = document.createElement('p');
-			childItem.innerHTML = dataitem.data;
+			childItem.innerHTML = out_sanitize(dataitem.data);
 		}
 		else if (dataitem.type === 'TRAIT') {
 			childItem = createTraitElement(dataitem.data)

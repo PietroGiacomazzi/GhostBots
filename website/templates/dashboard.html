@@ -38,9 +38,9 @@ $def with (version_string, global_params, language_strings, username, user_avata
 		</div>
 	</div> 
 	
-    <div class="w3-container" id = "main"> <!-- w3-display-container-->
+    <div class="w3-container under-navbar " id = "main"> <!-- w3-display-container-->
         
-		<div class="w3-sidebar w3-bar-block under-navbar larger-sidebar w3-animate-left" id="side_menu" style="display:none">
+		<div class="w3-sidebar w3-bar-block larger-sidebar w3-animate-left" id="side_menu" style="display:none">
 			<button onclick="w3_close()" class="w3-bar-item w3-button w3-large">$language_strings['web_label_sidebar_close']</button>
 			<div id = "action-menu">
 				<h3>$language_strings['web_label_actions']:</h3>
@@ -65,10 +65,10 @@ $def with (version_string, global_params, language_strings, username, user_avata
 			</div>
 			
 			<div id = "charsheet_template"  style="display:none">
-			  <div class = "w3-table w3-display-topmiddle under-navbar central_content ">
+			  <div class = "w3-display-topmiddle under-navbar central_content ">
 				<div id ="titolo" class="w3-container" >
 					<h1 id = "title_pgname" class="charnamefont" ></h1>
-					<img id = "title_clanicon" class="w3-display-topright w3-margin"/>
+					<img id = "title_clanicon" class="w3-display-topright w3-margin clan-icon"/>
 				</div>
 				<div id ="divtestata" class="w3-container">
 					<table id ="testata" class = "w3-table">
@@ -77,17 +77,17 @@ $def with (version_string, global_params, language_strings, username, user_avata
 				<div id ="attributi" class="w3-container ">
 					<h3 class = "w3-border-bottom">$language_strings['web_label_attributes']</h3>
 					<div class = "w3-cell-row">
-						<div class = "w3-container w3-cell">
+						<div class = "w3-container w3-cell w3-mobile">
 							<h4>$language_strings['web_label_attributes_physical']</h4>
 							<table id ="fisico" class = "w3-table">
 							</table>
 						</div>
-						<div class = "w3-container w3-cell w3-border-left">
+						<div class = "w3-container w3-cell w3-mobile custom-disappearing-border-left">
 							<h4>$language_strings['web_label_attributes_social']</h4>
 							<table id ="sociale" class = "w3-table">
 							</table>
 						</div>
-						<div class = "w3-container w3-cell w3-border-left">
+						<div class = "w3-container w3-cell w3-mobile custom-disappearing-border-left">
 							<h4>$language_strings['web_label_attributes_mental']</h4>
 							<table id ="mentale" class = "w3-table">
 							</table>
@@ -97,17 +97,17 @@ $def with (version_string, global_params, language_strings, username, user_avata
 				<div id ="abilita" class="w3-container">
 					<h3 class = "w3-border-bottom">$language_strings['web_label_abilities']</h3>
 					<div class = "w3-cell-row">
-						<div class = "w3-container w3-cell">
+						<div class = "w3-container w3-cell w3-mobile">
 							<h4>$language_strings['web_label_abilities_talents']</h4>
 							<table id ="attitudine" class = "w3-table">
 							</table>
 						</div>
-						<div class = "w3-container w3-cell w3-border-left">
+						<div class = "w3-container w3-cell w3-mobile custom-disappearing-border-left">
 							<h4>$language_strings['web_label_abilities_skills']</h4>
 							<table id ="capacita" class = "w3-table">
 							</table>
 						</div>
-						<div class = "w3-container w3-cell w3-border-left">
+						<div class = "w3-container w3-cell w3-mobile custom-disappearing-border-left">
 							<h4>$language_strings['web_label_abilities_knowledges']</h4>
 							<table id ="conoscenza" class = "w3-table">
 							</table>
@@ -117,59 +117,59 @@ $def with (version_string, global_params, language_strings, username, user_avata
 				<div id ="vantaggi" class="w3-container">
 					<h3 class = "w3-border-bottom">$language_strings['web_label_advantages']</h3>
 					<div class = "w3-cell-row">
-						<div class = "w3-container w3-cell">
+						<div class = "w3-container w3-cell w3-mobile faster-mobile">
 							<h4>$language_strings['web_label_advantages_disciplines']</h4>
 							<table id ="disciplina" class = "w3-table">
 							</table>
 						</div>
-						<div class = "w3-container w3-cell w3-border-left" id = "switch_vie">
-							<div class = "w3-container" id = "switch_viataum">
+						<div class = "w3-container w3-cell w3-mobile faster-mobile custom-disappearing-border-left" id = "switch_vie">
+							<div class = "w3-container nopadding" id = "switch_viataum">
 								<h4>$language_strings['web_label_advantages_thaumaturgical_paths']</h4>
 								<table id ="viataum" class = "w3-table">
 								</table>
 							</div>
-							<div class = "w3-container"  id = "switch_vianecro">
+							<div class = "w3-container nopadding"  id = "switch_vianecro">
 								<h4>$language_strings['web_label_advantages_necromantic_paths']</h4>
 								<table id ="vianecro" class = "w3-table">
 								</table>
 							</div>
-							<div class = "w3-container"  id = "switch_viaduranki">
+							<div class = "w3-container nopadding"  id = "switch_viaduranki">
 								<h4>$language_strings['web_label_advantages_duranki_paths']</h4>
 								<table id ="viaduranki" class = "w3-table">
 								</table>
 							</div>
-							<div class = "w3-container"  id = "switch_viaahku">
+							<div class = "w3-container nopadding"  id = "switch_viaahku">
 								<h4>$language_strings['web_label_advantages_ahku_paths']</h4>
 								<table id ="viaahku" class = "w3-table">
 								</table>
 							</div>
-							<div class = "w3-container"  id = "switch_brujerizmo">
+							<div class = "w3-container nopadding"  id = "switch_brujerizmo">
 								<h4>$language_strings['web_label_advantages_brujerizmos_paths']</h4>
 								<table id ="brujerizmo" class = "w3-table">
 								</table>
 							</div>
-							<div class = "w3-container"  id = "switch_viadarktaum">
+							<div class = "w3-container nopadding"  id = "switch_viadarktaum">
 								<h4>$language_strings['web_label_advantages_darkthaumaturgical_paths']</h4>
 								<table id ="viadarktaum" class = "w3-table">
 								</table>
 							</div>
-							<div class = "w3-container"  id = "switch_viawanga">
+							<div class = "w3-container nopadding"  id = "switch_viawanga">
 								<h4>$language_strings['web_label_advantages_wanga_paths']</h4>
 								<table id ="viawanga" class = "w3-table">
 								</table>
 							</div>
 						</div>
-						<div class = "w3-container w3-cell w3-border-left"  id = "switch_combinata">
+						<div class = "w3-container w3-cell w3-mobile faster-mobile custom-disappearing-border-left"  id = "switch_combinata">
 							<h4>$language_strings['web_label_advantages_combined']</h4>
 							<table id ="combinata" class = "w3-table">
 							</table>
 						</div>
-						<div class = "w3-container w3-cell w3-border-left">
+						<div class = "w3-container w3-cell w3-mobile faster-mobile custom-disappearing-border-left">
 							<h4>$language_strings['web_label_advantages_backgrounds']</h4>
 							<table id ="background" class = "w3-table">
 							</table>
 						</div>
-						<div class = "w3-container w3-cell w3-border-left">
+						<div class = "w3-container w3-cell w3-mobile faster-mobile custom-disappearing-border-left">
 							<h4>$language_strings['web_label_advantages_virtues']</h4>
 							<table id ="virtu" class = "w3-table">
 							</table>
@@ -178,7 +178,7 @@ $def with (version_string, global_params, language_strings, username, user_avata
 				</div>
 				<div id ="coda" class="w3-container">
 					<div class = "w3-cell-row w3-border-top w3-margin-top">
-						<div class = "w3-container w3-cell">
+						<div class = "w3-container w3-cell w3-mobile">
 							<h4>$language_strings['web_label_trait_pregdif']</h4>
 							<table id ="pregdifnum" class = "w3-table w3-bordered">
 							<table id ="pregdif" class = "w3-table w3-bordered">
@@ -189,11 +189,11 @@ $def with (version_string, global_params, language_strings, username, user_avata
 							</table>
 							</div>
 						</div>
-						<div class = "w3-container w3-cell w3-center">
+						<div class = "w3-container w3-cell w3-mobile w3-center">
 							<table id ="uvp" class = "w3-table">
 							</table>
 						</div>
-						<div class = "w3-container w3-cell">
+						<div class = "w3-container w3-cell w3-mobile">
 							<h4>$language_strings['web_label_trait_health']</h4>
 							<table id ="sal" class = "w3-table">
 							</table>

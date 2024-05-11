@@ -32,9 +32,23 @@
   width: max-content;
 }
 
+@media (max-width: 900px) {
+  .central_content {
+      /*width: fit-content;*/
+      display: contents;
+  }
+}
+
 .larger-sidebar{
   width: auto;
   height: 90vh;
+}
+
+@media (max-width: 600px) {
+  .larger-sidebar {
+    width: 100%;
+    padding: 10px;
+  }
 }
 
 .modal-button{
@@ -47,6 +61,39 @@
 
 .tab-page{
   width: 70%;
+}
+
+@media (max-width: 900px) {
+  .tab-page {
+    width: 100%;
+  }
+}
+
+.faster-mobile{}
+
+@media (max-width: 1200px) {
+  .faster-mobile {
+    display: block;
+    width: 100% !important;
+  }
+}
+
+.clan-icon{}
+
+@media (max-width: 900px) {
+  .clan-icon {
+    position: unset;
+  }
+}
+
+.custom-disappearing-border-left{
+  border-left: 1px solid #ccc !important;
+}
+
+@media (max-width: 600px) {
+  .custom-disappearing-border-left {
+    border-left: unset !important;
+  }
 }
 
 .large-textarea{

@@ -17,7 +17,7 @@ class GreedyGhostCog_SysRoller(gb.GreedyGhostCog):
 
     async def execute_roll(self, ctx: commands.Context, character, gamesystemid: str, args: list):
         handler = gr.getHandler(gms.getGamesystem(gamesystemid))()
-        parser = handler.rollParserCls()(character)
+        parser = handler.rollParserCls()(gamesystemid, character)
         setup = parser.parseRoll(ctx, args)
         setup.validate()
         rd = setup.roll()

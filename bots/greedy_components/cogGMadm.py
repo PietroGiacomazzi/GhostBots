@@ -10,6 +10,7 @@ import lang.lang as lng
 import support.utils as utils
 import support.ghostDB as ghostDB
 import support.security as sec
+import support.gamesystems as gms
 
 _log = logging.getLogger(__name__)
 
@@ -93,7 +94,10 @@ query_addTraitToPCs_safe = """
     """
 
 query_addTraitLangs = """
-    insert into LangTrait select l.langId as langId, t.id as traitId, $traitid as traitShort, $traitname as traitName from Trait t join Languages l where t.id = $traitid;
+    insert into LangTrait 
+        select l.langId as langId, t.id as traitId, $traitid as traitShort, $traitname as traitName 
+        from Trait t join Languages l 
+        where t.id = $traitid;
 """
 
 class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
@@ -177,6 +181,9 @@ class GreedyGhostCog_GMadm(gb.GreedyGhostCog):
             # we insert it in all available languages and we assume that it will be translated later:
             # better have it in the wrong language than not having it at all
             self.bot.dbm.db.query(query_addTraitLangs, vars = dict(traitid=traitid, traitname=traitname))
+            if traittypeid in ['capacita', 'conoscenza', 'attitudine']: # todo TraitTypeSettings table
+                for gamesystemid in list(map(gms.getGamesystemId, (gms.GameSystems.V20_VTM_HOMEBREW_00, gms.GameSystems.V20_VTM_VANILLA))):
+                    self.bot.dbm.db.insert("TraitSetting", traitid = traitid, gamesystemid = gamesystemid, gamestateid = 1, rollpermanent = 0, autopenalty = 1)
             response = f'Il tratto {traitname} è stato inserito'
             if std:
                 self.bot.dbm.db.query(query_addTraitToPCs, vars = dict(traitid=traitid))

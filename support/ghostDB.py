@@ -28,8 +28,9 @@ TABLENAME_CHARACTERMACRO = 'CharacterMacro'
 TABLENAME_PLAYERCHARACTER = 'PlayerCharacter'
 TABLENAME_CHRONICLECHARACTERREL = 'ChronicleCharacterRel'
 TABLENAME_GAMESESSION = 'GameSession'
-TABLENAME_TRAITSETTINGS = 'TraitSettings'
+TABLENAME_TRAITSETTINGS = 'TraitSetting'
 TABLENAME_TRAIT = 'Trait'
+TABLENAME_CHARACTERTRAIT = 'CharacterTrait'
 
 #Fieldnames
 
@@ -39,6 +40,8 @@ CHRONICLE = 'chronicle'
 CHANNEL = 'channel'
 TRAITID = 'traitid'
 GAMESTATEID = 'gamestateid'
+PLAYERCHAR = 'playerchar'
+TRAIT = 'trait'
 
 FIELDNAME_GAMESYSTEM_GAMESYSTEMID = GAMESYSTEMID
 
@@ -54,7 +57,10 @@ FIELDNAME_CHARACTERMACRO_MACROCOMMANDS = 'macrocommands'
 
 FIELDNAME_PLAYERCHARACTER_CHARACTERID = GENERICID
 
-FIELDNAME_CHRONICLECHARACTERREL_PLAYERCHAR = 'playerchar'
+FIELDNAME_CHARACTERTRAIT_PLAYERCHAR = PLAYERCHAR
+FIELDNAME_CHARACTERTRAIT_TRAITID = TRAIT
+
+FIELDNAME_CHRONICLECHARACTERREL_PLAYERCHAR = PLAYERCHAR
 FIELDNAME_CHRONICLECHARACTERREL_CHRONICLE = CHRONICLE
 
 FIELDNAME_GAMESESSION_CHRONICLE = CHRONICLE
@@ -63,6 +69,7 @@ FIELDNAME_GAMESESSION_GAMESTATEID = GAMESTATEID
 
 FIELDNAME_TRAITSETTINGS_TRAITID = TRAITID
 FIELDNAME_TRAITSETTINGS_GAMESTATEID = GAMESTATEID
+FIELDNAME_TRAITSETTINGS_GAMESYSTEMID = GAMESYSTEMID
 FIELDNAME_TRAITSETTINGS_ROLLPERMANENT = 'rollpermanent'
 FIELDNAME_TRAITSETTINGS_AUTOPENALTY = 'autopenalty'
 
@@ -113,6 +120,7 @@ class DBException(LangSupportException):
 class TraitSettings():
     traitid: str
     gamestateid: int
+    gamesystemid: str
     rollpermanent: bool
     autopenalty: bool
 
@@ -136,10 +144,11 @@ class DBManager:
         # fallback
         self.db.query("SET SESSION interactive_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])))
         self.db.query("SET SESSION wait_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])))
-    def buildTraitSettings(self, traitid: str, gamestateid: int):
-        settings_db = self.validators.getValidateTraitSettings(traitid, gamestateid).get()
+    def buildTraitSettings(self, traitid: str, gamestateid: int, gamesystemid: str):
+        settings_db = self.validators.getValidateTraitSettings(traitid, gamestateid, gamesystemid).get()
         return TraitSettings(traitid
                              , gamestateid
+                             , gamesystemid
                              , settings_db[FIELDNAME_TRAITSETTINGS_ROLLPERMANENT] if settings_db[FIELDNAME_TRAITSETTINGS_ROLLPERMANENT] is not None else False
                              , settings_db[FIELDNAME_TRAITSETTINGS_AUTOPENALTY] if settings_db[FIELDNAME_TRAITSETTINGS_AUTOPENALTY] is not None else False
                             )
@@ -505,6 +514,6 @@ class ValidatorGenerator:
     def getValidateMacro(self, macroid: str):
         """ Handles validation of macros """
         return GetValidateRecord(self.db, f'SELECT t.* FROM {TABLENAME_CHARACTERMACRO} t where t.{FIELDNAME_CHARACTERMACRO_MACROID} = $macroid', dict(macroid=macroid), "string_error_macro_not_found")
-    def getValidateTraitSettings(self, traitid: str, gamestateid: int):
+    def getValidateTraitSettings(self, traitid: str, gamestateid: int, gamesystemid: str):
         """ Handles validation of trait settings. will fail only if the trait does not exist """
-        return GetValidateRecord(self.db, f"SELECT t.id, ts.* FROM {TABLENAME_TRAIT} t LEFT JOIN {TABLENAME_TRAITSETTINGS} ts ON (ts.{FIELDNAME_TRAITSETTINGS_TRAITID} = t.{FIELDNAME_TRAIT_TRAITID} AND ts.{FIELDNAME_TRAITSETTINGS_GAMESTATEID} = $gamestateid) WHERE t.{FIELDNAME_TRAIT_TRAITID} = $traitid ", dict(traitid = traitid, gamestateid = gamestateid), "string_TRAIT_does_not_exist")
+        return GetValidateRecord(self.db, f"SELECT t.id, ts.* FROM {TABLENAME_TRAIT} t LEFT JOIN {TABLENAME_TRAITSETTINGS} ts ON (ts.{FIELDNAME_TRAITSETTINGS_TRAITID} = t.{FIELDNAME_TRAIT_TRAITID} AND ts.{FIELDNAME_TRAITSETTINGS_GAMESTATEID} = $gamestateid and ts.{FIELDNAME_TRAITSETTINGS_GAMESYSTEMID} = $gamesystemid) WHERE t.{FIELDNAME_TRAIT_TRAITID} = $traitid", dict(traitid = traitid, gamestateid = gamestateid, gamesystemid=gamesystemid), "string_TRAIT_does_not_exist")

@@ -54,90 +54,126 @@ pgmanage_description = """.pgmanage <nomepg> <NomeTratto> [<Operazione>]
 # TRAIT FORMATTERS
 
 class TraitFormatter:
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser):
-        self.lid = lid
-        self.lp = lp
-        self.config = cfg
-    def format(self, trait) -> str:
+    def __init__(self, ctx: sec.SecurityContext, trait):
+        self.ctx = ctx
+        self.lid = ctx.getLID()
+        self.lp = ctx.getLanguageProvider()
+        self.config = ctx.getAppConfig()
+        self.trait = trait
+    def formatTrait(self) -> str:
         raise NotImplementedError(f'Abstract {self.__class__.__name__}')
+    def formatAdditionalInfoPre(self) -> str:
+        return ''
+    def formatAdditionalInfoPost(self) -> str:
+        return ''
+    def format(self):
+        pretty = self.formatTrait()
+        ai_pre = self.formatAdditionalInfoPre()
+        if ai_pre != '':
+            pretty = ai_pre + '\n'+ pretty
+        ai_post = self.formatAdditionalInfoPost()
+        if ai_post != '':
+            pretty = pretty + '\n' + ai_post
+        return pretty
 
 class DefaultTraitFormatter(TraitFormatter):
-    def format(self, trait) -> str:
-        return f"Oh no! devo usare il formatter di default!\n{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}, text: {trait['text_value']}"
+    def formatTrait(self) -> str:
+        return f"Oh no! devo usare il formatter di default!\n{self.trait['traitName']}: {self.trait['cur_value']}/{self.trait['max_value']}, text: {self.trait['text_value']}"
 
 class DotTraitFormatter(TraitFormatter):
-    def format(self, trait) -> str:
-        pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
-        if max(trait['cur_value'], trait['max_value'], trait['dotvisualmax']) > int(self.config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE]):
+    def formatTrait(self) -> str:
+        pretty = f"{self.trait['traitName']}: {self.trait['cur_value']}/{self.trait['max_value']}\n"
+        if max(self.trait['cur_value'], self.trait['max_value'], self.trait['dotvisualmax']) > int(self.config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE]):
             return pretty
-        pretty += ":red_circle:"*min(trait['cur_value'], trait['max_value'])
-        if trait['cur_value']<trait['max_value']:
-            pretty += ":orange_circle:"*(trait['max_value']-trait['cur_value'])
-        if trait['cur_value']>trait['max_value']:
-            pretty += ":green_circle:"*(trait['cur_value']-trait['max_value'])
-        max_dots = trait['dotvisualmax']
-        if trait['cur_value'] < max_dots:
-            pretty += ":white_circle:"*(max_dots-max(trait['max_value'], trait['cur_value']))
+        pretty += ":red_circle:"*min(self.trait['cur_value'], self.trait['max_value'])
+        if self.trait['cur_value']<self.trait['max_value']:
+            pretty += ":orange_circle:"*(self.trait['max_value']-self.trait['cur_value'])
+        if self.trait['cur_value']>self.trait['max_value']:
+            pretty += ":green_circle:"*(self.trait['cur_value']-self.trait['max_value'])
+        max_dots = self.trait['dotvisualmax']
+        if self.trait['cur_value'] < max_dots:
+            pretty += ":white_circle:"*(max_dots-max(self.trait['max_value'], self.trait['cur_value']))
         return pretty
 
 class HealthTraitFormatter(TraitFormatter):
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser, levels_list: list):
-        super().__init__(lid, lp, cfg)
+    def __init__(self, ctx: sec.SecurityContext, trait, levels_list: list):
+        super().__init__(ctx, trait)
         self.levelList = levels_list
-    def format(self, trait) -> str:
-        penalty, parsed = utils.parseHealth(trait, self.levelList)
-        prettytext = f'{trait["traitName"]}:'
-        if trait['cur_value'] > int(self.config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE]):
-            prettytext += str(trait['cur_value']) + '\n'
-            prettytext += ', '.join(list( map(lambda x: f'{trait["text_value"].count(x[0])} {self.lp.get(self.lid, x[1])}', zip(gms.DAMAGE_TYPES, ["string_aggravated_dmg_plural", "string_lethal_dmg_plural", "string_bashing_dmg_plural"]))))
+        self.penalty, self.parsed = utils.parseHealth(self.trait, levels_list)
+    def formatTrait(self) -> str:
+        prettytext = f'{self.trait["traitName"]}:'
+        if self.trait['cur_value'] > int(self.config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE]):
+            prettytext += str(self.trait['cur_value']) + '\n'
+            prettytext += ', '.join(list( map(lambda x: f'{self.trait["text_value"].count(x[0])} {self.lp.get(self.lid, x[1])}', zip(gms.DAMAGE_TYPES, ["string_aggravated_dmg_plural", "string_lethal_dmg_plural", "string_bashing_dmg_plural"]))))
         else:
             try:
-                for line in parsed:
+                for line in self.parsed:
                     prettytext += '\n'+ " ".join(list(map(lambda x: healthToEmoji[x], line)))
             except KeyError:
-                raise gb.GreedyCommandError("string_error_invalid_health_expr", (trait['text_value'],))
-        return self.lp.get(self.lid, penalty[1]) +"\n"+ prettytext
+                raise gb.GreedyCommandError("string_error_invalid_health_expr", (self.trait['text_value'],))
+        return prettytext
+    def formatAdditionalInfoPre(self) -> str:
+        return self.lp.get(self.lid, self.penalty[1])
 
 class VampireHealthFormatter(HealthTraitFormatter):
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser):
-        super().__init__(lid, lp, cfg, utils.hurt_levels_vampire)
+    def __init__(self, ctx: sec.SecurityContext, trait):
+        super().__init__(ctx, trait, utils.hurt_levels_vampire)
 
 class MaxPointTraitFormatter(TraitFormatter):
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser,  emojis = [":black_circle:", ":white_circle:"], separator = ""):
-        super().__init__(lid, lp, cfg)
+    def __init__(self, ctx: sec.SecurityContext, trait, emojis = [":black_circle:", ":white_circle:"], separator = ""):
+        super().__init__(ctx, trait)
         self.separator = separator
         self.emojis = emojis
-    def format(self, trait) -> str:
-        pretty = f"{trait['traitName']}: {trait['cur_value']}/{trait['max_value']}\n"
-        if max(trait['cur_value'], trait['max_value'], trait['dotvisualmax']) > int(self.config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE]):
+    def formatTrait(self) -> str:
+        pretty = f"{self.trait['traitName']}: {self.trait['cur_value']}/{self.trait['max_value']}\n"
+        if max(self.trait['cur_value'], self.trait['max_value'], self.trait['dotvisualmax']) > int(self.config[cfg.SECTION_BOTOPTIONS][cfg.SETTING_MAX_TRAIT_OUTPUT_SIZE]):
             return pretty
-        pretty += self.separator.join([self.emojis[0]]*trait['cur_value'])
+        pretty += self.separator.join([self.emojis[0]]*self.trait['cur_value'])
         pretty += self.separator
-        pretty += self.separator.join([self.emojis[1]]*(trait['max_value']-trait['cur_value']))
+        pretty += self.separator.join([self.emojis[1]]*(self.trait['max_value']-self.trait['cur_value']))
         return pretty
 
 class BloodpointTraitFormatter(MaxPointTraitFormatter):
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser):
-        super().__init__(lid, lp, cfg, blood_emojis, "")
+    def __init__(self, ctx: sec.SecurityContext, trait):
+        super().__init__(ctx, trait, blood_emojis, "")
+    def formatAdditionalInfoPost(self) -> str:
+        try:
+            generation_trait = self.ctx.getDBManager().getTrait_LangSafe(self.trait[ghostDB.FIELDNAME_CHARACTERTRAIT_PLAYERCHAR], 'generazione', self.lid)
+            gl = gms.getGenerationalLimit(generation_trait[ghostDB.FIELDNAME_TRAIT_CUR_VALUE])
+            return self.lp.get(self.lid, "web_generational_blood_limit", gl if gl is not None else '???')
+        except ghostDB.DBException:
+            return super().formatAdditionalInfoPost()
 
 class WillpowerTraitFormatter(MaxPointTraitFormatter):
-    def __init__(self, lid: str, lp: lng.LanguageStringProvider, cfg: ConfigParser):
-        super().__init__(lid, lp, cfg, will_emojis, " ")
+    def __init__(self, ctx: sec.SecurityContext, trait):
+        super().__init__(ctx, trait, will_emojis, " ")
 
 class PointAccumulatorTraitFormatter(TraitFormatter):
-    def format(self, trait) -> str:
-        return f"{trait['traitName']}: {trait['cur_value']}"
+    def formatTrait(self) -> str:
+        return f"{self.trait['traitName']}: {self.trait['cur_value']}"
 
 class TextTraitFormatter(TraitFormatter):
-    def format(self, trait) -> str:
-        return f"{trait['traitName']}: {trait['text_value']}"
+    def formatTrait(self) -> str:
+        return f"{self.trait['traitName']}: {self.trait['text_value']}"
 
-class GenerationTraitFormatter(TraitFormatter):
-    def format(self, trait) -> str:
-        dtf = DotTraitFormatter(self.lid, self.lp, self.config)
-        gen_formatted = dtf.format(trait)
-        gen_number = 13 - trait['cur_value']
-        return (self.lp.get(self.lid, 'web_string_calc_generation', gen_number) + "\n" if gen_number > 0 else "") + gen_formatted            
+class GenerationTraitFormatter(DotTraitFormatter):
+    def formatAdditionalInfoPre(self) -> str:
+        subtract = self.trait[ghostDB.FIELDNAME_TRAIT_CUR_VALUE]
+        for highgen_flaw, sub in zip(['14gen', '15gen'], [-1, -2]):
+            try:
+                _ = self.ctx.getDBManager().getTrait_LangSafe(self.trait[ghostDB.FIELDNAME_CHARACTERTRAIT_PLAYERCHAR], highgen_flaw, self.lid)
+                if subtract > 0:
+                    return self.lp.get(self.lid, 'web_string_calc_generation', '?')
+                subtract = sub
+            except ghostDB.DBException:
+                pass
+        gen_number = 13-subtract
+        if gen_number < 1:
+            gen_number = '?'
+        return self.lp.get(self.lid, 'web_string_calc_generation', gen_number)
+    def formatAdditionalInfoPost(self) -> str:
+        gl = gms.getGenerationalLimit(self.trait[ghostDB.FIELDNAME_TRAIT_CUR_VALUE])
+        return self.lp.get(self.lid, "web_generational_blood_limit", gl if gl is not None else '???')
 
 # HANDLERS
 
@@ -150,7 +186,7 @@ class PCActionResultOutputter():
         return gr.RollOutputter_GENERAL
     def outputItem(self, item: gms.PCActionResult):
         if isinstance(item, gms.PCActionResultTrait):
-            return self.getTraitFormatterClass(item.trait)(self.ctx.getLID(), self.ctx.getLanguageProvider(), self.ctx.getAppConfig()).format(item.trait)
+            return self.getTraitFormatterClass(item.trait)(self.ctx, item.trait).format()
         elif isinstance(item, gms.PCActionResultText):
             return item.text
         elif isinstance(item, gms.PCActionResultRollData):
