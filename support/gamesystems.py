@@ -64,7 +64,8 @@ OPCODES_ALL = OPCODES_ADD + OPCODES_EQ + OPCODES_RESET + OPCODES_SUB
 
 ACTIONS_DAMAGE = ('danni', 'danno', 'damage', 'dmg')
 
-SILENT_CMD_PREFIX_MACRO  = '#'
+SILENT_WITHERROR_CMD_PREFIX_MACRO  = '§'
+SILENT_NOERROR_CMD_PREFIX_MACRO  = '#'
 
 def detach_args(args: list[str]) -> list[str]:
     """ Detach stuff like ["exp+1"] to ["exp", "+", "1"]" or ["exp-", "1"] to ["exp", "-", "1"] in args.
@@ -1516,10 +1517,13 @@ class PCActionHandler:
         macro_commands = list(map(lambda x: x.strip(), macro_text.split("\n")))
         results: list[PCActionResult] = []
         for cmd in macro_commands:
-            silent = False
-            if cmd.startswith(SILENT_CMD_PREFIX_MACRO):
-                silent = True
-                cmd = cmd[len(SILENT_CMD_PREFIX_MACRO):]
+            silent = 0
+            if cmd.startswith(SILENT_WITHERROR_CMD_PREFIX_MACRO):
+                silent = 1
+                cmd = cmd[len(SILENT_WITHERROR_CMD_PREFIX_MACRO):]
+            if cmd.startswith(SILENT_NOERROR_CMD_PREFIX_MACRO):
+                silent = 2
+                cmd = cmd[len(SILENT_NOERROR_CMD_PREFIX_MACRO):]
             if cmd != '':
                 cmd_split = [y for y in cmd.split(" ") if y != ''] 
                 base_cmd = cmd_split[0]
@@ -1539,10 +1543,11 @@ class PCActionHandler:
                         #TODO check for character ID? remember that if we do, permissions need to be checked for the character
                         raise GreedyOperationError("string_error_unsupported_operation", (base_cmd,))
                         
-                    if not silent:
+                    if silent == 0:
                         results.extend(result)
                 except (lng.LangSupportException, lng.LangSupportErrorGroup) as e:
-                    results.append(PCActionResultText(self.ctx.getLanguageProvider().formatException(self.ctx.getLID(), e)))
+                    if silent != 2:
+                        results.append(PCActionResultText(self.ctx.getLanguageProvider().formatException(self.ctx.getLID(), e)))
                 
         return results
 

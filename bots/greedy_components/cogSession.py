@@ -56,7 +56,7 @@ class GreedyGhostCog_Session(gb.GreedyGhostCog):
         channels = []
         lines = []
         for s in sessions:
-            if s[ghostDB.FIELDNAME_GAMESESSION_CHANNEL] > 0:
+            if int(s[ghostDB.FIELDNAME_GAMESESSION_CHANNEL]) > 0:
                 try:
                     ch = await self.bot.fetch_channel(int(s[ghostDB.FIELDNAME_GAMESESSION_CHANNEL]))
                     channels.append(ch)

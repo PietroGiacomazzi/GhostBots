@@ -69,11 +69,6 @@ services:
       database:
         condition: service_healthy
 
-networks:
-  proxynet: # internet access tbd
-    name: proxy-net 
-    external: true
-
 secrets:
   bot-token:
     file: environments/${PROJECT_ENVNAME}/secrets/bot-token
