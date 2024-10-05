@@ -32,18 +32,28 @@ import greedy_components.cogSysRoller as cogSysRoller
 if __name__ == "__main__":
     _log = utils.setup_logging(root = True)
 
+    _log.info(f"Starting up Greedy Ghost with arguments: {sys.argv}")
+
     # load bot configuration
     if len(sys.argv) == 1:
         _log.error("Specify a configuration file!")
         sys.exit(1)
+    _log.info(f"will be using environment configuration file: {sys.argv[1]}")
 
-    print(f"Working directory: {dname}")
+    _log.info(f"Working directory: {dname}")
     if not os.path.exists(sys.argv[1]):
         _log.error(f"The configuration file {sys.argv[1]} does not exist!")
         sys.exit(1)
+    _log.info(f"environment configuration file exists!")
+
+    DEFAULT_CONFIG_FILE = 'default_config.ini'
+    if not os.path.exists(DEFAULT_CONFIG_FILE):
+        _log.error(f"defult configuration file {DEFAULT_CONFIG_FILE} does not exist!")
+        sys.exit(1)
+    _log.info(f"default configuration file {DEFAULT_CONFIG_FILE} exists!")
 
     config = configparser.ConfigParser()
-    config.read(['default_config.ini', sys.argv[1]])
+    config.read([DEFAULT_CONFIG_FILE, sys.argv[1]])
 
     # setup db
     database_manager = ghostDB.DBManager(config['Database'])

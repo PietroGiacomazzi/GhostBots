@@ -2,7 +2,7 @@ services:
 
   database:
     image: mariadb:latest
-    restart: always
+    #restart: always
     environment:
       MARIADB_DATABASE: greedyghost
       MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mysql-root

@@ -25,9 +25,9 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
     #@bot.event
     @commands.Cog.listener()
     async def on_ready(self):
-        print(f'{self.bot.user} is connected to the following guilds:\n')
+        _log.info(f'{self.bot.user} is connected to the following guilds:\n')
         for guild in self.bot.guilds:
-            print(f'{guild.name} (id: {guild.id})')
+            _log.info(f'{guild.name} (id: {guild.id})')
         #add self to user list
         iu, _ = self.bot.dbm.validators.getValidateBotUser(self.bot.user.id).validate()
         if not iu:

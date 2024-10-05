@@ -18,6 +18,7 @@ class GreedyGhostCog_Admin(gb.GreedyGhostCog):
     @commands.before_invoke(gs.command_security(sec.IsAdmin))
     async def sql(self, ctx: commands.Context, *args):
         query = " ".join(args)
+        _log.info(f"SQL QUERY FROM USER {ctx.message.author}: {query}")
         try:
             query_result_raw = self.bot.dbm.db.query(query)
             # check for integer -> delete statements return an int (and update statements aswell?)
@@ -57,6 +58,8 @@ class GreedyGhostCog_Admin(gb.GreedyGhostCog):
                 await ctx.send(utils.discord_text_format_mono(chunk))
        
         except MySQLdb.OperationalError as e:
+            _log.warning(f"SQL QUERY FROM USER {ctx.message.author}: Error {e.args[0]} -  {e.args[1]}")
             await self.bot.atSend(ctx, f"```Error {e.args[0]}\n{e.args[1]}```")
         except MySQLdb.ProgrammingError as e:
+            _log.warning(f"SQL QUERY FROM USER {ctx.message.author}: Error {e.args[0]} -  {e.args[1]}")
             await self.bot.atSend(ctx, f"```Error {e.args[0]}\n{e.args[1]}```")

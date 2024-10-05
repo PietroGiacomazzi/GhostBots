@@ -22,7 +22,7 @@ CHRONICLE_GAMESYSTEM_CMD = 'chronicleGS'
 newTrait_description = """Argomenti: <id> <tipo> <tracker> <standard> <nome completo>
 
 <id> non ammette spazi, + e -.
-<tipo> ammette un tipo di tracker valido, usare .gmadm traittypes per avere una lista
+<tipo> ammette un tipo di tratto valido, usare .gmadm traittypes per avere una lista
 <tracker> ammette un numero tra i seguenti:
     0: Nessun tracker (Elementi normali di scheda)
     1: Punti con massimo (Volontà, Sangue...)

@@ -21,7 +21,7 @@ idna==3.6
 jaraco.functools==4.0.0
 #mod-wsgi==5.0.0
 more-itertools==10.1.0
-multidict==6.0.4
+#multidict==6.0.4
 #mysqlclient==2.2.0
 oauthlib==3.2.2
 requests==2.31.0

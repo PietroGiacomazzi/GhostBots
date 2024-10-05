@@ -133,6 +133,7 @@ class DBManager:
     def reconnect(self):
         #self.db = web.database(host=self.cfg['host'], port=int(self.cfg['port']),dbn=self.cfg['type'], user=self.cfg['user'], pw=self.cfg['pw'], db=self.cfg['database'])
         pw_file = os.environ.get(ENV_DATABASE_PW_FILE)
+        _log.info(f"connecting to database {os.environ.get(ENV_DATABASE_HOST)}/{os.environ.get(ENV_DATABASE_DBNAME)}:{int(self.cfg['port'])} (dialect: {os.environ.get(ENV_DATABASE_DIALECT)}) as {os.environ.get(ENV_DATABASE_USER)}")
         self.db = web.database(
             host=os.environ.get(ENV_DATABASE_HOST),
             port=int(self.cfg['port']),
@@ -142,6 +143,7 @@ class DBManager:
             db=os.environ.get(ENV_DATABASE_DBNAME))
         self.validators = ValidatorGenerator(self.db)
         # fallback
+        _log.info(f"setting session timeouts to {int(self.cfg['session_timeout'])}")
         self.db.query("SET SESSION interactive_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])))
         self.db.query("SET SESSION wait_timeout=$timeout", vars=dict(timeout=int(self.cfg['session_timeout'])))
     def buildTraitSettings(self, traitid: str, gamestateid: int, gamesystemid: str):

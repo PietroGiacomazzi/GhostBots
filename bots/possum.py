@@ -17,7 +17,7 @@ if len(sys.argv) == 1:
     _log.error("Specify a configuration file!")
     sys.exit(1)
 
-print(f"Working directory: {dname}")
+_log.info(f"Working directory: {dname}")
 if not os.path.exists(sys.argv[1]):
     _log.error(f"The configuration file {sys.argv[1]} does not exist!")
     sys.exit(1)
@@ -48,7 +48,7 @@ async def logToDebugUser(msg: str):
     if debug_user != "":
         await debug_user.send(msg)
     else:
-        print(msg)
+        _log.info(msg)
 
 #executed once on bot boot
 @bot.event
