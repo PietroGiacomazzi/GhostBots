@@ -44,7 +44,7 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
     @commands.Cog.listener()
     async def on_command_error(self, ctx: gb.GreedyContext, error: Exception):
         place  =  f'guild {ctx.channel.guild.name} ({ctx.channel.guild.id}), channel {ctx.channel.name} ({ctx.channel.id})' if isinstance(ctx.channel, discord.abc.GuildChannel) else 'a private channel'
-        _log.info(f'Error in command "{ctx.message.content}" from user {ctx.message.author.name} ({ctx.message.author.id}) in {place}: {error}')
+        _log.info(f'Error in command "{ctx.message.content}" from user {ctx.message.author.name} ({ctx.message.author.id}) in {place}: {type(error)} - {error}')
         lid = ctx.getLID()
         error = getattr(error, 'original', error)
         #ignored = (commands.CommandNotFound, )
@@ -72,7 +72,10 @@ class GreedyGhostCog_Basic(gb.GreedyGhostCog):
                 return
             except Exception as e:
                 error = e
-        if isinstance(error, gb.BotException):
+
+        if isinstance(error, discord.errors.Forbidden):
+            await self.bot.logToDebugUser(f'Bot tried to do something in {place} and got a Forbidden error: {error}')
+        elif isinstance(error, gb.BotException):
             await self.bot.atSend(ctx, f'{error}')
         elif isinstance(error, lng.LangSupportErrorGroup):
             await self.bot.atSend(ctx, self.bot.formatException(ctx, error))

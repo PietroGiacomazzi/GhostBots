@@ -19,6 +19,7 @@ class GreedyGhostCog_Tasks(gb.GreedyGhostCog):
 
     @tasks.loop(seconds=3600*24)
     async def userMaintenance(self):
+        _log.info("running user maintenance...")
         did_something = False
 
         # First off, verify that the guild table is correct
@@ -85,6 +86,8 @@ class GreedyGhostCog_Tasks(gb.GreedyGhostCog):
         
         if did_something:
             await self.bot.logToDebugUser(f'[user maintenance] Maintenance complete.')
+        
+        _log.info("user maintenance complete.")
         
     @userMaintenance.before_loop
     async def before_printer(self):

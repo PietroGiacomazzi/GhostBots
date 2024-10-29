@@ -92,7 +92,8 @@ class GreedyBot(commands.Bot):
         lid = ctx.getLID()
         return self.languageProvider.get(lid, string, *args)
     async def atSend(self, ctx: commands.Context, msg: str):
-        fullmsg = f'{ctx.message.author.mention} {msg}'
+        #mention = ctx.message.author.mention
+        fullmsg = f'{msg}'
         messages = []
         if len(fullmsg) > int(self.config['Discord']['max_message_length_bot']):
             errormsg = f" (...)\n{self.getStringForUser(ctx, 'string_error_message_too_long_bot')}"
@@ -102,7 +103,7 @@ class GreedyBot(commands.Bot):
         else:
             messages = [fullmsg]
         for m in messages:
-            await ctx.send(m)
+            await ctx.reply(m)
         return
     async def atSendLang(self, ctx: commands.Context, msg: str, *args):
         translated = self.getStringForUser(ctx, msg, *args)
@@ -110,7 +111,7 @@ class GreedyBot(commands.Bot):
         return 
     async def logToDebugUser(self, msg: str):
         """ logs a message and sends it to the debug user if configured """
-        _log.info(msg)
+        _log.info(f'Sending the following message to the log user: {msg}')
         debug_user = await self.fetch_user(int(self.config['Discord']['debuguser']))
         if debug_user != "":
             await debug_user.send(msg)
@@ -179,7 +180,7 @@ class GreedyGhost(GreedyBot):
         ig, _ = self.dbm.validators.getValidateGuild(guild.id).validate()
         if not ig: # most of the time this is the case
             self.dbm.registerGuild(guild.id, guild.name, False)
-            await self.logToDebugUser(f"joined guild '{guild.name}', id: {guild.id}")
+            await self.logToDebugUser(f"Bot has joined guild '{guild.name}', id: {guild.id}")
             return True
         return False
     

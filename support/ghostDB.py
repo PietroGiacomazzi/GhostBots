@@ -157,6 +157,7 @@ class DBManager:
     def setGameState(self, channelid: str, gamestateid: int):
         return self.db.update(TABLENAME_GAMESESSION, where= f'{FIELDNAME_GAMESESSION_CHANNEL} = $channelid', vars=dict(channelid=channelid), gamestateid = gamestateid)
     def updateGameSystems(self):
+        _log.info('Synchronizing gamesystems...')
         db_list = list(map(lambda x: x[FIELDNAME_GAMESYSTEM_GAMESYSTEMID], self.db.select(TABLENAME_GAMESYSTEM, what= FIELDNAME_GAMESYSTEM_GAMESYSTEMID).list()))
         bot_list = GAMESYSTEMS_LIST
         for db_item in db_list:

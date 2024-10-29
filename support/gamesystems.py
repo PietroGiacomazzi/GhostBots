@@ -828,7 +828,7 @@ class RollArgumentParser_DiceExpression(RollArgumentParser):
                             n_term = self.validateInteger(term, refSetup.ctx)
                             dice_merge = {0: [RollPoolComponent(n_term * sign)]}
                         except GreedyParseValidationError as ve:
-                            raise lng.LangSupportErrorGroup("MultiError", [GreedyParseValidationError("string_error_notsure_whatroll"), e, edb, ve])
+                            raise lng.LangSupportErrorGroup("MultiError", [e, edb, ve])
 
                 self.dice = merge(self.dice, dice_merge, lambda x, y: x+y)
 
@@ -1011,12 +1011,12 @@ class RollParser:
                 while not did_split and idx < len(keywords):
                     cmd = keywords[idx]
                     if args[i].startswith(cmd) and len(cmd) < len(args[i]):
-                        mod_args = args[:i] + [cmd, args[i][len(cmd):]] + args[i+1:] # modify the  arguments list
+                        mod_args = args[:i] + [cmd, args[i][len(cmd):]] + args[i+1:] # modify the arguments list
                         try:
                             i = parser.parse(ctx, mod_args, i, setup) # attempt parsing again with the split
                             args = mod_args
                             did_split = True
-                        except GreedyParseValidationError as e2:
+                        except (GreedyParseValidationError, lng.LangSupportErrorGroup) as e2: # why did i originally write a catch only for GreedyParseValidationError?
                             parse_errors.append(e2)
                     idx += 1
                 
@@ -1059,12 +1059,12 @@ class RollParser:
                     i = parser.parse(ctx, args, i, setup, False)
                     parsed = True
             except (GreedyParseValidationError, lng.LangSupportErrorGroup) as e: # if at any point a parse fails, we try to see if the user has not separated an argument from its parameter (diff6, multi3...)
-                parse_errors = [GreedyParseError("string_arg_X_in_Y_notclear", (args[parser.cursor-1], prettyHighlightError(args, parser.cursor-1))), e]
+                parse_errors = [GreedyParseError("string_arg_X_in_Y_notclear", (args[parser.cursor-1], prettyHighlightError(args, parser.cursor-1))), GreedyParseValidationError("string_error_notsure_whatroll"), e]
                 i, args = self.splitAndParse(ctx, setup, args, i, parse_errors)
                 parsed = True
 
             if not parsed:
-                parse_errors = [GreedyParseError("string_arg_X_in_Y_notclear", (args[i], prettyHighlightError(args, i)))]
+                parse_errors = [GreedyParseError("string_arg_X_in_Y_notclear", (args[i], prettyHighlightError(args, i))), GreedyParseValidationError("string_error_notsure_whatroll")]
                 i, args = self.splitAndParse(ctx, setup, args, i, parse_errors) 
 
         return setup
