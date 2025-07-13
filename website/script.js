@@ -303,6 +303,39 @@ function getCharMenuItem(characters){
 	get_remote_resource('../html_res/charMenuItem.html', 'text',  function(menuItem){populate_charmenu(menuItem, characters)});
 }
 
+function getUserState()
+{
+	get_remote_resource('./getLoginState', 'json'
+		, function(loginstate){
+			if (loginstate.login) { // do these is the user is logged in
+				get_remote_resource('./getLanguageDictionary', 'json', getMyCharacters)
+			}
+			else // do these if the user is NOT logged in
+			{
+				if (urlParams.get('character') != null)
+				{
+					/* following code probably can't work
+					console.log("autologin...");
+					const params = new URLSearchParams({
+						logincharacter: urlParams.get('character')
+					});
+					post_request('./doLogin', 'json', params, function(data){}); // no functions as login performs redirect to discord
+					*/
+
+					var charload_input = document.createElement("input");
+					charload_input.id = "loginlogout_charload";
+					charload_input.name = 'logincharacter';
+					charload_input.type = 'hidden';
+					charload_input.value = urlParams.get('character');
+					document.getElementById('loginlogoutform').appendChild(charload_input);
+					post_message("log in!");
+				}
+			}
+		}
+	)
+	
+}
+
 function getMyCharacters(dictionary){
 	getState().language_dictionary = dictionary;
     get_remote_resource('./getMyCharacters', 'json',  getCharMenuItem, error_callback_onlyconsolelog);
@@ -1411,6 +1444,13 @@ function error_callback_onlyconsolelog(xhr){
 	console.log('Error ('+xhr.status+') while getting remote resource '+xhr.url);
 }
 
+/**
+ * 
+ * @param {string} url the url to GET
+ * @param {string} res_type gets put in xhr.responseType, can be 'json', 'text'...
+ * @param {function} callback gets called on GET request success, gets the response body as first parameter
+ * @param {*} error_callback gets called on GET request failure, gets the xhr object as first parameter
+ */
 function get_remote_resource(url, res_type, callback, error_callback = default_error_callback){
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
@@ -1506,7 +1546,7 @@ function populate_page(){
 		get_remote_resource('../html_res/messageModal.html', 'text',  function(modaldata){getState().message_modal = modaldata;});
 	}
 
-	get_remote_resource('./getLanguageDictionary', 'json', getMyCharacters)
+	getUserState();
 }
 
 // ---

@@ -71,7 +71,8 @@ urls = (
     '/saveMacro', 'saveMacro',
     '/deleteMacro', 'deleteMacro',
     '/useMacro', 'useMacro',
-    '/webAppSettings', 'webAppSettings'
+    '/webAppSettings', 'webAppSettings',
+    '/getLoginState', 'getLoginState'
     )
 
 web.config.session_parameters['samesite'] = 'Lax'
@@ -315,13 +316,17 @@ class main_page:
 
 class doLogin(WebPageResponseLang):
     def __init__(self):
-        super(doLogin, self).__init__(config, session)
+        super(doLogin, self).__init__(config, session, accepted_input = {'logincharacter': (MAY, validator_character)
+                                                                           })
     def mPOST(self):
         try:
             return render.simplemessage( self.getLanguageDict(),
                                          self.getString("web_already_logged_as", self.session.discord_global_name, self.session.discord_username)
                                         )
         except AttributeError as e:
+            if self.input_data['logincharacter']:
+                self.session.logincharacter = self.input_data['logincharacter']['id']
+
             discord = make_session(scope=['identify'])
             authorization_url, state = discord.authorization_url(AUTHORIZATION_BASE_URL)
             self.session.oauth2_state = state
@@ -380,7 +385,11 @@ class discordCallback(APIResponse):
                 self.session.access_level = 2
             else:
                 self.session.access_level = 1
-            web.seeother('/')
+
+            params = ''
+            if 'logincharacter' in self.session:
+                params = '?character='+self.session.logincharacter
+            web.seeother('/'+params)
 
 
 class listIndex(WebPageResponseLang):
@@ -416,9 +425,9 @@ class dashboard(WebPageResponseLang):
         super(dashboard, self).__init__(config, session, accepted_input = {'character': (MAY, validator_character)
                                                                            })
     def mGET(self):
-        try:
+        if self.session.access_level > 0:
             return render.dashboard(self.getString("web_label_swversion", os.environ.get(cfg.GG_SOFTWAREVERSION)), global_template_params, self.getLanguageDict(), f'{self.session.discord_global_name} ({self.session.discord_username})', f'https://cdn.discordapp.com/avatars/{self.session.discord_userid}/{self.session.discord_avatar}.png', self.getString("web_label_logout"), "doLogout", self.getString("web_default_dashboard_msg_loggedin"))
-        except AttributeError:
+        else:
             return render.dashboard(self.getString("web_label_swversion", os.environ.get(cfg.GG_SOFTWAREVERSION)), global_template_params, self.getLanguageDict(), '', '', self.getString("web_label_login"), "doLogin",  self.getString("web_default_dashboard_msg_notlogged"))
             
 my_chars_query_admin = """
@@ -1055,6 +1064,13 @@ class useMacro(APIResponse):
                 out.append("UNKNOWN ACTIONRESULT") # TODO
             out.append(item)
         return out
+    
+class getLoginState(APIResponse):
+    def __init__(self):
+        super().__init__(config, session)
+    def mGET(self):
+        return {'login': self.session.access_level > 0}
+
 
 if __name__ == "__main__":
     app.run(Log)
