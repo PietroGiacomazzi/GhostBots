@@ -1218,7 +1218,6 @@ function populateSheet(characterTraits, character){
 	var square_empty = "&#11036;"*/
 	var i;
 	var switchesFree = new Map([
-	   ['combinata', true],
 	   ['talento', true]	
 	]);
 	// TODO: make it a flag somewhere
@@ -1229,7 +1228,8 @@ function populateSheet(characterTraits, character){
 	   ['viaahku', true],
 	   ['viadarktaum', true],
 	   ['brujerizmo', true],
-	   ['viawanga', true]
+	   ['viawanga', true],
+	   ['combinata', true]
 	]);
 	var global_switches_vie = true;
 	
