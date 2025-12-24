@@ -6,3 +6,4 @@
 /environments/*
 !/environments/readme.md
 !/environments/sample_docker-compose.overrides.yml
+!/environments/sample_config.ini
