@@ -22,6 +22,11 @@ import support.config as cfg
 config = configparser.ConfigParser()
 config.read(["/website/default_config.ini", "/website/config.ini"])
 
+WEB_ROOT = '/'
+try:
+    WEB_ROOT = config['WebSite']['website_url']
+except:
+    pass
 # --- CONFIG ---
 
 # stuff that gets passed to all templates
@@ -338,7 +343,7 @@ class doLogout(WebPageResponse):
         super(doLogout, self).__init__(config, session, min_access_level = 0)
     def mPOST(self):
         self.session.kill()
-        web.seeother("/")
+        web.seeother(WEB_ROOT)
 
 class discordCallback(APIResponse):
     def __init__(self):
@@ -389,7 +394,7 @@ class discordCallback(APIResponse):
             params = ''
             if 'logincharacter' in self.session:
                 params = '?character='+self.session.logincharacter
-            web.seeother('/'+params)
+            web.seeother(WEB_ROOT+params)
 
 
 class listIndex(WebPageResponseLang):
@@ -418,7 +423,7 @@ class redirectDash(WebPageResponse):
     def __init__(self):
         super(redirectDash, self).__init__(config, session)
     def mGET(self):
-        web.seeother("/")
+        web.seeother(WEB_ROOT)
 
 class dashboard(WebPageResponseLang):
     def __init__(self):

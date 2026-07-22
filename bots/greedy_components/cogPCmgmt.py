@@ -232,7 +232,7 @@ class PCActionResultOutputter_V20VANILLA(PCActionResultOutputter_STS):
 
 class PCAction_CharacterLink(gms.PCAction):
     def handle(self, *args: tuple[str]) -> list[gms.PCActionResult]:
-        parsed = list(urllib.parse.urlparse(self.ctx.getAppConfig()['Website']['website_url'])) # load website url
+        parsed = list(urllib.parse.urlparse(self.ctx.getAppConfig()['WebSite']['website_url'])) # load website url
         parsed[4] = urllib.parse.urlencode({'character': self.character['id']}) # fill query
         unparsed = urllib.parse.urlunparse(tuple(parsed)) # recreate url
         return [gms.PCActionResultText(self.ctx.getLanguageProvider().get(self.ctx.getLID(), "string_msg_charsheet_info", self.character['fullname'], unparsed) )]
