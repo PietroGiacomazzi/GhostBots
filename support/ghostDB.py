@@ -1,6 +1,6 @@
 from discord.ext import commands
 from dataclasses import dataclass
-import os, web, logging
+import os, web, logging, MySQLdb, time
 
 from lang.lang import LangSupportException
 from .utils import *
@@ -129,7 +129,25 @@ class DBManager:
         self.cfg = config
         self.db : web.db.DB = None
         self.validators = None
-        self.reconnect()
+        self.reconnectRetry()
+    def reconnectRetry(self):
+        connected = False
+        while not connected:
+            try:
+                self.reconnect()
+                self.db.query("SELECT * from People limit 1")
+                connected = True
+            except MySQLdb.OperationalError as error:
+                if error.args[0] == 2002:
+                    _log.error(f'Connection failed, db is probably not ready. error: {error}')
+                else:
+                    _log.error(f'Connection failed with unknown reason, error: {error}')
+            except Exception as error:
+                _log.error(f'Connection failed with unknown reason, error: {error}')
+            if not connected:
+                sleeptime = 1
+                _log.warning(f'sleeping for {sleeptime} second(s)')
+                time.sleep(sleeptime)
     def reconnect(self):
         #self.db = web.database(host=self.cfg['host'], port=int(self.cfg['port']),dbn=self.cfg['type'], user=self.cfg['user'], pw=self.cfg['pw'], db=self.cfg['database'])
         pw_file = os.environ.get(ENV_DATABASE_PW_FILE)
