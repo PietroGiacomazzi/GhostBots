@@ -350,7 +350,8 @@ class discordCallback(APIResponse):
         super(discordCallback, self).__init__(config, session, accepted_input = {'code': (MAY, validator_str_maxlen(512)),
                                                                                  'error': (MAY, validator_str_maxlen(512)),
                                                                                  'state': (MAY, validator_str_maxlen(512)),
-                                                                                 'error_description': (MAY, validator_str_maxlen(512))
+                                                                                 'error_description': (MAY, validator_str_maxlen(512)),
+                                                                                 'iss': (MAY, validator_set(("https://discord.com",)))
                                                                                  })
     def mGET(self):
         if self.input_data['error']:
